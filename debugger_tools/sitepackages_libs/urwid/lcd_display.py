@@ -30,7 +30,7 @@ class LCDScreen(BaseScreen):
         has_underline=None):
         pass
 
-    def set_mouse_tracking(self, enable=True):
+    def set_mouse_tracking(self):
         pass
 
     def start(self):

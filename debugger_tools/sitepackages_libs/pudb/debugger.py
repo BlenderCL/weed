@@ -7,6 +7,8 @@ import bdb
 import sys
 import os
 
+WINDOWS = (sys.platform == "win32")
+
 from pudb.settings import load_config, save_config
 CONFIG = load_config()
 save_config(CONFIG)
@@ -367,7 +369,6 @@ class Debugger(bdb.Bdb):
         # Set up an interrupt handler
         from pudb import set_interrupt_handler
         set_interrupt_handler()
-
         self.run(statement, globals=globals_, locals=locals_)
 
 # }}}
@@ -388,7 +389,6 @@ try:
 except ImportError:
     curses = None
 
-
 want_curses_display = (
         CONFIG["display"] == "curses"
         or (
@@ -396,14 +396,15 @@ want_curses_display = (
             and
             not os.environ.get("TERM", "").startswith("xterm")))
 
-from urwid.raw_display import Screen as RawScreen
-if want_curses_display:
-    try:
-        from urwid.curses_display import Screen
-    except ImportError:
-        Screen = RawScreen
+# Modifying
+if WINDOWS:
+    from urwid.colorama_display import Screen
+    #from urwid.curses_win32_display import Screen
+    #from urwid.curses_win32_colorama_display import Screen
+elif want_curses_display:
+    from urwid.curses_display import Screen
 else:
-    Screen = RawScreen
+    from urwid.raw_display import Screen
 
 del want_curses_display
 
@@ -1699,6 +1700,16 @@ class DebuggerUI(FrameVarInfoKeeper):
         # {{{ setup
 
         self.screen = ThreadsafeScreen()
+
+        import sys
+        from bdb import BdbQuit
+        from urwid.main_loop import ExitMainLoop
+        def q_except_hook(exctype, value, traceback):
+            if exctype == BdbQuit:
+                self.screen.stop()
+            else:
+                sys.__excepthook__(exctype, value, traceback)
+        sys.excepthook = q_except_hook
 
         if curses:
             try:

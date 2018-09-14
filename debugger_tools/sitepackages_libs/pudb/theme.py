@@ -1,4 +1,4 @@
-THEMES = ["classic", "vim", "dark vim", "midnight", "weed"]
+THEMES = ["classic", "vim", "dark vim", "midnight", "weed", "weed win"]
 
 from pudb.py3compat import execfile, raw_input
 import urwid
@@ -561,6 +561,146 @@ def get_palette(may_use_fancy_formats, theme="classic"):
             "focused current frame class": ("dark blue", "brown"),
             "current frame location": ("dark green", "black"),
             "focused current frame location": ("black", "brown"),
+
+            # }}}
+
+        })
+
+
+        # }}}
+
+    elif theme == "weed win":
+        palette_dict.update({ # {{{ ui
+
+            "header": (add_setting("yellow", "bold"), "dark green", "standout"),
+
+            "selectable": ("black", "light gray"),
+            "focused selectable": ("black", "dark green"),
+
+            "button": ("black", "dark green"),
+            "focused button": ("black", "light green"),
+
+            "dialog title": (add_setting("white", "bold"), "dark green"),
+
+            "background": ("black", "dark gray"),
+            "hotkey": (add_setting("white", "bold"), "dark gray", "underline"),
+            "focused sidebar": (add_setting("black", "bold"), "light gray", "standout"),
+
+            "warning": (add_setting("white", "bold"), "dark red", "standout"),
+
+            "label": (add_setting("yellow", "bold"), "dark gray"),
+            "value": ("light green", "black"),
+            "fixed value": (add_setting("light gray", "bold"), "dark gray"),
+            "group head": (add_setting("white", "bold"), "dark gray"),
+
+            "search box": ("white", "dark green"),
+            "search not found": ("white", "dark red"),
+
+            # }}}
+
+            # {{{ shell
+
+            "command line edit": ("white", "black"),
+            "command line prompt": (add_setting("white", "bold"), "black"),
+
+            "command line output": ("dark green", "black"),
+            "command line input": (add_setting("brown", "bold"), "black"),
+            "command line error": ("dark red", "black"),
+
+            "focused command line output": ("black", "dark green"),
+            "focused command line input": ("black", "brown"),
+            "focused command line error": ("black", "dark red"),
+
+            "command line clear button": ("black", "dark green"),
+            "command line focused button": ("black", "light green"),
+
+            # }}}
+
+            # {{{ source
+
+            "breakpoint": ("black", "dark red"),
+            "focused breakpoint": ("black", "dark gray"),
+            "current breakpoint": ("black", "light red"),
+            "focused current breakpoint": ("white", "light red"),
+
+            "source": ("white", "black"),
+            "focused source": ("black", "dark gray"),
+            "highlighted source": ("black", "dark magenta"),
+            "current source": ("light green", "dark green"),
+            "current focused source": ("black", "light green"),
+            "current highlighted source": ("light magenta", "dark magenta"),
+
+            # {{{ highlighting
+
+            "line number": (add_setting("dark gray", "bold"), "black"),
+            "keyword": ("light cyan", "black"),
+            "name": (add_setting("light red", "bold"), "black"),
+            "literal": (add_setting("light magenta", "bold"), "black"),
+
+            "string": (add_setting("brown", "bold"), "black"),
+            "doublestring": (add_setting("brown", "bold"), "black"),
+            "singlestring": (add_setting("brown", "bold"), "black"),
+            "docstring": ("yellow", "black"),
+
+            "punctuation": (add_setting("white", "bold"), "black"),
+            "comment": ("dark gray", "black"),
+
+            # }}}
+
+            # }}}
+
+            # {{{ breakpoints
+
+            "breakpoint marker": ("light red", "black"),
+
+            "breakpoint source": ("black", "dark red"),
+            "breakpoint focused source": ("black", "light red"),
+            "current breakpoint source": ("light red", "dark red"),
+            "current breakpoint focused source": ("white", "light red"),
+
+            # }}}
+
+            # {{{ variables view
+
+            "variables": ("black", "dark green"),
+            "variable separator": (add_setting("black", "underline"), "dark gray"),
+
+            "var label": (add_setting("white", "bold"), "dark green"),
+            "var value": ("black", "dark green"),
+            "focused var label": (add_setting("white", "bold"), "dark gray"),
+            "focused var value": ("black", "dark gray"),
+
+            "highlighted var label": (add_setting("white", "bold"), "brown"),
+            "highlighted var value": ("black", "brown"),
+            "focused highlighted var label": (add_setting("white", "bold"), "dark gray"),
+            "focused highlighted var value": ("black", "dark gray"),
+
+            "return label": ("dark green", "black"),
+            "return value": ("black", "dark green"),
+            "focused return label": ("dark gray", "black"),
+            "focused return value": ("black", "dark gray"),
+
+            # }}}
+
+            # {{{ stack
+
+            "stack": ("black", "brown"),
+
+            "frame name": (add_setting("white", "bold"), "brown"),
+            "focused frame name": (add_setting("white", "bold"), "dark gray"),
+            "frame class": ("dark blue", "brown"),
+            "focused frame class": ("dark blue", "dark gray"),
+            "frame location": ("black", "brown"),
+            "focused frame location": ("black", "dark gray"),
+
+            "current frame name": (add_setting("yellow", "bold"),
+                "brown"),
+            "focused current frame name": (add_setting("yellow", "bold"),
+                "dark gray"),
+            "current frame class": ("light cyan", "brown"),
+            "focused current frame class": ("light cyan", "dark gray"),
+            "current frame location": ("black", "brown"),
+            "focused current frame location": ("black", "dark gray"),
 
             # }}}
 

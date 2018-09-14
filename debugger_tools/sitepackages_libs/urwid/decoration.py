@@ -310,7 +310,7 @@ class AttrWrap(AttrMap):
         """
         Call getattr on wrapped widget.  This has been the longstanding
         behaviour of AttrWrap, but is discouraged.  New code should be
-        using AttrMap and .base_widget or .original_widget instead.
+        using AttrMap and .base_widget or .original_widget instad.
         """
         return getattr(self._original_widget, name)
 
@@ -447,7 +447,7 @@ class Padding(WidgetDecoration):
         :param left: a fixed number of columns to pad on the left
         :type left: int
 
-        :param right: a fixed number of columns to pad on the right
+        :param right: a fixed number of columns to pad on thr right
         :type right: int
 
         Clipping Mode: (width= ``'clip'``)
@@ -537,12 +537,11 @@ class Padding(WidgetDecoration):
         """
         self._align_type, self._align_amount = normalize_align(align,
             PaddingError)
-        self._invalidate()
     align = property(_get_align, _set_align)
 
     def _get_width(self):
         """
-        Return the padding width.
+        Return the padding widthment setting.
         """
         return simplify_width(self._width_type, self._width_amount)
     def _set_width(self, width):
@@ -551,7 +550,6 @@ class Padding(WidgetDecoration):
         """
         self._width_type, self._width_amount = normalize_width(width,
             PaddingError)
-        self._invalidate()
     width = property(_get_width, _set_width)
 
     def render(self, size, focus=False):

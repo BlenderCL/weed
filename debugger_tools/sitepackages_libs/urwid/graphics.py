@@ -30,6 +30,9 @@ from urwid.container import Pile, Columns
 from urwid.display_common import AttrSpec
 from urwid.decoration import WidgetDecoration
 
+#import locale
+#locale.setlocale(locale.LC_ALL, '')
+#code = locale.getpreferredencoding()
 
 class BigText(Widget):
     _sizing = frozenset([FIXED])
@@ -97,9 +100,14 @@ class BigText(Widget):
 class LineBox(WidgetDecoration, WidgetWrap):
 
     def __init__(self, original_widget, title="",
-                 tlcorner='┌', tline='─', lline='│',
-                 trcorner='┐', blcorner='└', rline='│',
-                 bline='─', brcorner='┘'):
+                 tlcorner=b'\xe2\x94\x8c'.decode('utf-8'),
+                 tline=b'\xe2\x94\x80'.decode('utf-8'),
+                 lline=b'\xe2\x94\x82'.decode('utf-8'),
+                 trcorner=b'\xe2\x94\x90'.decode('utf-8'),
+                 blcorner=b'\xe2\x94\x94'.decode('utf-8'),
+                 rline=b'\xe2\x94\x82'.decode('utf-8'),
+                 bline=b'\xe2\x94\x80'.decode('utf-8'),
+                 brcorner=b'\xe2\x94\x98'.decode('utf-8')):
         """
         Draw a line around original_widget.
 
@@ -192,13 +200,17 @@ def nocache_bargraph_get_data(self, get_data_fn):
 class BarGraphError(Exception):
     pass
 
-class BarGraph(Widget, metaclass=BarGraphMeta):
+class BarGraph(Widget):
+    __metaclass__ = BarGraphMeta
+
     _sizing = frozenset([BOX])
 
     ignore_focus = True
 
-    eighths = ' ▁▂▃▄▅▆▇'
-    hlines = '_⎺⎻─⎼⎽'
+    eighths = b''.join((b' \xe2\x96\x81\xe2\x96\x82\xe2\x96\x83\xe2\x96\x84',
+                   b'\xe2\x96\x85\xe2\x96\x86\xe2\x96\x87')).decode('utf-8')
+    hlines = b''.join((b'_\xe2\x8e\xba\xe2\x8e\xbb\xe2\x94\x80',
+                       b'\xe2\x8e\xbc\xe2\x8e\xbd')).decode('utf-8')
 
     def __init__(self, attlist, hatt=None, satt=None):
         """
@@ -268,7 +280,7 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
 
         if satt is None:
             satt = {}
-        for i in list(satt.items()):
+        for i in satt.items():
             try:
                 (fg, bg), attr = i
             except ValueError:
@@ -796,13 +808,14 @@ def scale_bar_values( bar, top, maxrow ):
 class ProgressBar(Widget):
     _sizing = frozenset([FLOW])
 
-    eighths = ' ▏▎▍▌▋▊▉'
+    eighths = b''.join((b' \xe2\x96\x8f\xe2\x96\x8e\xe2\x96\x8d\xe2\x96\x8c',
+                  b'\xe2\x96\x8b\xe2\x96\x8a\xe2\x96\x89')).decode('utf-8')
 
     text_align = CENTER
 
     def __init__(self, normal, complete, current=0, done=100, satt=None):
         """
-        :param normal: display attribute for incomplete part of progress bar
+        :param normal: display attribute for uncomplete part of progress bar
         :param complete: display attribute for complete part of progress bar
         :param current: current progress
         :param done: progress amount at 100%
@@ -862,7 +875,7 @@ class ProgressBar(Widget):
             c._attr = [[(self.complete, maxcol)]]
         elif cs and c._text[0][ccol] == " ":
             t = c._text[0]
-            cenc = self.eighths[cs].encode("utf-8")
+            cenc = self.eighths[cs].encode('utf8')
             c._text[0] = t[:ccol] + cenc + t[ccol + 1:]
             a = []
             if ccol > 0:

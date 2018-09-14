@@ -23,8 +23,6 @@
 from urwid import escape
 from urwid.compat import bytes
 
-import codecs
-
 str_util = escape.str_util
 
 # bring str_util functions into our namespace
@@ -117,10 +115,10 @@ def apply_target_encoding( s ):
             for c, alt in zip(escape.DEC_SPECIAL_CHARS, 
                     escape.ALT_DEC_SPECIAL_CHARS):
                 s = s.replace( c, escape.SO+alt+escape.SI )
-
+    
     if type(s) == str:
-        s = s.replace(escape.SI+escape.SO, "") # remove redundant shifts
-        s = codecs.encode(s, _target_encoding, 'replace')
+        s = s.replace( escape.SI+escape.SO, "" ) # remove redundant shifts
+        s = s.encode( _target_encoding )
 
     assert isinstance(s, bytes)
     SO = escape.SO.encode('ascii')
@@ -441,7 +439,7 @@ class MetaSuper(type):
 def int_scale(val, val_range, out_range):
     """
     Scale val in the range [0, val_range-1] to an integer in the range 
-    [0, out_range-1].  This implementation uses the "round-half-up" rounding 
+    [0, out_range-1].  This implementaton uses the "round-half-up" rounding 
     method.
 
     >>> "%x" % int_scale(0x7, 0x10, 0x10000)

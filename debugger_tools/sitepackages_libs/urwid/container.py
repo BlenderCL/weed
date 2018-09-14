@@ -360,10 +360,6 @@ class GridFlow(WidgetWrap, WidgetContainerMixin, WidgetContainerListContentsMixi
                 pad.original_widget=w
             pad.width = used_space - self.h_sep
 
-        if self.v_sep:
-            # remove first divider
-            del p.contents[:1]
-
         return p
 
     def _set_focus_from_display_widget(self):
@@ -1481,11 +1477,9 @@ class Pile(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             elif f == GIVEN:
                 l.append(height)
                 remaining -= height
-            elif height:
+            else:
                 l.append(None)
                 wtotal += height
-            else:
-                l.append(0) # zero-weighted items treated as ('given', 0)
 
         if wtotal == 0:
             raise PileError("No weighted widgets found for Pile treated as a box widget")
@@ -1635,8 +1629,8 @@ class Pile(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         focus=True
         wrow = 0
         item_rows = self.get_item_rows(size, focus)
-        for i, (r, w) in enumerate(list(zip(item_rows,
-                (w for (w, options) in self.contents)))):
+        for i, (r, w) in enumerate(zip(item_rows,
+                (w for (w, options) in self.contents))):
             if wrow + r > row:
                 break
             wrow += r
@@ -1662,13 +1656,11 @@ class Pile(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         """
         wrow = 0
         item_rows = self.get_item_rows(size, focus)
-        for i, (r, w) in enumerate(list(zip(item_rows,
-                (w for (w, options) in self.contents)))):
+        for i, (r, w) in enumerate(zip(item_rows,
+                (w for (w, options) in self.contents))):
             if wrow + r > row:
                 break
             wrow += r
-        else:
-            return False
 
         focus = focus and self.focus_item == w
         if is_mouse_press(event) and button == 1:
@@ -1724,7 +1716,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         are treated as box widgets, and *box_columns* is ignored.
 
         If the Columns widget is treated as a flow widget then the rows
-        are calculated as the largest rows() returned from all columns
+        are calcualated as the largest rows() returned from all columns
         except the ones listed in *box_columns*.  The box widgets in
         *box_columns* will be displayed with this calculated number of rows,
         filling the full height.
@@ -1972,7 +1964,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             raise IndexError("No Columns child widget at position %s" % (position,))
         self.contents.focus = position
     focus_position = property(_get_focus_position, _set_focus_position, doc="""
-        index of child widget in focus. Raises :exc:`IndexError` if read when
+        index of child widget in focus.  Raises IndexError if read when
         Columns is empty, or when set to an invalid index.
         """)
 
@@ -1993,8 +1985,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         maxcol = size[0]
         # FIXME: get rid of this check and recalculate only when
         # a 'pack' widget has been modified.
-        if maxcol == self._cache_maxcol and not any(
-                t == PACK for w, (t, n, b) in self.contents):
+        if maxcol == self._cache_maxcol and not PACK in self.column_types:
             return self._cache_column_widths
 
         widths = []
@@ -2059,7 +2050,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         if len(size) == 1:
             box_maxrow = 1
             # two-pass mode to determine maxrow for box columns
-            for i, (mc, (w, (t, n, b))) in enumerate(list(zip(widths, self.contents))):
+            for i, (mc, (w, (t, n, b))) in enumerate(zip(widths, self.contents)):
                 if b:
                     continue
                 rows = w.rows((mc,),
@@ -2067,7 +2058,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
                 box_maxrow = max(box_maxrow, rows)
 
         l = []
-        for i, (mc, (w, (t, n, b))) in enumerate(list(zip(widths, self.contents))):
+        for i, (mc, (w, (t, n, b))) in enumerate(zip(widths, self.contents)):
             # if the widget has a width of 0, hide it
             if mc <= 0:
                 continue
@@ -2127,7 +2118,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
 
         best = None
         x = 0
-        for i, (width, (w, options)) in enumerate(list(zip(widths, self.contents))):
+        for i, (width, (w, options)) in enumerate(zip(widths, self.contents)):
             end = x + width
             if w.selectable():
                 if col != RIGHT and (col == LEFT or x > col) and best is None:
@@ -2172,7 +2163,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         widths = self.column_widths(size)
 
         x = 0
-        for i, (width, (w, (t, n, b))) in enumerate(list(zip(widths, self.contents))):
+        for i, (width, (w, (t, n, b))) in enumerate(zip(widths, self.contents)):
             if col < x:
                 return False
             w = self.widget_list[i]
@@ -2232,7 +2223,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         widths = self.column_widths(size, focus)
 
         rows = 1
-        for i, (mc, (w, (t, n, b))) in enumerate(list(zip(widths, self.contents))):
+        for i, (mc, (w, (t, n, b))) in enumerate(zip(widths, self.contents)):
             if b:
                 continue
             rows = max(rows,

@@ -20,7 +20,6 @@
 
 import os
 import sys
-import termios
 
 from urwid.util import int_scale
 from urwid import signals
@@ -643,60 +642,6 @@ class AttrSpec(object):
             return vals + _COLOR_VALUES_256[self.background_number]
 
 
-
-class RealTerminal(object):
-    def __init__(self):
-        super(RealTerminal,self).__init__()
-        self._signal_keys_set = False
-        self._old_signal_keys = None
-        
-    def tty_signal_keys(self, intr=None, quit=None, start=None, 
-        stop=None, susp=None, fileno=None):
-        """
-        Read and/or set the tty's signal character settings.
-        This function returns the current settings as a tuple.
-
-        Use the string 'undefined' to unmap keys from their signals.
-        The value None is used when no change is being made.
-        Setting signal keys is done using the integer ascii
-        code for the key, eg.  3 for CTRL+C.
-
-        If this function is called after start() has been called
-        then the original settings will be restored when stop()
-        is called.
-        """
-        if fileno is None:
-            fileno = sys.stdin.fileno()
-        if not os.isatty(fileno):
-            return
-
-        tattr = termios.tcgetattr(fileno)
-        sattr = tattr[6]
-        skeys = (sattr[termios.VINTR], sattr[termios.VQUIT],
-            sattr[termios.VSTART], sattr[termios.VSTOP],
-            sattr[termios.VSUSP])
-        
-        if intr == 'undefined': intr = 0
-        if quit == 'undefined': quit = 0
-        if start == 'undefined': start = 0
-        if stop == 'undefined': stop = 0
-        if susp == 'undefined': susp = 0
-        
-        if intr is not None: tattr[6][termios.VINTR] = intr
-        if quit is not None: tattr[6][termios.VQUIT] = quit
-        if start is not None: tattr[6][termios.VSTART] = start
-        if stop is not None: tattr[6][termios.VSTOP] = stop
-        if susp is not None: tattr[6][termios.VSUSP] = susp
-        
-        if intr is not None or quit is not None or \
-            start is not None or stop is not None or \
-            susp is not None:
-            termios.tcsetattr(fileno, termios.TCSADRAIN, tattr)
-            self._signal_keys_set = True
-        
-        return skeys
-
-
 class ScreenError(Exception):
     pass
 
@@ -815,29 +760,18 @@ class BaseScreen(object, metaclass=signals.MetaSignals):
         if mono is None:
             mono = DEFAULT
         mono = AttrSpec(mono, DEFAULT, 1)
-
+        
         if foreground_high is None:
             foreground_high = foreground
         if background_high is None:
             background_high = background
+        high_88 = AttrSpec(foreground_high, background_high, 88)
         high_256 = AttrSpec(foreground_high, background_high, 256)
-
-        # 'hX' where X > 15 are different in 88/256 color, use
-        # basic colors for 88-color mode if high colors are specified
-        # in this way (also avoids crash when X > 87)
-        def large_h(desc):
-            if not desc.startswith('h'):
-                return False
-            num = int(desc[1:], 10)
-            return num > 15
-        if large_h(foreground_high) or large_h(background_high):
-            high_88 = basic
-        else:
-            high_88 = AttrSpec(foreground_high, background_high, 88)
 
         signals.emit_signal(self, UPDATE_PALETTE_ENTRY,
             name, basic, mono, high_88, high_256)
         self._palette[name] = (basic, mono, high_88, high_256)
+        
 
 
 def _test():

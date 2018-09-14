@@ -69,7 +69,7 @@ class TreeWidget(urwid.WidgetWrap):
     
     def update_expanded_icon(self):
         """Update display widget text for parent widgets"""
-        # icon is first element in columns indented widget
+        # icon is first element in colums indented widget
         self._w.base_widget.widget_list[0] = [
             self.unexpanded_icon, self.expanded_icon][self.expanded]
 
@@ -330,7 +330,7 @@ class ParentNode(TreeNode):
                            "ParentNode items: %s")
             raise TreeWidgetError(errorstring % (key, self.get_key(), 
                                   str(self.get_child_keys())))
-
+            
     def next_child(self, key):
         """Return the next child node in index order from the given key."""
 

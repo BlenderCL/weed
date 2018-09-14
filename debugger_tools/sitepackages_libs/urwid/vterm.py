@@ -38,7 +38,8 @@ from urwid import util
 from urwid.escape import DEC_SPECIAL_CHARS, ALT_DEC_SPECIAL_CHARS
 from urwid.canvas import Canvas
 from urwid.widget import Widget, BOX
-from urwid.display_common import AttrSpec, RealTerminal, _BASIC_COLORS
+from urwid.display_common import AttrSpec, _BASIC_COLORS
+from urwid.display_unix_common import RealTerminal
 from urwid.compat import ord2, chr2, B, bytes, PYTHON3
 import collections
 
@@ -1515,13 +1516,7 @@ class Terminal(Widget):
         return True
 
     def wait_and_feed(self, timeout=1.0):
-        while True:
-            try:
-                select.select([self.master], [], [], timeout)
-                break
-            except select.error as e:
-                if e.args[0] != 4:
-                    raise
+        select.select([self.master], [], [], timeout)
         self.feed()
 
     def feed(self):
