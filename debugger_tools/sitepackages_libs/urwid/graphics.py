@@ -100,14 +100,14 @@ class BigText(Widget):
 class LineBox(WidgetDecoration, WidgetWrap):
 
     def __init__(self, original_widget, title="",
-                 tlcorner=b'\xe2\x94\x8c'.decode('utf-8'),
-                 tline=b'\xe2\x94\x80'.decode('utf-8'),
-                 lline=b'\xe2\x94\x82'.decode('utf-8'),
-                 trcorner=b'\xe2\x94\x90'.decode('utf-8'),
-                 blcorner=b'\xe2\x94\x94'.decode('utf-8'),
-                 rline=b'\xe2\x94\x82'.decode('utf-8'),
-                 bline=b'\xe2\x94\x80'.decode('utf-8'),
-                 brcorner=b'\xe2\x94\x98'.decode('utf-8')):
+                tlcorner=b'\xe2\x94\x8c'.decode('utf-8'),
+                tline=b'\xe2\x94\x80'.decode('utf-8'),
+                lline=b'\xe2\x94\x82'.decode('utf-8'),
+                trcorner=b'\xe2\x94\x90'.decode('utf-8'),
+                blcorner=b'\xe2\x94\x94'.decode('utf-8'),
+                rline=b'\xe2\x94\x82'.decode('utf-8'),
+                bline=b'\xe2\x94\x80'.decode('utf-8'),
+                brcorner=b'\xe2\x94\x98'.decode('utf-8')):
         """
         Draw a line around original_widget.
 
@@ -208,9 +208,9 @@ class BarGraph(Widget):
     ignore_focus = True
 
     eighths = b''.join((b' \xe2\x96\x81\xe2\x96\x82\xe2\x96\x83\xe2\x96\x84',
-                   b'\xe2\x96\x85\xe2\x96\x86\xe2\x96\x87')).decode('utf-8')
+                    b'\xe2\x96\x85\xe2\x96\x86\xe2\x96\x87')).decode('utf-8')
     hlines = b''.join((b'_\xe2\x8e\xba\xe2\x8e\xbb\xe2\x94\x80',
-                       b'\xe2\x8e\xbc\xe2\x8e\xbd')).decode('utf-8')
+                    b'\xe2\x8e\xbc\xe2\x8e\xbd')).decode('utf-8')
 
     def __init__(self, attlist, hatt=None, satt=None):
         """
@@ -230,20 +230,20 @@ class BarGraph(Widget):
                         ie. len(attlist) == num segments+1
                         character defaults to ' ' if not specified.
         :param hatt: list containing attributes for horizontal lines. First
-                     element is for lines on background, second is for lines
-                     on first segment, third is for lines on second segment
-                     etc.
+                    element is for lines on background, second is for lines
+                    on first segment, third is for lines on second segment
+                    etc.
         :param satt: dictionary containing attributes for smoothed
-                     transitions of bars in UTF-8 display mode. The values
-                     are in the form:
+                    transitions of bars in UTF-8 display mode. The values
+                    are in the form:
 
-                       (fg,bg) : attr
+                        (fg,bg) : attr
 
-                     fg and bg are integers where 0 is the graph background,
-                     1 is the first segment, 2 is the second, ...
-                     fg > bg in all values.  attr is an attribute with a
-                     foreground corresponding to fg and a background
-                     corresponding to bg.
+                    fg and bg are integers where 0 is the graph background,
+                    1 is the first segment, 2 is the second, ...
+                    fg > bg in all values.  attr is an attribute with a
+                    foreground corresponding to fg and a background
+                    corresponding to bg.
 
         If satt is not None and the bar graph is being displayed in
         a terminal using the UTF-8 encoding then the character cell
@@ -396,7 +396,7 @@ class BarGraph(Widget):
 
         else:
             disp = calculate_bargraph_display(bardata, top, widths,
-                                              maxrow)
+                                            maxrow)
 
         if hlines:
             disp = self.hlines_display(disp, top, hlines, maxrow)
@@ -415,10 +415,10 @@ class BarGraph(Widget):
         if self.use_smoothed():
             shiftr = 0
             r = [(0.2, 1),
-                 (0.4, 2),
-                 (0.6, 3),
-                 (0.8, 4),
-                 (1.0, 5), ]
+                (0.4, 2),
+                (0.6, 3),
+                (0.8, 4),
+                (1.0, 5), ]
         else:
             shiftr = 0.5
             r = [(1.0, 0), ]
@@ -595,7 +595,7 @@ def calculate_bargraph_display(bardata, top, bar_widths, maxrow):
     maxrow -- rows for display of bargraph
 
     Returns a structure as follows:
-      [ ( y_count, [ ( bar_type, width), ... ] ), ... ]
+        [ ( y_count, [ ( bar_type, width), ... ] ), ... ]
 
     The outer tuples represent a set of identical rows. y_count is
     the number of rows in this set, the list contains the data to be
@@ -624,10 +624,10 @@ def calculate_bargraph_display(bardata, top, bar_widths, maxrow):
                     del rows[row][-1]
                 else:
                     rows[row][-1] = (last_seg,
-                                     last_col, col)
+                                    last_col, col)
             elif last_seg == seg_num and last_end == col:
                 rows[row][-1] = (last_seg, last_col,
-                                 last_end + width)
+                                last_end + width)
                 return
         elif rows[row] is None:
             rows[row] = []
@@ -809,7 +809,7 @@ class ProgressBar(Widget):
     _sizing = frozenset([FLOW])
 
     eighths = b''.join((b' \xe2\x96\x8f\xe2\x96\x8e\xe2\x96\x8d\xe2\x96\x8c',
-                  b'\xe2\x96\x8b\xe2\x96\x8a\xe2\x96\x89')).decode('utf-8')
+                    b'\xe2\x96\x8b\xe2\x96\x8a\xe2\x96\x89')).decode('utf-8')
 
     text_align = CENTER
 
@@ -820,9 +820,9 @@ class ProgressBar(Widget):
         :param current: current progress
         :param done: progress amount at 100%
         :param satt: display attribute for smoothed part of bar where the
-                     foreground of satt corresponds to the normal part and the
-                     background corresponds to the complete part.  If satt
-                     is ``None`` then no smoothing will be done.
+                    foreground of satt corresponds to the normal part and the
+                    background corresponds to the complete part.  If satt
+                    is ``None`` then no smoothing will be done.
         """
         self.normal = normal
         self.complete = complete
