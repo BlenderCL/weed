@@ -1,4 +1,32 @@
-NUM_VERSION = (2014, 1)
+from __future__ import absolute_import, division, print_function
+
+__copyright__ = """
+Copyright (C) 2009-2017 Andreas Kloeckner
+Copyright (C) 2014-2017 Aaron Meurer
+"""
+
+__license__ = """
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+"""
+
+
+NUM_VERSION = (2018, 1)
 VERSION = ".".join(str(nv) for nv in NUM_VERSION)
 __version__ = VERSION
 
@@ -49,8 +77,21 @@ class PudbShortcuts(object):
         import sys
         dbg = _get_debugger()
 
-        set_interrupt_handler()
+        import threading
+        if isinstance(threading.current_thread(), threading._MainThread):
+            set_interrupt_handler()
         dbg.set_trace(sys._getframe().f_back)
+
+    @property
+    def go(self):
+        import sys
+        dbg = _get_debugger()
+
+        import threading
+        if isinstance(threading.current_thread(), threading._MainThread):
+            set_interrupt_handler()
+        dbg.set_trace(sys._getframe().f_back, paused=False)
+
 
 if PY3:
     import builtins
@@ -73,7 +114,8 @@ def _get_debugger(**kwargs):
     else:
         return CURRENT_DEBUGGER[0]
 
-import signal
+
+import signal  # noqa
 DEFAULT_SIGNAL = signal.SIGINT
 del signal
 
@@ -113,7 +155,7 @@ def runscript(mainpyfile, args=None, pre_run="", steal_output=False):
             se = sys.exc_info()[1]
             status_msg = "The debuggee exited normally with " \
                     "status code %s.\n\n" % se.code
-        except:
+        except Exception:
             dbg.post_mortem = True
             dbg.interaction(None, sys.exc_info())
 
@@ -170,6 +212,7 @@ def runscript(mainpyfile, args=None, pre_run="", steal_output=False):
 def runstatement(statement, globals=None, locals=None):
     _get_debugger().run(statement, globals, locals)
 
+
 def runeval(expression, globals=None, locals=None):
     return _get_debugger().runeval(expression, globals, locals)
 
@@ -178,17 +221,29 @@ def runcall(*args, **kwds):
     return _get_debugger().runcall(*args, **kwds)
 
 
-def set_trace():
+def set_trace(paused=True):
+    """
+    Start the debugger
+
+    If paused=False (the default is True), the debugger will not stop here
+    (same as immediately pressing 'c' to continue).
+    """
     import sys
     dbg = _get_debugger()
 
-    set_interrupt_handler()
-    dbg.set_trace(sys._getframe().f_back)
+    import threading
+    if isinstance(threading.current_thread(), threading._MainThread):
+        set_interrupt_handler()
+
+    dbg.set_trace(sys._getframe().f_back, paused=paused)
+
+
+start = set_trace
 
 
 def _interrupt_handler(signum, frame):
     from pudb import _get_debugger
-    _get_debugger().set_trace(frame)
+    _get_debugger().set_trace(frame, as_breakpoint=False)
 
 
 def set_interrupt_handler(interrupt_signal=DEFAULT_SIGNAL):
@@ -208,6 +263,8 @@ def set_interrupt_handler(interrupt_signal=DEFAULT_SIGNAL):
     >>> pudb.DEFAULT_SIGNAL = signal.SIGALRM
 
     Note, this may not work if you use threads or subprocesses.
+
+    Note, this only works when called from the main thread.
     """
     import signal
     old_handler = signal.getsignal(interrupt_signal)
@@ -223,6 +280,13 @@ def set_interrupt_handler(interrupt_signal=DEFAULT_SIGNAL):
         return warn("A non-default handler for signal %d is already installed (%s). "
                 "Skipping pudb interrupt support."
                 % (interrupt_signal, old_handler))
+
+    import threading
+    if not isinstance(threading.current_thread(), threading._MainThread):
+        from warnings import warn
+        # Setting signals from a non-main thread will not work
+        return warn("Setting the interrupt handler can only be done on the main "
+                "thread. The interrupt handler was NOT installed.")
 
     try:
         signal.signal(interrupt_signal, _interrupt_handler)
@@ -257,7 +321,7 @@ def pm():
         e_value = sys.last_value
         tb = sys.last_traceback
     except AttributeError:
-        ## No exception on record. Do nothing.
+        # No exception on record. Do nothing.
         return
     post_mortem(tb, e_type, e_value)
 

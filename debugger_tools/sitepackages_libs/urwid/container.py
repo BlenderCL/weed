@@ -19,7 +19,10 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 from itertools import chain, repeat
+from urwid.compat import xrange
 
 from urwid.util import is_mouse_press
 from urwid.widget import (Widget, Divider, FLOW, FIXED, PACK, BOX, WidgetWrap,
@@ -92,7 +95,7 @@ class WidgetContainerMixin(object):
         (non-container) widget.
 
         Note that the list does not contain the topmost container widget
-        (i.e, on which this method is called), but does include the
+        (i.e., on which this method is called), but does include the
         lowest leaf widget.
         """
         out = []
@@ -113,14 +116,14 @@ class WidgetContainerListContentsMixin(object):
         Return an iterable of positions for this container from first
         to last.
         """
-        return range(len(self.contents))
+        return iter(xrange(len(self.contents)))
 
     def __reversed__(self):
         """
         Return an iterable of positions for this container from last
         to first.
         """
-        return range(len(self.contents) - 1, -1, -1)
+        return iter(xrange(len(self.contents) - 1, -1, -1))
 
 
 class GridFlowError(Exception):
@@ -130,7 +133,7 @@ class GridFlow(WidgetWrap, WidgetContainerMixin, WidgetContainerListContentsMixi
     """
     The GridFlow widget is a flow widget that renders all the widgets it
     contains the same width and it arranges them from left to right and top to
-    bottom. 
+    bottom.
     """
     def sizing(self):
         return frozenset([FLOW])
@@ -342,14 +345,18 @@ class GridFlow(WidgetWrap, WidgetContainerMixin, WidgetContainerListContentsMixi
                 if self.v_sep:
                     p.contents.append((divider, p.options()))
                 c = Columns([], self.h_sep)
+                column_focused = False
                 pad = Padding(c, self.align)
                 # extra attribute to reference contents position
                 pad.first_position = i
                 p.contents.append((pad, p.options()))
 
             c.contents.append((w, c.options(GIVEN, width_amount)))
-            if i == self.focus_position:
+            if ((i == self.focus_position) or
+                (not column_focused and w.selectable())):
                 c.focus_position = len(c.contents) - 1
+                column_focused = True
+            if i == self.focus_position:
                 p.focus_position = len(p.contents) - 1
             used_space = (sum(x[1][1] for x in c.contents) +
                 self.h_sep * len(c.contents))
@@ -359,6 +366,10 @@ class GridFlow(WidgetWrap, WidgetContainerMixin, WidgetContainerListContentsMixi
                 # FIXME: determine why this is necessary
                 pad.original_widget=w
             pad.width = used_space - self.h_sep
+
+        if self.v_sep:
+            # remove first divider
+            del p.contents[:1]
 
         return p
 
@@ -904,11 +915,11 @@ class Frame(Widget, WidgetContainerMixin):
     def _contents(self):
         class FrameContents(object):
             def __len__(inner_self):
-                return len(list(inner_self.keys()))
+                return len(inner_self.keys())
             def items(inner_self):
-                return [(k, inner_self[k]) for k in list(inner_self.keys())]
+                return [(k, inner_self[k]) for k in inner_self.keys()]
             def values(inner_self):
-                return [inner_self[k] for k in list(inner_self.keys())]
+                return [inner_self[k] for k in inner_self.keys()]
             def update(inner_self, E=None, **F):
                 if E:
                     keys = getattr(E, 'keys', None)
@@ -1477,9 +1488,11 @@ class Pile(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             elif f == GIVEN:
                 l.append(height)
                 remaining -= height
-            else:
+            elif height:
                 l.append(None)
                 wtotal += height
+            else:
+                l.append(0) # zero-weighted items treated as ('given', 0)
 
         if wtotal == 0:
             raise PileError("No weighted widgets found for Pile treated as a box widget")
@@ -1661,6 +1674,8 @@ class Pile(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             if wrow + r > row:
                 break
             wrow += r
+        else:
+            return False
 
         focus = focus and self.focus_item == w
         if is_mouse_press(event) and button == 1:
@@ -1706,7 +1721,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             is an int
         (``'pack'``, *widget*)
             call :meth:`pack() <Widget.pack>` to calculate the width of this column
-        (``'weight'``, *weight*, *widget*)`
+        (``'weight'``, *weight*, *widget*)
             give this column a relative *weight* (number) to calculate its width from the
             screen columns remaining
 
@@ -1716,7 +1731,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         are treated as box widgets, and *box_columns* is ignored.
 
         If the Columns widget is treated as a flow widget then the rows
-        are calcualated as the largest rows() returned from all columns
+        are calculated as the largest rows() returned from all columns
         except the ones listed in *box_columns*.  The box widgets in
         *box_columns* will be displayed with this calculated number of rows,
         filling the full height.
@@ -1759,7 +1774,6 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             self.focus_position = focus_column
         if focus_column is None:
             focus_column = 0
-        self.dividechars = dividechars
         self.pref_col = None
         self.min_width = min_width
         self._cache_maxcol = None
@@ -1964,7 +1978,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             raise IndexError("No Columns child widget at position %s" % (position,))
         self.contents.focus = position
     focus_position = property(_get_focus_position, _set_focus_position, doc="""
-        index of child widget in focus.  Raises IndexError if read when
+        index of child widget in focus. Raises :exc:`IndexError` if read when
         Columns is empty, or when set to an invalid index.
         """)
 
@@ -1985,7 +1999,8 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         maxcol = size[0]
         # FIXME: get rid of this check and recalculate only when
         # a 'pack' widget has been modified.
-        if maxcol == self._cache_maxcol and not PACK in self.column_types:
+        if maxcol == self._cache_maxcol and not any(
+                t == PACK for w, (t, n, b) in self.contents):
             return self._cache_column_widths
 
         widths = []

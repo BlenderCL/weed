@@ -1,7 +1,20 @@
+from __future__ import absolute_import, division, print_function
 import urwid
+from urwid.util import _target_encoding, calc_width, calc_text_pos
 
 
 # generic urwid helpers -------------------------------------------------------
+
+def text_width(txt):
+    """
+    Return the width of the text in the terminal
+
+    Use this instead of len() whenever txt could contain double- or zero-width
+    Unicode characters.
+
+    """
+    return calc_width(txt, 0, len(txt))
+
 
 def make_canvas(txt, attr, maxcol, fill_attr=None):
     processed_txt = []
@@ -12,19 +25,30 @@ def make_canvas(txt, attr, maxcol, fill_attr=None):
         # filter out zero-length attrs
         line_attr = [(aname, l) for aname, l in line_attr if l > 0]
 
-        diff = maxcol - len(line)
+        diff = maxcol - text_width(line)
         if diff > 0:
             line += " "*diff
             line_attr.append((fill_attr, diff))
         else:
             from urwid.util import rle_subseg
-            line = line[:maxcol]
+            line = line[:calc_text_pos(line, 0, len(line), maxcol)[0]]
             line_attr = rle_subseg(line_attr, 0, maxcol)
 
         from urwid.util import apply_target_encoding
-        line, line_cs = apply_target_encoding(line)
+        encoded_line, line_cs = apply_target_encoding(line)
 
-        processed_txt.append(line)
+        # line_cs contains byte counts as requested by TextCanvas, but
+        # line_attr still contains column counts at this point: let's fix this.
+        def get_byte_line_attr(line, line_attr):
+            i = 0
+            for label, column_count in line_attr:
+                byte_count = len(line[i:i+column_count].encode(_target_encoding))
+                i += column_count
+                yield label, byte_count
+
+        line_attr = list(get_byte_line_attr(line, line_attr))
+
+        processed_txt.append(encoded_line)
         processed_attr.append(line_attr)
         processed_cs.append(line_cs)
 
@@ -137,10 +161,13 @@ class StackFrame(urwid.FlowWidget):
 
 
 class BreakpointFrame(urwid.FlowWidget):
-    def __init__(self, is_current, filename, line):
+    def __init__(self, is_current, filename, breakpoint):
         self.is_current = is_current
         self.filename = filename
-        self.line = line
+        self.breakpoint = breakpoint
+        self.line = breakpoint.line  # Starts at 1
+        self.enabled = breakpoint.enabled
+        self.hits = breakpoint.hits
 
     def selectable(self):
         return True
@@ -155,14 +182,18 @@ class BreakpointFrame(urwid.FlowWidget):
         else:
             apfx = ""
 
+        bp_pfx = ''
+        if not self.enabled:
+            apfx += "disabled "
+            bp_pfx += "X"
         if self.is_current:
             apfx += "current "
-            crnt_pfx = ">> "
-        else:
-            crnt_pfx = "   "
+            bp_pfx += ">>"
+        bp_pfx = bp_pfx.ljust(3)
 
-        loc = " %s:%d" % (self.filename, self.line)
-        text = crnt_pfx+loc
+        hits_label = 'hits' if self.hits != 1 else 'hit'
+        loc = " %s:%d (%s %s)" % (self.filename, self.line, self.hits, hits_label)
+        text = bp_pfx+loc
         attr = [(apfx+"breakpoint", len(loc))]
 
         return make_canvas([text], [attr], maxcol, apfx+"breakpoint")

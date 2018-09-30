@@ -19,6 +19,8 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 REDRAW_SCREEN = 'redraw screen'
 CURSOR_UP = 'cursor up'
 CURSOR_DOWN = 'cursor down'
@@ -88,7 +90,7 @@ class CommandMap(object):
         del self._command[key]
 
     def clear_command(self, command):
-        dk = [k for k, v in list(self._command.items()) if v == command]
+        dk = [k for k, v in self._command.items() if v == command]
         for k in dk:
             del self._command[k]
 

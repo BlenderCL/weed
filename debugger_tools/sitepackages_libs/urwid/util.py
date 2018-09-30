@@ -20,8 +20,12 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 from urwid import escape
-from urwid.compat import bytes
+from urwid.compat import bytes, text_type, text_types
+
+import codecs
 
 str_util = escape.str_util
 
@@ -37,6 +41,7 @@ within_double_byte = str_util.within_double_byte
 def detect_encoding():
     # Try to determine if using a supported double-byte encoding
     import locale
+    initial = locale.getlocale()
     try:
         try:
             locale.setlocale(locale.LC_ALL, "")
@@ -49,6 +54,8 @@ def detect_encoding():
             return ""
         else:
             raise
+    finally:
+        locale.setlocale(locale.LC_ALL, initial)
 
 if 'detected_encoding' not in locals():
     detected_encoding = detect_encoding()
@@ -70,7 +77,7 @@ def set_encoding( encoding ):
 
     if encoding in ( 'utf-8', 'utf8', 'utf' ):
         str_util.set_byte_encoding("utf8")
-            
+
         _use_dec_special = False
     elif encoding in ( 'euc-jp' # JISX 0208 only
             , 'euc-kr', 'euc-cn', 'euc-tw' # CNS 11643 plain 1 only
@@ -78,7 +85,7 @@ def set_encoding( encoding ):
             # these shouldn't happen, should they?
             , 'eucjp', 'euckr', 'euccn', 'euctw', 'cncb' ):
         str_util.set_byte_encoding("wide")
-            
+
         _use_dec_special = True
     else:
         str_util.set_byte_encoding("narrow")
@@ -86,9 +93,9 @@ def set_encoding( encoding ):
 
     # if encoding is valid for conversion from unicode, remember it
     _target_encoding = 'ascii'
-    try:    
+    try:
         if encoding:
-            "".encode(encoding)
+            u"".encode(encoding)
             _target_encoding = encoding
     except LookupError: pass
 
@@ -106,19 +113,19 @@ def apply_target_encoding( s ):
     """
     Return (encoded byte string, character set rle).
     """
-    if _use_dec_special and type(s) == str:
+    if _use_dec_special and type(s) == text_type:
         # first convert drawing characters
         try:
             s = s.translate( escape.DEC_SPECIAL_CHARMAP )
         except NotImplementedError:
             # python < 2.4 needs to do this the hard way..
-            for c, alt in zip(escape.DEC_SPECIAL_CHARS, 
+            for c, alt in zip(escape.DEC_SPECIAL_CHARS,
                     escape.ALT_DEC_SPECIAL_CHARS):
                 s = s.replace( c, escape.SO+alt+escape.SI )
-    
-    if type(s) == str:
-        s = s.replace( escape.SI+escape.SO, "" ) # remove redundant shifts
-        s = s.encode( _target_encoding )
+
+    if type(s) == text_type:
+        s = s.replace(escape.SI+escape.SO, u"") # remove redundant shifts
+        s = codecs.encode(s, _target_encoding, 'replace')
 
     assert isinstance(s, bytes)
     SO = escape.SO.encode('ascii')
@@ -134,10 +141,10 @@ def apply_target_encoding( s ):
     if sis0:
         sout.append( sis0 )
         cout.append( (None,len(sis0)) )
-    
+
     if len(sis)==1:
         return sis0, cout
-    
+
     for sn in sis[1:]:
         assert isinstance(sn, bytes)
         assert isinstance(SI, bytes)
@@ -198,7 +205,7 @@ def calc_trim_text( text, start_offs, end_offs, start_col, end_col ):
         spos, sc = calc_text_pos( text, spos, end_offs, start_col )
         if sc < start_col:
             pad_left = 1
-            spos, sc = calc_text_pos( text, start_offs, 
+            spos, sc = calc_text_pos( text, start_offs,
                 end_offs, start_col+1 )
     run = end_col - start_col - pad_left
     pos, sc = calc_text_pos( text, spos, end_offs, run )
@@ -213,7 +220,7 @@ def trim_text_attr_cs( text, attr, cs, start_col, end_col ):
     """
     Return ( trimmed text, trimmed attr, trimmed cs ).
     """
-    spos, epos, pad_left, pad_right = calc_trim_text( 
+    spos, epos, pad_left, pad_right = calc_trim_text(
         text, 0, len(text), start_col, end_col )
     attrtr = rle_subseg( attr, spos, epos )
     cstr = rle_subseg( cs, spos, epos )
@@ -261,7 +268,7 @@ def rle_subseg( rle, start, end ):
             break
         if x+run > end:
             run = end-x
-        x += run    
+        x += run
         l.append( (a, run) )
     return l
 
@@ -271,7 +278,7 @@ def rle_len( rle ):
     Return the number of characters covered by a run length
     encoded attribute list.
     """
-    
+
     run = 0
     for v in rle:
         assert type(v) == tuple, repr(rle)
@@ -279,32 +286,32 @@ def rle_len( rle ):
         run += r
     return run
 
-def rle_append_beginning_modify( rle, xxx_todo_changeme ):
+def rle_append_beginning_modify(rle, a_r):
     """
-    Append (a, r) to BEGINNING of rle.
+    Append (a, r) (unpacked from *a_r*) to BEGINNING of rle.
     Merge with first run when possible
 
     MODIFIES rle parameter contents. Returns None.
     """
-    (a, r) = xxx_todo_changeme
+    a, r = a_r
     if not rle:
         rle[:] = [(a, r)]
-    else:    
+    else:
         al, run = rle[0]
         if a == al:
             rle[0] = (a,run+r)
         else:
             rle[0:0] = [(al, r)]
-            
-            
-def rle_append_modify( rle, xxx_todo_changeme1 ):
+
+
+def rle_append_modify(rle, a_r):
     """
-    Append (a,r) to the rle list rle.
+    Append (a, r) (unpacked from *a_r*) to the rle list rle.
     Merge with last run when possible.
-    
+
     MODIFIES rle parameter contents. Returns None.
     """
-    (a, r) = xxx_todo_changeme1
+    a, r = a_r
     if not rle or rle[-1][0] != a:
         rle.append( (a,r) )
         return
@@ -322,7 +329,7 @@ def rle_join_modify( rle, rle2 ):
         return
     rle_append_modify(rle, rle2[0])
     rle += rle2[1:]
-        
+
 def rle_product( rle1, rle2 ):
     """
     Merge the runs of rle1 and rle2 like this:
@@ -337,7 +344,7 @@ def rle_product( rle1, rle2 ):
     if not rle1 or not rle2: return []
     a1, r1 = rle1[0]
     a2, r2 = rle2[0]
-    
+
     l = []
     while r1 and r2:
         r = min(r1, r2)
@@ -350,7 +357,7 @@ def rle_product( rle1, rle2 ):
         if r2 == 0 and i2< len(rle2):
             a2, r2 = rle2[i2]
             i2 += 1
-    return l    
+    return l
 
 
 def rle_factor( rle ):
@@ -381,13 +388,13 @@ def decompose_tagmarkup(tm):
 
 def _tagmarkup_recurse( tm, attr ):
     """Return (text list, attribute list) for tagmarkup passed.
-    
+
     tm -- tagmarkup
     attr -- current attribute or None"""
-    
+
     if type(tm) == list:
         # for lists recurse to process each subelement
-        rtl = [] 
+        rtl = []
         ral = []
         for element in tm:
             tl, al = _tagmarkup_recurse( element, attr )
@@ -401,18 +408,18 @@ def _tagmarkup_recurse( tm, attr ):
             rtl += tl
             ral += al
         return rtl, ral
-        
+
     if type(tm) == tuple:
         # tuples mark a new attribute boundary
-        if len(tm) != 2: 
+        if len(tm) != 2:
             raise TagMarkupException("Tuples must be in the form (attribute, tagmarkup): %r" % (tm,))
 
         attr, element = tm
         return _tagmarkup_recurse( element, attr )
-    
-    if not isinstance(tm,(str, bytes)):
+
+    if not isinstance(tm, text_types + (bytes,)):
         raise TagMarkupException("Invalid markup element: %r" % tm)
-    
+
     # text
     return [tm], [(attr, len(tm))]
 
@@ -435,11 +442,11 @@ class MetaSuper(type):
         setattr(cls, "_%s__super" % name, super(cls))
 
 
-    
+
 def int_scale(val, val_range, out_range):
     """
-    Scale val in the range [0, val_range-1] to an integer in the range 
-    [0, out_range-1].  This implementaton uses the "round-half-up" rounding 
+    Scale val in the range [0, val_range-1] to an integer in the range
+    [0, out_range-1].  This implementation uses the "round-half-up" rounding
     method.
 
     >>> "%x" % int_scale(0x7, 0x10, 0x10000)
@@ -456,3 +463,17 @@ def int_scale(val, val_range, out_range):
     # if num % dem == 0 then we are exactly half-way and have rounded up.
     return num // dem
 
+
+class StoppingContext(object):
+    """Context manager that calls ``stop`` on a given object on exit.  Used to
+    make the ``start`` method on `MainLoop` and `BaseScreen` optionally act as
+    context managers.
+    """
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self._wrapped.stop()

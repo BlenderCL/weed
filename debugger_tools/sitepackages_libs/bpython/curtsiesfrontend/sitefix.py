@@ -1,7 +1,9 @@
-""""""
+# encoding: utf-8
+
 import sys
 
-from bpython._py3compat import py3
+from six.moves import builtins
+
 
 def resetquit(builtins):
     """Redefine builtins 'quit' and 'exit' not so close stdin
@@ -12,6 +14,7 @@ def resetquit(builtins):
     __call__.__name__ = 'FakeQuitCall'
     builtins.quit.__class__.__call__ = __call__
 
+
 def monkeypatch_quit():
     if 'site' in sys.modules:
-        resetquit(sys.modules['builtins' if py3 else '__builtin__'])
+        resetquit(builtins)

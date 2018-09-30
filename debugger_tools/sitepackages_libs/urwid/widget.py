@@ -19,8 +19,11 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 from operator import attrgetter
 
+from urwid.compat import text_type, with_metaclass
 from urwid.util import (MetaSuper, decompose_tagmarkup, calc_width,
     is_wide_char, move_prev_char, move_next_char)
 from urwid.text_layout import calc_pos, calc_coords, shift_line
@@ -171,7 +174,7 @@ def nocache_widget_render(cls):
 def nocache_widget_render_instance(self):
     """
     Return a function that wraps the cls.render() method
-    and finalizes the canvas that it returns, but does not 
+    and finalizes the canvas that it returns, but does not
     cache the canvas.
     """
     fn = self.render.original_fn
@@ -203,14 +206,9 @@ def cache_widget_rows(cls):
     return cached_rows
 
 
-class Widget(object, metaclass=WidgetMeta):
+class Widget(with_metaclass(WidgetMeta, object)):
     """
     Widget base class
-
-    .. attribute:: __metaclass__
-       :annotation: = urwid.WidgetMeta
-
-       See :class:`urwid.WidgetMeta` definition
 
     .. attribute:: _selectable
        :annotation: = False
@@ -353,7 +351,7 @@ class Widget(object, metaclass=WidgetMeta):
        :param size: See :meth:`Widget.render` for details.
        :type size: widget size
        :param event: Values such as ``'mouse press'``, ``'ctrl mouse press'``,
-                     ``'mouse relase'``, ``'meta mouse release'``,
+                     ``'mouse release'``, ``'meta mouse release'``,
                      ``'mouse drag'``; see :ref:`mouse-input`
        :type event: mouse event
        :param button: 1 through 5 for press events, often 0 for release events
@@ -443,7 +441,6 @@ class Widget(object, metaclass=WidgetMeta):
        :returns: ``True`` if the position was set successfully anywhere on
                  *row*, ``False`` otherwise
     """
-
     _selectable = False
     _sizing = frozenset([FLOW, BOX, FIXED])
     _command_map = command_map
@@ -506,7 +503,7 @@ class Widget(object, metaclass=WidgetMeta):
 
         If ``'box'`` is among the values returned then the other
         methods must be able to accept a two-element tuple
-        (*maxcol*, *maxrow*) to their size paramter.
+        (*maxcol*, *maxrow*) to their size parameter.
 
         If ``'fixed'`` is among the values returned then the other
         methods must be able to accept an empty tuple () to
@@ -537,7 +534,7 @@ class Widget(object, metaclass=WidgetMeta):
            implemented for container widgets.
 
         :class:`Text` widgets have implemented this method.
-        You can use :meth:`Text.pack` to calculate the minumum
+        You can use :meth:`Text.pack` to calculate the minimum
         columns and rows required to display a text widget without wrapping,
         or call it iteratively to calculate the minimum number of columns
         required to display the text wrapped into a target number of rows.
@@ -690,7 +687,7 @@ class Divider(Widget):
 
     ignore_focus = True
 
-    def __init__(self,div_char=" ",top=0,bottom=0):
+    def __init__(self,div_char=u" ",top=0,bottom=0):
         """
         :param div_char: character to repeat across line
         :type div_char: bytes or unicode
@@ -703,9 +700,9 @@ class Divider(Widget):
 
         >>> Divider()
         <Divider flow widget>
-        >>> Divider('-')
+        >>> Divider(u'-')
         <Divider flow widget '-'>
-        >>> Divider('x', 1, 2)
+        >>> Divider(u'x', 1, 2)
         <Divider flow widget 'x' bottom=2 top=1>
         """
         self.__super.__init__()
@@ -715,7 +712,7 @@ class Divider(Widget):
 
     def _repr_words(self):
         return self.__super._repr_words() + [
-            python3_repr(self.div_char)] * (self.div_char != " ")
+            python3_repr(self.div_char)] * (self.div_char != u" ")
 
     def _repr_attrs(self):
         attrs = dict(self.__super._repr_attrs())
@@ -729,7 +726,7 @@ class Divider(Widget):
 
         >>> Divider().rows((10,))
         1
-        >>> Divider('x', 1, 2).rows((10,))
+        >>> Divider(u'x', 1, 2).rows((10,))
         4
         """
         (maxcol,) = size
@@ -741,9 +738,9 @@ class Divider(Widget):
 
         >>> Divider().render((10,)).text # ... = b in Python 3
         [...'          ']
-        >>> Divider('-', top=1).render((10,)).text
+        >>> Divider(u'-', top=1).render((10,)).text
         [...'          ', ...'----------']
-        >>> Divider('x', bottom=2).render((5,)).text
+        >>> Divider(u'x', bottom=2).render((5,)).text
         [...'xxxxx', ...'     ', ...'     ']
         """
         (maxcol,) = size
@@ -766,7 +763,7 @@ class SolidFill(BoxWidget):
         :param fill_char: character to fill area with
         :type fill_char: bytes or unicode
 
-        >>> SolidFill('8')
+        >>> SolidFill(u'8')
         <SolidFill box widget '8'>
         """
         self.__super.__init__()
@@ -821,9 +818,9 @@ class Text(Widget):
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
         :type layout: text layout instance
 
-        >>> Text("Hello")
+        >>> Text(u"Hello")
         <Text flow widget 'Hello'>
-        >>> t = Text(('bold', "stuff"), 'right', 'any')
+        >>> t = Text(('bold', u"stuff"), 'right', 'any')
         >>> t
         <Text flow widget 'stuff' align='right' wrap='any'>
         >>> print(t.text)
@@ -851,10 +848,10 @@ class Text(Widget):
 
     def _repr_attrs(self):
         attrs = dict(self.__super._repr_attrs(),
-            align=self._align_mode, 
+            align=self._align_mode,
             wrap=self._wrap_mode)
         return remove_defaults(attrs, Text.__init__)
-    
+
     def _invalidate(self):
         self._cache_maxcol = None
         self.__super._invalidate()
@@ -866,13 +863,13 @@ class Text(Widget):
         :param markup: see :class:`Text` for description.
         :type markup: text markup
 
-        >>> t = Text("foo")
+        >>> t = Text(u"foo")
         >>> print(t.text)
         foo
-        >>> t.set_text("bar")
+        >>> t.set_text(u"bar")
         >>> print(t.text)
         bar
-        >>> t.text = "baz"  # not supported because text stores text but set_text() takes markup
+        >>> t.text = u"baz"  # not supported because text stores text but set_text() takes markup
         Traceback (most recent call last):
         AttributeError: can't set attribute
         """
@@ -890,11 +887,11 @@ class Text(Widget):
               run length encoded display attributes for *text*, eg.
               ``[('attr1', 10), ('attr2', 5)]``
 
-        >>> Text("Hello").get_text() # ... = u in Python 2
+        >>> Text(u"Hello").get_text() # ... = u in Python 2
         (...'Hello', [])
-        >>> Text(('bright', "Headline")).get_text()
+        >>> Text(('bright', u"Headline")).get_text()
         (...'Headline', [('bright', 8)])
-        >>> Text([('a', "one"), "two", ('b', "three")]).get_text()
+        >>> Text([('a', u"one"), u"two", ('b', u"three")]).get_text()
         (...'onetwothree', [('a', 3), (None, 3), ('b', 5)])
         """
         return self._text, self._attrib
@@ -916,7 +913,7 @@ class Text(Widget):
         :param mode: typically ``'left'``, ``'center'`` or ``'right'``
         :type mode: text alignment mode
 
-        >>> t = Text("word")
+        >>> t = Text(u"word")
         >>> t.set_align_mode('right')
         >>> t.align
         'right'
@@ -943,7 +940,7 @@ class Text(Widget):
         :param mode: typically ``'space'``, ``'any'`` or ``'clip'``
         :type mode: text wrapping mode
 
-        >>> t = Text("some words")
+        >>> t = Text(u"some words")
         >>> t.render((6,)).text # ... = b in Python 3
         [...'some  ', ...'words ']
         >>> t.set_wrap_mode('clip')
@@ -974,7 +971,7 @@ class Text(Widget):
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
         :type layout: text layout instance
 
-        >>> t = Text("hi")
+        >>> t = Text(u"hi")
         >>> t.set_layout('right', 'clip')
         >>> t
         <Text flow widget 'hi' align='right' wrap='clip'>
@@ -995,9 +992,9 @@ class Text(Widget):
 
         See :meth:`Widget.render` for parameter details.
 
-        >>> Text("important things").render((18,)).text # ... = b in Python 3
+        >>> Text(u"important things").render((18,)).text # ... = b in Python 3
         [...'important things  ']
-        >>> Text("important things").render((11,)).text
+        >>> Text(u"important things").render((11,)).text
         [...'important  ', ...'things     ']
         """
         (maxcol,) = size
@@ -1012,9 +1009,9 @@ class Text(Widget):
 
         See :meth:`Widget.rows` for parameter details.
 
-        >>> Text("important things").rows((18,))
+        >>> Text(u"important things").rows((18,))
         1
-        >>> Text("important things").rows((11,))
+        >>> Text(u"important things").rows((11,))
         2
         """
         (maxcol,) = size
@@ -1060,11 +1057,11 @@ class Text(Widget):
                      specify a maximum column size
         :type size: widget size
 
-        >>> Text("important things").pack()
+        >>> Text(u"important things").pack()
         (16, 1)
-        >>> Text("important things").pack((15,))
+        >>> Text(u"important things").pack((15,))
         (9, 2)
-        >>> Text("important things").pack((8,))
+        >>> Text(u"important things").pack((8,))
         (8, 2)
         """
         text, attr = self.get_text()
@@ -1100,11 +1097,22 @@ class Edit(Text):
     deletion.  A caption may prefix the editing area.  Uses text class
     for text layout.
 
-    Users of this class to listen for ``"change"`` events
-    sent when the value of edit_text changes.  See :func:``connect_signal``.
+    Users of this class may listen for ``"change"`` or ``"postchange"``
+    events.  See :func:``connect_signal``.
+
+    * ``"change"`` is sent just before the value of edit_text changes.
+      It receives the new text as an argument.  Note that ``"change"`` cannot
+      change the text in question as edit_text changes the text afterwards.
+    * ``"postchange"`` is sent after the value of edit_text changes.
+      It receives the old value of the text as an argument and thus is
+      appropriate for changing the text.  It is possible for a ``"postchange"``
+      event handler to get into a loop of changing the text and then being
+      called when the event is re-emitted.  It is up to the event
+      handler to guard against this case (for instance, by not changing the
+      text if it is signaled for for text that it has already changed once).
     """
     # (this variable is picked up by the MetaSignals metaclass)
-    signals = ["change"]
+    signals = ["change", "postchange"]
 
     def valid_char(self, ch):
         """
@@ -1119,11 +1127,11 @@ class Edit(Text):
 
     def selectable(self): return True
 
-    def __init__(self, caption="", edit_text="", multiline=False,
+    def __init__(self, caption=u"", edit_text=u"", multiline=False,
             align=LEFT, wrap=SPACE, allow_tab=False,
             edit_pos=None, layout=None, mask=None):
         """
-        :param caption: markup for caption preceeding edit_text, see
+        :param caption: markup for caption preceding edit_text, see
                         :class:`Text` for description of text markup.
         :type caption: text markup
         :param edit_text: initial text for editing, type (bytes or unicode)
@@ -1146,11 +1154,11 @@ class Edit(Text):
 
         >>> Edit()
         <Edit selectable flow widget '' edit_pos=0>
-        >>> Edit("Y/n? ", "yes")
+        >>> Edit(u"Y/n? ", u"yes")
         <Edit selectable flow widget 'yes' caption='Y/n? ' edit_pos=3>
-        >>> Edit("Name ", "Smith", edit_pos=1)
+        >>> Edit(u"Name ", u"Smith", edit_pos=1)
         <Edit selectable flow widget 'Smith' caption='Name ' edit_pos=1>
-        >>> Edit("", "3.14", align='right')
+        >>> Edit(u"", u"3.14", align='right')
         <Edit selectable flow widget '3.14' align='right' edit_pos=4>
         """
 
@@ -1159,6 +1167,7 @@ class Edit(Text):
         self.allow_tab = allow_tab
         self._edit_pos = 0
         self.set_caption(caption)
+        self._edit_text = ''
         self.set_edit_text(edit_text)
         if edit_pos is None:
             edit_pos = len(edit_text)
@@ -1184,11 +1193,11 @@ class Edit(Text):
 
         Text returned includes the caption and edit_text, possibly masked.
 
-        >>> Edit("What? ","oh, nothing.").get_text() # ... = u in Python 2
+        >>> Edit(u"What? ","oh, nothing.").get_text() # ... = u in Python 2
         (...'What? oh, nothing.', [])
-        >>> Edit(('bright',"user@host:~$ "),"ls").get_text()
+        >>> Edit(('bright',u"user@host:~$ "),"ls").get_text()
         (...'user@host:~$ ls', [('bright', 13)])
-        >>> Edit("password:", "seekrit", mask="*").get_text()
+        >>> Edit(u"password:", u"seekrit", mask=u"*").get_text()
         (...'password:*******', [])
         """
 
@@ -1229,7 +1238,7 @@ class Edit(Text):
         >>> size = (10,)
         >>> Edit().get_pref_col(size)
         0
-        >>> e = Edit("", "word")
+        >>> e = Edit(u"", u"word")
         >>> e.get_pref_col(size)
         4
         >>> e.keypress(size, 'left')
@@ -1238,7 +1247,7 @@ class Edit(Text):
         >>> e.keypress(size, 'end')
         >>> e.get_pref_col(size)
         'right'
-        >>> e = Edit("", "2\\nwords")
+        >>> e = Edit(u"", u"2\\nwords")
         >>> e.keypress(size, 'left')
         >>> e.keypress(size, 'up')
         >>> e.get_pref_col(size)
@@ -1269,7 +1278,7 @@ class Edit(Text):
         """
         Set the caption markup for this widget.
 
-        :param caption: markup for caption preceeding edit_text, see
+        :param caption: markup for caption preceding edit_text, see
                         :meth:`Text.__init__` for description of text markup.
 
         >>> e = Edit("")
@@ -1288,7 +1297,9 @@ class Edit(Text):
         self._caption, self._attrib = decompose_tagmarkup(caption)
         self._invalidate()
 
-    caption = property(lambda self:self._caption)
+    caption = property(lambda self:self._caption, doc="""
+        Read-only property returning the caption for this widget.
+        """)
 
     def set_edit_pos(self, pos):
         """
@@ -1298,7 +1309,7 @@ class Edit(Text):
         :param pos: cursor position
         :type pos: int
 
-        >>> e = Edit("", "word")
+        >>> e = Edit(u"", u"word")
         >>> e.edit_pos
         4
         >>> e.set_edit_pos(2)
@@ -1320,7 +1331,9 @@ class Edit(Text):
         self._edit_pos = pos
         self._invalidate()
 
-    edit_pos = property(lambda self:self._edit_pos, set_edit_pos)
+    edit_pos = property(lambda self:self._edit_pos, set_edit_pos, doc="""
+        Property controlling the edit position for this widget.
+        """)
 
     def set_mask(self, mask):
         """
@@ -1342,28 +1355,30 @@ class Edit(Text):
         :type text: bytes or unicode
 
         >>> e = Edit()
-        >>> e.set_edit_text("yes")
+        >>> e.set_edit_text(u"yes")
         >>> print(e.edit_text)
         yes
         >>> e
         <Edit selectable flow widget 'yes' edit_pos=0>
-        >>> e.edit_text = "no"  # Urwid 0.9.9 or later
+        >>> e.edit_text = u"no"  # Urwid 0.9.9 or later
         >>> print(e.edit_text)
         no
         """
         text = self._normalize_to_caption(text)
         self.highlight = None
         self._emit("change", text)
+        old_text = self._edit_text
         self._edit_text = text
         if self.edit_pos > len(text):
             self.edit_pos = len(text)
+        self._emit("postchange", old_text)
         self._invalidate()
 
     def get_edit_text(self):
         """
         Return the edit text for this widget.
 
-        >>> e = Edit("What? ", "oh, nothing.")
+        >>> e = Edit(u"What? ", u"oh, nothing.")
         >>> print(e.get_edit_text())
         oh, nothing.
         >>> print(e.edit_text)
@@ -1372,7 +1387,7 @@ class Edit(Text):
         return self._edit_text
 
     edit_text = property(get_edit_text, set_edit_text, doc="""
-        Read-only property returning the edit text for this widget.
+        Property controlling the edit text for this widget.
         """)
 
     def insert_text(self, text):
@@ -1385,12 +1400,12 @@ class Edit(Text):
                      must match the text in the caption
         :type text: bytes or unicode
 
-        >>> e = Edit("", "42")
-        >>> e.insert_text(".5")
+        >>> e = Edit(u"", u"42")
+        >>> e.insert_text(u".5")
         >>> e
         <Edit selectable flow widget '42.5' edit_pos=4>
         >>> e.set_edit_pos(2)
-        >>> e.insert_text("a")
+        >>> e.insert_text(u"a")
         >>> print(e.edit_text)
         42a.5
         """
@@ -1405,8 +1420,8 @@ class Edit(Text):
         Return text converted to the same type as self.caption
         (bytes or unicode)
         """
-        tu = isinstance(text, str)
-        cu = isinstance(self._caption, str)
+        tu = isinstance(text, text_type)
+        cu = isinstance(self._caption, text_type)
         if tu == cu:
             return text
         if tu:
@@ -1464,8 +1479,8 @@ class Edit(Text):
 
         p = self.edit_pos
         if self.valid_char(key):
-            if (isinstance(key, str) and not
-                    isinstance(self._caption, str)):
+            if (isinstance(key, text_type) and not
+                    isinstance(self._caption, text_type)):
                 # screen is sending us unicode input, must be using utf-8
                 # encoding because that's all we support, so convert it
                 # to bytes to match our caption's type
@@ -1496,7 +1511,7 @@ class Edit(Text):
             x,y = self.get_cursor_coords((maxcol,))
             pref_col = self.get_pref_col((maxcol,))
             assert pref_col is not None
-            #if pref_col is None: 
+            #if pref_col is None:
             #    pref_col = x
 
             if self._command_map[key] == CURSOR_UP: y -= 1
@@ -1510,7 +1525,7 @@ class Edit(Text):
             if not self._delete_highlighted():
                 if p == 0: return key
                 p = move_prev_char(self.edit_text,0,p)
-                self.set_edit_text( self.edit_text[:p] + 
+                self.set_edit_text( self.edit_text[:p] +
                     self.edit_text[self.edit_pos:] )
                 self.set_edit_pos( p )
 
@@ -1685,7 +1700,7 @@ class IntEdit(Edit):
         caption -- caption markup
         default -- default edit value
 
-        >>> IntEdit("", 42)
+        >>> IntEdit(u"", 42)
         <IntEdit selectable flow widget '42' edit_pos=2>
         """
         if default is not None: val = str(default)
@@ -1696,7 +1711,7 @@ class IntEdit(Edit):
         """
         Handle editing keystrokes.  Remove leading zeros.
 
-        >>> e, size = IntEdit("", 5002), (10,)
+        >>> e, size = IntEdit(u"", 5002), (10,)
         >>> e.keypress(size, 'home')
         >>> e.keypress(size, 'delete')
         >>> print(e.edit_text)
@@ -1822,4 +1837,3 @@ def _test():
 
 if __name__=='__main__':
     _test()
-

@@ -1,36 +1,50 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import division
+from __future__ import absolute_import, division, print_function
+
+__copyright__ = """
+Copyright (C) 2009-2017 Andreas Kloeckner
+Copyright (C) 2014-2017 Aaron Meurer
+"""
+
+__license__ = """
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+"""
+
+
 import urwid
 import bdb
-import sys
+import gc
 import os
+import sys
+from functools import partial
+from types import TracebackType
+
+from pudb.lowlevel import decode_lines
+from pudb.settings import load_config, save_config
+from pudb.py3compat import PY3, raw_input, execfile
 
 WINDOWS = (sys.platform == "win32")
 
-from pudb.settings import load_config, save_config
 CONFIG = load_config()
 save_config(CONFIG)
-
-from pudb.py3compat import PY3, raw_input
-if PY3:
-    _next = "__next__"
-else:
-    _next = "next"
-
-try:
-    from functools import partial
-except ImportError:
-    def partial(func, *args, **keywords):
-        def newfunc(*fargs, **fkeywords):
-            newkeywords = keywords.copy()
-            newkeywords.update(fkeywords)
-            return func(*(args + fargs), **newkeywords)
-        newfunc.func = func
-        newfunc.args = args
-        newfunc.keywords = keywords
-        return newfunc
 
 HELP_TEXT = """\
 Welcome to PuDB, the Python Urwid debugger.
@@ -77,12 +91,12 @@ Keys:
 
     Ctrl-l - redraw screen
 
-Command line-related:
-    ! - invoke configured python command line in current environment
-    Ctrl-x - toggle inline command line focus
+Shell-related:
+    ! - open the external shell (configured in the settings)
+    Ctrl-x - toggle the internal shell focus
 
-    +/- - grow/shrink inline command line (active in command line history)
-    _/= - minimize/maximize inline command line (active in command line history)
+    +/- - grow/shrink inline shell (active in command line history)
+    _/= - minimize/maximize inline shell (active in command line history)
 
     Ctrl-v - insert newline
     Ctrl-n/p - browse command line history
@@ -94,11 +108,12 @@ Sidebar-related (active in sidebar):
     [/] - grow/shrink relative size of active sidebar box
 
 Keys in variables list:
-    \ - expand/collapse
+    \/space - expand/collapse
     t/r/s/c - show type/repr/str/custom for this variable
     h - toggle highlighting
     @ - toggle repetition at top
-    * - toggle private members
+    * - cycle attribute visibility: public/_private/__dunder__
+    m - toggle method visibility
     w - toggle line wrapping
     n/insert - add new watch expression
     enter - edit options (also to delete)
@@ -118,7 +133,7 @@ License:
 
 PuDB is licensed to you under the MIT/X Consortium license:
 
-Copyright (c) 2009-13 Andreas Kloeckner and contributors
+Copyright (c) 2009-16 Andreas Kloeckner and contributors
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
@@ -146,9 +161,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 # {{{ debugger interface
 
 class Debugger(bdb.Bdb):
-    def __init__(self, steal_output=False):
+    def __init__(self, stdin=None, stdout=None, term_size=None, steal_output=False):
         bdb.Bdb.__init__(self)
-        self.ui = DebuggerUI(self)
+        self.ui = DebuggerUI(self, stdin=stdin, stdout=stdout, term_size=term_size)
         self.steal_output = steal_output
 
         self.setup_state()
@@ -166,24 +181,83 @@ class Debugger(bdb.Bdb):
         for bpoint_descr in load_breakpoints():
             self.set_break(*bpoint_descr)
 
-    def set_trace(self, frame=None):
+    # These (dispatch_line and set_continue) are copied from bdb with the
+    # patch from https://bugs.python.org/issue16482 applied. See
+    # https://github.com/inducer/pudb/pull/90.
+    def dispatch_line(self, frame):
+        if self.stop_here(frame) or self.break_here(frame):
+            self.user_line(frame)
+            if self.quitting:
+                raise bdb.BdbQuit
+            # Do not re-install the local trace when we are finished debugging,
+            # see issues 16482 and 7238.
+            if not sys.gettrace():
+                return None
+        return self.trace_dispatch
+
+    def set_continue(self):
+        # Don't stop except at breakpoints or when finished
+        self._set_stopinfo(self.botframe, None, -1)
+        if not self.breaks:
+            # no breakpoints; run without debugger overhead
+            sys.settrace(None)
+            frame = sys._getframe().f_back
+            while frame:
+                del frame.f_trace
+                if frame is self.botframe:
+                    break
+                frame = frame.f_back
+
+    def set_trace(self, frame=None, as_breakpoint=None, paused=True):
         """Start debugging from `frame`.
 
         If frame is not specified, debugging starts from caller's frame.
 
-        This is exactly the same as Bdb.set_trace(), sans the self.reset() call.
+        Unlike Bdb.set_trace(), this does not call self.reset(), which causes
+        the debugger to enter bdb source code. This also implements treating
+        set_trace() calls as breakpoints in the PuDB UI.
+
+        If as_breakpoint=True (the default), this call will be treated like a
+        breakpoint in the UI (you can press 'b' on it to disable breaking
+        here).
+
+        If paused=False, the debugger will not break here.
         """
+        if as_breakpoint is None:
+            if not paused:
+                as_breakpoint = False
+            else:
+                as_breakpoint = True
+
         if frame is None:
-            frame = sys._getframe().f_back
+            frame = thisframe = sys._getframe().f_back
+        else:
+            thisframe = frame
         # See pudb issue #52. If this works well enough we should upstream to
         # stdlib bdb.py.
         #self.reset()
+
         while frame:
             frame.f_trace = self.trace_dispatch
             self.botframe = frame
             frame = frame.f_back
-        self.set_step()
-        sys.settrace(self.trace_dispatch)
+
+        thisframe_info = (self.canonic(thisframe.f_code.co_filename),
+                          thisframe.f_lineno)
+        if thisframe_info not in self.set_traces or self.set_traces[thisframe_info]:
+            if as_breakpoint:
+                self.set_traces[thisframe_info] = True
+                if self.ui.source_code_provider is not None:
+                    self.ui.set_source_code_provider(
+                            self.ui.source_code_provider, force_update=True)
+
+            if paused:
+                self.set_step()
+            else:
+                self.set_continue()
+            sys.settrace(self.trace_dispatch)
+        else:
+            return
 
     def save_breakpoints(self):
         from pudb.settings import save_breakpoints
@@ -203,6 +277,9 @@ class Debugger(bdb.Bdb):
         self._wait_for_mainpyfile = False
         self.current_bp = None
         self.post_mortem = False
+        # Mapping of (filename, lineno) to bool. If True, will stop on the
+        # set_trace() call at that location.
+        self.set_traces = {}
 
     def restart(self):
         from linecache import checkcache
@@ -263,6 +340,14 @@ class Debugger(bdb.Bdb):
     def interaction(self, frame, exc_tuple=None, show_exc_dialog=True):
         if exc_tuple is None:
             tb = None
+        elif isinstance(exc_tuple, TracebackType):
+            # For API compatibility with other debuggers, the second variable
+            # can be a traceback object.  In that case, we need to retrieve the
+            # corresponding exception tuple.
+            tb = exc_tuple
+            exc, = (exc for exc in gc.get_referrers(tb)
+                    if getattr(exc, "__traceback__", None) is tb)
+            exc_tuple = type(exc), exc, tb
         else:
             tb = exc_tuple[2]
 
@@ -326,7 +411,8 @@ class Debugger(bdb.Bdb):
 
     def user_return(self, frame, return_value):
         """This function is called when a return trap is set here."""
-        frame.f_locals['__return__'] = return_value
+        if frame.f_code.co_name != '<module>':
+            frame.f_locals['__return__'] = return_value
 
         if self._wait_for_mainpyfile:
             if (self.mainpyfile != self.canonic(frame.f_code.co_filename)
@@ -369,6 +455,7 @@ class Debugger(bdb.Bdb):
         # Set up an interrupt handler
         from pudb import set_interrupt_handler
         set_interrupt_handler()
+
         self.run(statement, globals=globals_, locals=locals_)
 
 # }}}
@@ -389,6 +476,7 @@ try:
 except ImportError:
     curses = None
 
+
 want_curses_display = (
         CONFIG["display"] == "curses"
         or (
@@ -408,23 +496,43 @@ else:
 
 del want_curses_display
 
-
-class ThreadsafeScreen(Screen):
+class ThreadsafeScreenMixin(object):
     "A Screen subclass that doesn't crash when running from a non-main thread."
 
     def signal_init(self):
         "Initialize signal handler, ignoring errors silently."
         try:
-            super(ThreadsafeScreen, self).signal_init()
+            super(ThreadsafeScreenMixin, self).signal_init()
         except ValueError:
             pass
 
     def signal_restore(self):
         "Restore default signal handler, ignoring errors silently."
         try:
-            super(ThreadsafeScreen, self).signal_restore()
+            super(ThreadsafeScreenMixin, self).signal_restore()
         except ValueError:
             pass
+
+
+class ThreadsafeRawScreen(ThreadsafeScreenMixin, RawScreen):
+    pass
+
+
+class ThreadsafeFixedSizeRawScreen(ThreadsafeScreenMixin, RawScreen):
+    def __init__(self, **kwargs):
+        self._term_size = kwargs.pop("term_size", None)
+        super(ThreadsafeFixedSizeRawScreen, self).__init__(**kwargs)
+
+    def get_cols_rows(self):
+        if self._term_size is not None:
+            return self._term_size
+        else:
+            return 80, 24
+
+
+if curses is not None:
+    class ThreadsafeCursesScreen(ThreadsafeScreenMixin, RawScreen):
+        pass
 
 # }}}
 
@@ -456,7 +564,13 @@ class NullSourceCodeProvider(SourceCodeProvider):
                 SourceLine(debugger_ui, ""),
                 SourceLine(debugger_ui, "If this is generated code and you would "
                     "like the source code to show up here,"),
-                SourceLine(debugger_ui, "simply set the attribute "
+                SourceLine(debugger_ui, "add it to linecache.cache, like"),
+                SourceLine(debugger_ui, ""),
+                SourceLine(debugger_ui, "    import linecache"),
+                SourceLine(debugger_ui, "    linecache.cache[filename] = "
+                    "(size, mtime, lines, fullname)"),
+                SourceLine(debugger_ui, ""),
+                SourceLine(debugger_ui, "You can also set the attribute "
                     "_MODULE_SOURCE_CODE in the module in which this function"),
                 SourceLine(debugger_ui, "was compiled to a string containing "
                     "the code."),
@@ -468,9 +582,7 @@ class FileSourceCodeProvider(SourceCodeProvider):
         self.file_name = debugger.canonic(file_name)
 
     def __eq__(self, other):
-        return (
-                type(self) == type(other)
-                and
+        return (type(self) == type(other) and
                 self.file_name == other.file_name)
 
     def identifier(self):
@@ -487,30 +599,25 @@ class FileSourceCodeProvider(SourceCodeProvider):
         from pudb.source_view import SourceLine, format_source
 
         if self.file_name == "<string>":
-            return [SourceLine(self, self.file_name)]
+            return [SourceLine(debugger_ui, self.file_name)]
 
-        breakpoints = debugger_ui.debugger.get_file_breaks(self.file_name)
+        breakpoints = debugger_ui.debugger.get_file_breaks(self.file_name)[:]
+        breakpoints = [lineno for lineno in breakpoints if
+            any(bp.enabled
+                for bp in debugger_ui.debugger.get_breaks(self.file_name, lineno))]
+        breakpoints += [i for f, i in debugger_ui.debugger.set_traces if f
+            == self.file_name and debugger_ui.debugger.set_traces[f, i]]
         try:
             from linecache import getlines
             lines = getlines(self.file_name)
-
-            from pudb.lowlevel import detect_encoding
-            source_enc, _ = detect_encoding(getattr(iter(lines), _next))
-
-            decoded_lines = []
-            for l in lines:
-                if hasattr(l, "decode"):
-                    decoded_lines.append(l.decode(source_enc))
-                else:
-                    decoded_lines.append(l)
-
-            return format_source(debugger_ui, decoded_lines, set(breakpoints))
-        except:
+            return format_source(
+                    debugger_ui, list(decode_lines(lines)), set(breakpoints))
+        except Exception:
             from pudb.lowlevel import format_exception
-            self.message("Could not load source file '%s':\n\n%s" % (
+            debugger_ui.message("Could not load source file '%s':\n\n%s" % (
                 self.file_name, "".join(format_exception(sys.exc_info()))),
                 title="Source Code Load Error")
-            return [SourceLine(self,
+            return [SourceLine(debugger_ui,
                 "Error while loading '%s'." % self.file_name)]
 
 
@@ -539,28 +646,8 @@ class DirectSourceCodeProvider(SourceCodeProvider):
     def get_lines(self, debugger_ui):
         from pudb.source_view import format_source
 
-        lines = self.code.split("\n")
-
-        from pudb.lowlevel import detect_encoding
-        source_enc, _ = detect_encoding(getattr(iter(lines), _next))
-
-        decoded_lines = []
-        for i, l in enumerate(lines):
-            try:
-                l = l.decode(source_enc)
-            except:
-                pass
-            #if hasattr(l, "decode"):
-            #    l = l.decode(source_enc)
-            #else:
-            #    l = l.decode(source_enc)
-
-            if i+1 < len(lines):
-                l += "\n"
-
-            decoded_lines.append(l)
-
-        return format_source(debugger_ui, decoded_lines, set())
+        lines = self.code.splitlines(True)
+        return format_source(debugger_ui, list(decode_lines(lines)), set())
 
 # }}}
 
@@ -568,7 +655,7 @@ class DirectSourceCodeProvider(SourceCodeProvider):
 class DebuggerUI(FrameVarInfoKeeper):
     # {{{ constructor
 
-    def __init__(self, dbg):
+    def __init__(self, dbg, stdin, stdout, term_size):
         FrameVarInfoKeeper.__init__(self)
 
         self.debugger = dbg
@@ -698,10 +785,13 @@ class DebuggerUI(FrameVarInfoKeeper):
         def change_var_state(w, size, key):
             var, pos = self.var_list._w.get_focus()
 
+            if var is None:
+                return
+
             iinfo = self.get_frame_var_info(read_only=False) \
                     .get_inspect_info(var.id_path, read_only=False)
 
-            if key == "\\":
+            if key == "\\" or key == ' ':
                 iinfo.show_detail = not iinfo.show_detail
             elif key == "t":
                 iinfo.display_type = "type"
@@ -716,9 +806,12 @@ class DebuggerUI(FrameVarInfoKeeper):
             elif key == "@":
                 iinfo.repeated_at_top = not iinfo.repeated_at_top
             elif key == "*":
-                iinfo.show_private_members = not iinfo.show_private_members
+                levels = ["public", "private", "all", "public"]
+                iinfo.access_level = levels[levels.index(iinfo.access_level)+1]
             elif key == "w":
                 iinfo.wrap = not iinfo.wrap
+            elif key == "m":
+                iinfo.show_methods = not iinfo.show_methods
 
             self.update_var_view()
 
@@ -753,32 +846,45 @@ class DebuggerUI(FrameVarInfoKeeper):
 
                 title = "Variable Inspection Options"
 
-            rb_grp = []
-            rb_show_type = urwid.RadioButton(rb_grp, "Show Type",
+            rb_grp_show = []
+            rb_show_type = urwid.RadioButton(rb_grp_show, "Show Type",
                     iinfo.display_type == "type")
-            rb_show_repr = urwid.RadioButton(rb_grp, "Show repr()",
+            rb_show_repr = urwid.RadioButton(rb_grp_show, "Show repr()",
                     iinfo.display_type == "repr")
-            rb_show_str = urwid.RadioButton(rb_grp, "Show str()",
+            rb_show_str = urwid.RadioButton(rb_grp_show, "Show str()",
                     iinfo.display_type == "str")
-            rb_show_custom = urwid.RadioButton(rb_grp, "Show custom (set in prefs)",
+            rb_show_custom = urwid.RadioButton(
+                    rb_grp_show, "Show custom (set in prefs)",
                     iinfo.display_type == CONFIG["custom_stringifier"])
+
+            rb_grp_access = []
+            rb_access_public = urwid.RadioButton(rb_grp_access, "Public members",
+                    iinfo.access_level == "public")
+            rb_access_private = urwid.RadioButton(
+                    rb_grp_access, "Public and private members",
+                    iinfo.access_level == "private")
+            rb_access_all = urwid.RadioButton(
+                    rb_grp_access, "All members (including __dunder__)",
+                    iinfo.access_level == "all")
 
             wrap_checkbox = urwid.CheckBox("Line Wrap", iinfo.wrap)
             expanded_checkbox = urwid.CheckBox("Expanded", iinfo.show_detail)
             highlighted_checkbox = urwid.CheckBox("Highlighted", iinfo.highlighted)
             repeated_at_top_checkbox = urwid.CheckBox(
                     "Repeated at top", iinfo.repeated_at_top)
-            show_private_checkbox = urwid.CheckBox(
-                    "Show private members", iinfo.show_private_members)
+            show_methods_checkbox = urwid.CheckBox(
+                    "Show methods", iinfo.show_methods)
 
             lb = urwid.ListBox(urwid.SimpleListWalker(
-                id_segment+rb_grp+[
-                    urwid.Text(""),
+                id_segment +
+                rb_grp_show + [urwid.Text("")] +
+                rb_grp_access + [urwid.Text("")] +
+                [
                     wrap_checkbox,
                     expanded_checkbox,
                     highlighted_checkbox,
                     repeated_at_top_checkbox,
-                    show_private_checkbox,
+                    show_methods_checkbox,
                 ]))
 
             result = self.dialog(lb, buttons, title=title)
@@ -788,7 +894,7 @@ class DebuggerUI(FrameVarInfoKeeper):
                 iinfo.wrap = wrap_checkbox.get_state()
                 iinfo.highlighted = highlighted_checkbox.get_state()
                 iinfo.repeated_at_top = repeated_at_top_checkbox.get_state()
-                iinfo.show_private_members = show_private_checkbox.get_state()
+                iinfo.show_methods = show_methods_checkbox.get_state()
 
                 if rb_show_type.get_state():
                     iinfo.display_type = "type"
@@ -798,6 +904,13 @@ class DebuggerUI(FrameVarInfoKeeper):
                     iinfo.display_type = "str"
                 elif rb_show_custom.get_state():
                     iinfo.display_type = CONFIG["custom_stringifier"]
+
+                if rb_access_public.get_state():
+                    iinfo.access_level = "public"
+                elif rb_access_private.get_state():
+                    iinfo.access_level = "private"
+                elif rb_access_all.get_state():
+                    iinfo.access_level = "all"
 
                 if var.watch_expr is not None:
                     var.watch_expr.expression = watch_edit.get_edit_text()
@@ -830,6 +943,7 @@ class DebuggerUI(FrameVarInfoKeeper):
                 self.update_var_view()
 
         self.var_list.listen("\\", change_var_state)
+        self.var_list.listen(" ", change_var_state)
         self.var_list.listen("t", change_var_state)
         self.var_list.listen("r", change_var_state)
         self.var_list.listen("s", change_var_state)
@@ -838,6 +952,7 @@ class DebuggerUI(FrameVarInfoKeeper):
         self.var_list.listen("@", change_var_state)
         self.var_list.listen("*", change_var_state)
         self.var_list.listen("w", change_var_state)
+        self.var_list.listen("m", change_var_state)
         self.var_list.listen("enter", edit_inspector_detail)
         self.var_list.listen("n", insert_watch)
         self.var_list.listen("insert", insert_watch)
@@ -907,6 +1022,9 @@ class DebuggerUI(FrameVarInfoKeeper):
 
             bp = self._get_bp_list()[pos]
             bp.enabled = not bp.enabled
+
+            sline = self.source[bp.line-1]
+            sline.set_breakpoint(bp.enabled)
 
             self.update_breakpoints()
 
@@ -1069,13 +1187,14 @@ class DebuggerUI(FrameVarInfoKeeper):
             _, line = self.source.get_focus()
 
             lineno_edit = urwid.IntEdit([
-                ("label", "Line number: ")
-                ], line+1)
+                ("label", "Go to Line   :")
+                ], None)
 
             if self.dialog(
                     urwid.ListBox(urwid.SimpleListWalker([
                         labelled_value("File :",
                             self.source_code_provider.identifier()),
+                        labelled_value("Current Line :", line+1),
                         urwid.AttrMap(lineno_edit, "value")
                         ])),
                     [
@@ -1129,24 +1248,43 @@ class DebuggerUI(FrameVarInfoKeeper):
                 existing_breaks = self.debugger.get_breaks(
                         bp_source_identifier, lineno)
                 if existing_breaks:
-                    err = self.debugger.clear_break(bp_source_identifier, lineno)
-                    sline.set_breakpoint(False)
+                    err = None
+                    for bp in existing_breaks:
+                        if not bp.enabled:
+                            bp.enable()
+                            sline.set_breakpoint(True)
+                            # Unsure about this. Are multiple breakpoints even
+                            # possible?
+                            break
+                    else:
+                        err = self.debugger.clear_break(bp_source_identifier, lineno)
+                        sline.set_breakpoint(False)
                 else:
+                    file_lineno = (bp_source_identifier, lineno)
+                    if file_lineno in self.debugger.set_traces:
+                        self.debugger.set_traces[file_lineno] = \
+                                not self.debugger.set_traces[file_lineno]
+                        sline.set_breakpoint(self.debugger.set_traces[file_lineno])
+                        return
+
                     from pudb.lowlevel import get_breakpoint_invalid_reason
                     invalid_reason = get_breakpoint_invalid_reason(
                             bp_source_identifier, pos+1)
 
                     if invalid_reason is not None:
                         do_set = not self.dialog(
-                                urwid.ListBox(urwid.SimpleListWalker([
-                                    urwid.Text("The breakpoint you just set may be "
-                                        "invalid, for the following reason:\n\n"
-                                        + invalid_reason),
-                                    ])), [
-                                        ("Cancel", True),
-                                        ("Set Anyway", False),
-                                        ], title="Possibly Invalid Breakpoint",
-                                    focus_buttons=True)
+                                urwid.ListBox(
+                                    urwid.SimpleListWalker([
+                                        urwid.Text(
+                                            "The breakpoint you just set may be "
+                                            "invalid, for the following reason:\n\n"
+                                            + invalid_reason),
+                                        ])), [
+                                            ("Cancel", True),
+                                            ("Set Anyway", False),
+                                            ],
+                                title="Possibly Invalid Breakpoint",
+                                focus_buttons=True)
                     else:
                         do_set = True
 
@@ -1174,6 +1312,8 @@ class DebuggerUI(FrameVarInfoKeeper):
             def mod_exists(mod):
                 if not hasattr(mod, "__file__"):
                     return False
+                if mod.__file__ is None:
+                    return False
                 filename = mod.__file__
 
                 base, ext = splitext(filename)
@@ -1192,7 +1332,9 @@ class DebuggerUI(FrameVarInfoKeeper):
 
             def build_filtered_mod_list(filt_string=""):
                 modules = sorted(name
-                        for name, mod in sys.modules.items()
+                        # mod_exists may change the size of sys.modules,
+                        # causing this to crash. Copy to a list.
+                        for name, mod in list(sys.modules.items())
                         if mod_exists(mod))
 
                 result = [urwid.AttrMap(SelectableText(mod),
@@ -1251,7 +1393,7 @@ class DebuggerUI(FrameVarInfoKeeper):
                         new_mod_name = filt_edit.get_edit_text()
                         try:
                             __import__(str(new_mod_name))
-                        except:
+                        except Exception:
                             from pudb.lowlevel import format_exception
 
                             self.message("Could not import module '%s':\n\n%s" % (
@@ -1259,7 +1401,7 @@ class DebuggerUI(FrameVarInfoKeeper):
                                     format_exception(sys.exc_info()))),
                                 title="Import Error")
                         else:
-                            show_mod(sys.modules[str(new_mod_name)])
+                            show_mod(__import__(str(new_mod_name)))
                             break
                     else:
                         show_mod(sys.modules[widget.base_widget.get_text()[0]])
@@ -1271,7 +1413,12 @@ class DebuggerUI(FrameVarInfoKeeper):
                     if widget is not new_mod_entry:
                         mod_name = widget.base_widget.get_text()[0]
                         mod = sys.modules[mod_name]
-                        reload(mod)
+                        if PY3:
+                            import importlib
+                            importlib.reload(mod)
+                        else:
+                            reload(mod)  # noqa (undef on Py3)
+
                         self.message("'%s' was successfully reloaded." % mod_name)
 
                         if self.source_code_provider is not None:
@@ -1436,9 +1583,12 @@ class DebuggerUI(FrameVarInfoKeeper):
             sys.stdin = None
             sys.stderr = sys.stdout = StringIO()
             try:
+                # Don't use cmdline_get_namespace() here, it breaks things in
+                # Python 2 (issue #166).
                 eval(compile(cmd, "<pudb command line>", 'single'),
-                        cmdline_get_namespace())
-            except:
+                        self.debugger.curframe.f_globals,
+                        self.debugger.curframe.f_locals)
+            except Exception:
                 tp, val, tb = sys.exc_info()
 
                 import traceback
@@ -1481,6 +1631,34 @@ class DebuggerUI(FrameVarInfoKeeper):
         def cmdline_history_next(w, size, key):
             cmdline_history_browse(1)
 
+        def cmdline_start_of_line(w, size, key):
+            self.cmdline_edit.edit_pos = 0
+
+        def cmdline_end_of_line(w, size, key):
+            self.cmdline_edit.edit_pos = len(self.cmdline_edit.edit_text)
+
+        def cmdline_del_word(w, size, key):
+            pos = self.cmdline_edit.edit_pos
+            before, after = (
+                    self.cmdline_edit.edit_text[:pos],
+                    self.cmdline_edit.edit_text[pos:])
+            before = before[::-1]
+            before = before.lstrip()
+            i = 0
+            while i < len(before):
+                if not before[i].isspace():
+                    i += 1
+                else:
+                    break
+
+            self.cmdline_edit.edit_text = before[i:][::-1] + after
+            self.cmdline_edit.edit_post = len(before[i:])
+
+        def cmdline_del_to_start_of_line(w, size, key):
+            pos = self.cmdline_edit.edit_pos
+            self.cmdline_edit.edit_text = self.cmdline_edit.edit_text[pos:]
+            self.cmdline_edit.edit_pos = 0
+
         def toggle_cmdline_focus(w, size, key):
             self.columns.set_focus(self.lhs_col)
             if self.lhs_col.get_focus() is self.cmdline_sigwrap:
@@ -1496,6 +1674,10 @@ class DebuggerUI(FrameVarInfoKeeper):
         self.cmdline_edit_sigwrap.listen("ctrl p", cmdline_history_prev)
         self.cmdline_edit_sigwrap.listen("esc", toggle_cmdline_focus)
         self.cmdline_edit_sigwrap.listen("ctrl d", toggle_cmdline_focus)
+        self.cmdline_edit_sigwrap.listen("ctrl a", cmdline_start_of_line)
+        self.cmdline_edit_sigwrap.listen("ctrl e", cmdline_end_of_line)
+        self.cmdline_edit_sigwrap.listen("ctrl w", cmdline_del_word)
+        self.cmdline_edit_sigwrap.listen("ctrl u", cmdline_del_to_start_of_line)
 
         self.top.listen("ctrl x", toggle_cmdline_focus)
 
@@ -1625,24 +1807,41 @@ class DebuggerUI(FrameVarInfoKeeper):
         def run_external_cmdline(w, size, key):
             self.screen.stop()
 
-            if not hasattr(self, "have_been_to_cmdline"):
-                self.have_been_to_cmdline = True
-                first_cmdline_run = True
-            else:
-                first_cmdline_run = False
-
             curframe = self.debugger.curframe
 
             import pudb.shell as shell
-            if shell.HAVE_IPYTHON and CONFIG["shell"] == "ipython":
+            if CONFIG["shell"] == "ipython" and shell.have_ipython():
                 runner = shell.run_ipython_shell
-            elif shell.HAVE_BPYTHON and CONFIG["shell"] == "bpython":
+            elif CONFIG["shell"] == "bpython" and shell.HAVE_BPYTHON:
                 runner = shell.run_bpython_shell
-            else:
+            elif CONFIG["shell"] == "ptpython" and shell.HAVE_PTPYTHON:
+                runner = shell.run_ptpython_shell
+            elif CONFIG["shell"] == "ptipython" and shell.HAVE_PTIPYTHON:
+                runner = shell.run_ptipython_shell
+            elif CONFIG["shell"] == "classic":
                 runner = shell.run_classic_shell
+            else:
+                try:
+                    if not shell.custom_shell_dict:  # Only execfile once
+                        from os.path import expanduser
+                        execfile(
+                                expanduser(CONFIG["shell"]), shell.custom_shell_dict)
+                except Exception:
+                    print("Error when importing custom shell:")
+                    from traceback import print_exc
+                    print_exc()
+                    print("Falling back to classic shell")
+                    runner = shell.run_classic_shell
+                else:
+                    if "pudb_shell" not in shell.custom_shell_dict:
+                        print("%s does not contain a function named pudb_shell at "
+                              "the module level." % CONFIG["shell"])
+                        print("Falling back to classic shell")
+                        runner = shell.run_classic_shell
+                    else:
+                        runner = shell.custom_shell_dict['pudb_shell']
 
-            runner(curframe.f_locals, curframe.f_globals,
-                    first_cmdline_run)
+            runner(curframe.f_globals, curframe.f_locals)
 
             self.screen.start()
 
@@ -1662,7 +1861,7 @@ class DebuggerUI(FrameVarInfoKeeper):
             def __init__(self, idx):
                 self.idx = idx
 
-            def __call__(subself, w, size, key):
+            def __call__(subself, w, size, key):  # noqa
                 self.columns.set_focus(self.rhs_col_sigwrap)
                 self.rhs_col.set_focus(self.rhs_col.widget_list[subself.idx])
 
@@ -1699,7 +1898,40 @@ class DebuggerUI(FrameVarInfoKeeper):
 
         # {{{ setup
 
-        self.screen = ThreadsafeScreen()
+        #self.screen = ThreadsafeScreen()
+        #Hacer validacion con WINDOWS aca y caer en el
+        #ThreadsafeScreen() antiguo parece...
+
+        want_curses_display = (
+                CONFIG["display"] == "curses"
+                or (
+                    CONFIG["display"] == "auto"
+                    and
+                    not (
+                        os.environ.get("TERM", "").startswith("xterm")
+                        or
+                        os.environ.get("TERM", "").startswith("rxvt")
+                    )))
+
+        if (want_curses_display
+                and not (stdin is not None or stdout is not None)
+                and CursesScreen is not None):
+            self.screen = ThreadsafeCursesScreen()
+        else:
+            screen_kwargs = {}
+            if stdin is not None:
+                screen_kwargs["input"] = stdin
+            if stdout is not None:
+                screen_kwargs["output"] = stdout
+            if term_size is not None:
+                screen_kwargs["term_size"] = term_size
+
+            if screen_kwargs:
+                self.screen = ThreadsafeFixedSizeRawScreen(**screen_kwargs)
+            else:
+                self.screen = ThreadsafeRawScreen()
+
+        del want_curses_display
 
         import sys
         from bdb import BdbQuit
@@ -1714,7 +1946,7 @@ class DebuggerUI(FrameVarInfoKeeper):
         if curses:
             try:
                 curses.setupterm()
-            except:
+            except Exception:
                 # Something went wrong--oh well. Nobody will die if their
                 # 256 color support breaks. Just carry on without it.
                 # https://github.com/inducer/pudb/issues/78
@@ -1764,13 +1996,13 @@ class DebuggerUI(FrameVarInfoKeeper):
             title=None, bind_enter_esc=True, focus_buttons=False,
             extra_bindings=[]):
         class ResultSetter:
-            def __init__(subself, res):
+            def __init__(subself, res):  # noqa
                 subself.res = res
 
-            def __call__(subself, btn):
+            def __call__(subself, btn):  # noqa
                 self.quit_event_loop = [subself.res]
 
-        Attr = urwid.AttrMap
+        Attr = urwid.AttrMap  # noqa
 
         if bind_enter_esc:
             content = SignalWrap(content)
@@ -1811,10 +2043,10 @@ class DebuggerUI(FrameVarInfoKeeper):
                 w])
 
         class ResultSetter:
-            def __init__(subself, res):
+            def __init__(subself, res):  # noqa
                 subself.res = res
 
-            def __call__(subself, w, size, key):
+            def __call__(subself, w, size, key):  # noqa
                 self.quit_event_loop = [subself.res]
 
         w = SignalWrap(w)
@@ -1934,7 +2166,7 @@ class DebuggerUI(FrameVarInfoKeeper):
                 self.message("Package 'pygments' not found. "
                         "Syntax highlighting disabled.")
 
-        WELCOME_LEVEL = "e022"
+        WELCOME_LEVEL = "e034"  # noqa
         if CONFIG["seen_welcome"] < WELCOME_LEVEL:
             CONFIG["seen_welcome"] = WELCOME_LEVEL
             from pudb import VERSION
@@ -1951,10 +2183,65 @@ class DebuggerUI(FrameVarInfoKeeper):
                     "(invoked by hitting '?' after this message) should get you "
                     "on your way.\n"
 
+                    "\nChanges in version 2018.1:\n\n"
+                    "- Bug fixes.\n"
+
+                    "\nChanges in version 2017.1.4:\n\n"
+                    "- Bug fixes.\n"
+
+                    "\nChanges in version 2017.1.3:\n\n"
+                    "- Add handling of safely_stringify_for_pudb to allow custom \n"
+                    "  per-type stringification.\n"
+                    "- Add support for custom shells.\n"
+                    "- Better support for 2-wide characters in the var view.\n"
+                    "- Bug fixes.\n"
+
+                    "\nChanges in version 2017.1.2:\n\n"
+                    "- Bug fixes.\n"
+
+                    "\nChanges in version 2017.1.1:\n\n"
+                    "- IMPORTANT: 2017.1 and possibly earlier versions had a \n"
+                    "  bug with exponential growth of shell history for the \n"
+                    "  'classic' shell, which (among other problems) could lead\n"
+                    "  to slow startup of the classic shell. Check the file\n\n"
+                    "  ~/.config/pudb/shell-history\n\n"
+                    "  for size (and useful content) and delete/trim as needed.\n"
+
+                    "\nChanges in version 2017.1:\n\n"
+                    "- Many, many bug fixes (thank you to all who contributed!)\n"
+
+                    "\nChanges in version 2016.2:\n\n"
+                    "- UI improvements for disabled breakpoints.\n"
+                    "- Bug fixes.\n"
+
+                    "\nChanges in version 2016.1:\n\n"
+                    "- Fix module browser on Py3.\n"
+
+                    "\nChanges in version 2015.4:\n\n"
+                    "- Support for (somewhat rudimentary) remote debugging\n"
+                    "  through a telnet connection.\n"
+                    "- Fix debugging of generated code in Python 3.\n"
+
+                    "\nChanges in version 2015.3:\n\n"
+                    "- Disable set_trace lines from the UI (Aaron Meurer)\n"
+                    "- Better control over attribute visibility (Ned Batchelder)\n"
+
+                    "\nChanges in version 2015.2:\n\n"
+                    "- ptpython support (P. Varet)\n"
+                    "- Improved rxvt support (Louper Rouch)\n"
+                    "- More keyboard shortcuts in the command line"
+                    "(Alex Sheluchin)\n"
+
+                    "\nChanges in version 2015.1:\n\n"
+                    "- Add solarized theme (Rinat Shigapov)\n"
+                    "- More keyboard shortcuts in the command line"
+                    "(Alexander Corwin)\n"
+
                     "\nChanges in version 2014.1:\n\n"
                     "- Make prompt-on-quit optional (Mike Burr)\n"
                     "- Make tab completion in the built-in shell saner\n"
-                    "- Fix handling of unicode source\n  (reported by Morten Nielsen and Buck Golemon)\n"
+                    "- Fix handling of unicode source\n"
+                    "  (reported by Morten Nielsen and Buck Golemon)\n"
 
                     "\nChanges in version 2013.5.1:\n\n"
                     "- Fix loading of saved breakpoint conditions "
@@ -2168,7 +2455,7 @@ class DebuggerUI(FrameVarInfoKeeper):
     def update_breakpoints(self):
         self.bp_walker[:] = [
                 BreakpointFrame(self.debugger.current_bp == (bp.file, bp.line),
-                    self._format_fname(bp.file), bp.line)
+                    self._format_fname(bp.file), bp)
                 for bp in self._get_bp_list()]
 
     def update_stack(self):
@@ -2181,7 +2468,7 @@ class DebuggerUI(FrameVarInfoKeeper):
             if code.co_argcount and code.co_varnames[0] == "self":
                 try:
                     class_name = frame.f_locals["self"].__class__.__name__
-                except:
+                except Exception:
                     pass
 
             return StackFrame(frame is self.debugger.curframe,

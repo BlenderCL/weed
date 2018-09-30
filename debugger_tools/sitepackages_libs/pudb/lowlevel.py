@@ -1,26 +1,54 @@
+from __future__ import absolute_import, division, print_function
+
+__copyright__ = """
+Copyright (C) 2009-2017 Andreas Kloeckner
+Copyright (C) 2014-2017 Aaron Meurer
+"""
+
+__license__ = """
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+"""
+
+
 from pudb.py3compat import PY3
 
 
 # {{{ breakpoint validity
 
 def generate_executable_lines_for_code(code):
-    l = code.co_firstlineno
-    yield l
+    lineno = code.co_firstlineno
+    yield lineno
     if PY3:
         for c in code.co_lnotab[1::2]:
-            l += c
-            yield l
+            lineno += c
+            yield lineno
     else:
         for c in code.co_lnotab[1::2]:
-            l += ord(c)
-            yield l
+            lineno += ord(c)
+            yield lineno
 
 
 def get_executable_lines_for_file(filename):
     # inspired by rpdb2
 
     from linecache import getlines
-    codes = [compile("".join(getlines(filename)), filename, "exec")]
+    codes = [compile("".join(getlines(filename)), filename, "exec", dont_inherit=1)]
 
     from types import CodeType
 
@@ -43,7 +71,12 @@ def get_breakpoint_invalid_reason(filename, lineno):
     if not line:
         return "Line is beyond end of file."
 
-    if lineno not in get_executable_lines_for_file(filename):
+    try:
+        executable_lines = get_executable_lines_for_file(filename)
+    except SyntaxError:
+        return "File failed to compile."
+
+    if lineno not in executable_lines:
         return "No executable statement found in line."
 
 
@@ -78,8 +111,9 @@ def lookup_module(filename):
 
 # }}}
 
+
 # {{{ file encoding detection
-# stolen from Python 3.1's tokenize.py, by Ka-Ping Yee
+# the main idea stolen from Python 3.1's tokenize.py, by Ka-Ping Yee
 
 import re
 cookie_re = re.compile("^\s*#.*coding[:=]\s*([-\w.]+)")
@@ -88,13 +122,13 @@ if PY3:
     BOM_UTF8 = BOM_UTF8.decode()
 
 
-def detect_encoding(readline):
+def detect_encoding(lines):
     """
     The detect_encoding() function is used to detect the encoding that should
-    be used to decode a Python source file. It requires one argment, readline,
-    in the same way as the tokenize() generator.
+    be used to decode a Python source file. It requires one argment, lines,
+    iterable lines stream.
 
-    It will call readline a maximum of twice, and return the encoding used
+    It will read a maximum of two lines, and return the encoding used
     (as a string) and a list of any lines (left as bytes) it has read
     in.
 
@@ -106,11 +140,11 @@ def detect_encoding(readline):
     If no encoding is specified, then the default of 'utf-8' will be returned.
     """
     bom_found = False
-    encoding = None
+    line_iterator = iter(lines)
 
     def read_or_stop():
         try:
-            return readline()
+            return next(line_iterator)
         except StopIteration:
             return ''
 
@@ -159,6 +193,15 @@ def detect_encoding(readline):
 
     return 'utf-8', [first, second]
 
+
+def decode_lines(lines):
+    source_enc, _ = detect_encoding(lines)
+
+    for line in lines:
+        if hasattr(line, "decode"):
+            yield line.decode(source_enc)
+        else:
+            yield line
 # }}}
 
 

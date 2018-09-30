@@ -18,15 +18,22 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 import os
 import sys
 
-from urwid.util import int_scale
+try:
+    import termios
+except ImportError:
+    pass # windows
+
+from urwid.util import StoppingContext, int_scale
 from urwid import signals
-from urwid.compat import B, bytes3
+from urwid.compat import B, bytes3, xrange, with_metaclass
 
 # for replacing unprintable bytes with '?'
-UNPRINTABLE_TRANS_TABLE = B("?") * 32 + bytes3(list(range(32,256)))
+UNPRINTABLE_TRANS_TABLE = B("?") * 32 + bytes3(list(xrange(32,256)))
 
 
 # signals sent by BaseScreen
@@ -62,11 +69,11 @@ _BASIC_COLOR_VALUES = [(0,0,0), (205, 0, 0), (0, 205, 0), (205, 205, 0),
     (0x5c, 0x5c, 0xff), (255, 0, 255), (0, 255, 255), (255, 255, 255)]
 
 _COLOR_VALUES_256 = (_BASIC_COLOR_VALUES +
-    [(r, g, b) for r in _CUBE_STEPS_256 for g in _CUBE_STEPS_256 
+    [(r, g, b) for r in _CUBE_STEPS_256 for g in _CUBE_STEPS_256
     for b in _CUBE_STEPS_256] +
     [(gr, gr, gr) for gr in _GRAY_STEPS_256])
 _COLOR_VALUES_88 = (_BASIC_COLOR_VALUES +
-    [(r, g, b) for r in _CUBE_STEPS_88 for g in _CUBE_STEPS_88 
+    [(r, g, b) for r in _CUBE_STEPS_88 for g in _CUBE_STEPS_88
     for b in _CUBE_STEPS_88] +
     [(gr, gr, gr) for gr in _GRAY_STEPS_88])
 
@@ -85,8 +92,10 @@ _STANDOUT = 0x02000000
 _UNDERLINE = 0x04000000
 _BOLD = 0x08000000
 _BLINK = 0x10000000
+_ITALICS = 0x20000000
+_STRIKETHROUGH = 0x40000000
 _FG_MASK = (_FG_COLOR_MASK | _FG_BASIC_COLOR | _FG_HIGH_COLOR |
-    _STANDOUT | _UNDERLINE | _BLINK | _BOLD)
+    _STANDOUT | _UNDERLINE | _BLINK | _BOLD | _ITALICS | _STRIKETHROUGH)
 _BG_MASK = _BG_COLOR_MASK | _BG_BASIC_COLOR | _BG_HIGH_COLOR
 
 DEFAULT = 'default'
@@ -128,19 +137,21 @@ _BASIC_COLORS = [
 
 _ATTRIBUTES = {
     'bold': _BOLD,
+    'italics': _ITALICS,
     'underline': _UNDERLINE,
     'blink': _BLINK,
     'standout': _STANDOUT,
+    'strikethrough': _STRIKETHROUGH,
 }
 
 def _value_lookup_table(values, size):
     """
     Generate a lookup table for finding the closest item in values.
     Lookup returns (index into values)+1
-    
+
     values -- list of values in ascending order, all < size
     size -- size of lookup table and maximum value
-    
+
     >>> _value_lookup_table([0, 7, 9], 10)
     [0, 0, 0, 0, 1, 1, 1, 1, 2, 2]
     """
@@ -176,11 +187,11 @@ _GRAY_88_LOOKUP_101 = [_GRAY_88_LOOKUP[int_scale(n, 101, 0x100)]
     for n in range(101)]
 
 
-# The functions _gray_num_256() and _gray_num_88() do not include the gray 
-# values from the color cube so that the gray steps are an even width.  
-# The color cube grays are available by using the rgb functions.  Pure 
-# white and black are taken from the color cube, since the gray range does 
-# not include them, and the basic colors are more likely to have been 
+# The functions _gray_num_256() and _gray_num_88() do not include the gray
+# values from the color cube so that the gray steps are an even width.
+# The color cube grays are available by using the rgb functions.  Pure
+# white and black are taken from the color cube, since the gray range does
+# not include them, and the basic colors are more likely to have been
 # customized by an end-user.
 
 
@@ -257,7 +268,7 @@ def _color_desc_88(num):
     0..15 -> 'h0'..'h15' basic colors (as high-colors)
     16..79 -> '#000'..'#fff' color cube colors
     80..87 -> 'g18'..'g90' grays
-    
+
     >>> _color_desc_88(15)
     'h15'
     >>> _color_desc_88(16)
@@ -290,7 +301,7 @@ def _parse_color_256(desc):
     '#000'..'#fff' -> 16..231 color cube colors
     'g0'..'g100' -> 16, 232..255, 231 grays and color cube black/white
     'g#00'..'g#ff' -> 16, 232...255, 231 gray and color cube black/white
-    
+
     Returns None if desc is invalid.
 
     >>> _parse_color_256('h142')
@@ -358,9 +369,9 @@ def _parse_color_88(desc):
     '#000'..'#fff' -> 16..79 color cube colors
     'g0'..'g100' -> 16, 80..87, 79 grays and color cube black/white
     'g#00'..'g#ff' -> 16, 80...87, 79 gray and color cube black/white
-    
+
     Returns None if desc is invalid.
-    
+
     >>> _parse_color_88('h142')
     >>> _parse_color_88('h42')
     42
@@ -433,7 +444,7 @@ class AttrSpec(object):
               'default' (use the terminal's default foreground),
               'black', 'dark red', 'dark green', 'brown', 'dark blue',
               'dark magenta', 'dark cyan', 'light gray', 'dark gray',
-              'light red', 'light green', 'yellow', 'light blue', 
+              'light red', 'light green', 'yellow', 'light blue',
               'light magenta', 'light cyan', 'white'
 
               High-color example values:
@@ -445,7 +456,8 @@ class AttrSpec(object):
               'h8' (color number 8), 'h255' (color number 255)
 
               Setting:
-              'bold', 'underline', 'blink', 'standout'
+              'bold', 'italics', 'underline', 'blink', 'standout',
+              'strikethrough'
 
               Some terminals use 'bold' for bright colors.  Most terminals
               ignore the 'blink' setting.  If the color is not given then
@@ -465,7 +477,7 @@ class AttrSpec(object):
 
         colors -- the maximum colors available for the specification
 
-                   Valid values include: 1, 16, 88 and 256.  High-color 
+                   Valid values include: 1, 16, 88 and 256.  High-color
                    values are only usable with 88 or 256 colors.  With
                    1 color only the foreground settings may be used.
 
@@ -493,12 +505,14 @@ class AttrSpec(object):
     foreground_number = property(lambda s: s._value & _FG_COLOR_MASK)
     background_basic = property(lambda s: s._value & _BG_BASIC_COLOR != 0)
     background_high = property(lambda s: s._value & _BG_HIGH_COLOR != 0)
-    background_number = property(lambda s: (s._value & _BG_COLOR_MASK) 
+    background_number = property(lambda s: (s._value & _BG_COLOR_MASK)
         >> _BG_SHIFT)
+    italics = property(lambda s: s._value & _ITALICS != 0)
     bold = property(lambda s: s._value & _BOLD != 0)
     underline = property(lambda s: s._value & _UNDERLINE != 0)
     blink = property(lambda s: s._value & _BLINK != 0)
     standout = property(lambda s: s._value & _STANDOUT != 0)
+    strikethrough = property(lambda s: s._value & _STRIKETHROUGH != 0)
 
     def _colors(self):
         """
@@ -538,8 +552,9 @@ class AttrSpec(object):
 
     def _foreground(self):
         return (self._foreground_color() +
-            ',bold' * self.bold + ',standout' * self.standout +
-            ',blink' * self.blink + ',underline' * self.underline)
+            ',bold' * self.bold + ',italics' * self.italics +
+            ',standout' * self.standout + ',blink' * self.blink +
+            ',underline' * self.underline + ',strikethrough' * self.strikethrough)
 
     def _set_foreground(self, foreground):
         color = None
@@ -551,7 +566,7 @@ class AttrSpec(object):
                 # parse and store "settings"/attributes in flags
                 if flags & _ATTRIBUTES[part]:
                     raise AttrSpecError(("Setting %s specified more than" +
-                        "once in foreground (%s)") % (repr(part), 
+                        "once in foreground (%s)") % (repr(part),
                         repr(foreground)))
                 flags |= _ATTRIBUTES[part]
                 continue
@@ -569,7 +584,7 @@ class AttrSpec(object):
                 flags |= _FG_HIGH_COLOR
             # _parse_color_*() return None for unrecognised colors
             if scolor is None:
-                raise AttrSpecError(("Unrecognised color specification %s" +
+                raise AttrSpecError(("Unrecognised color specification %s " +
                     "in foreground (%s)") % (repr(part), repr(foreground)))
             if color is not None:
                 raise AttrSpecError(("More than one color given for " +
@@ -590,7 +605,7 @@ class AttrSpec(object):
         if self._value & _HIGH_88_COLOR:
             return _color_desc_88(self.background_number)
         return _color_desc_256(self.background_number)
-        
+
     def _set_background(self, background):
         flags = 0
         if background in ('', 'default'):
@@ -616,7 +631,7 @@ class AttrSpec(object):
         Return (fg_red, fg_green, fg_blue, bg_red, bg_green, bg_blue) color
         components.  Each component is in the range 0-255.  Values are taken
         from the XTerm defaults and may not exactly match the user's terminal.
-        
+
         If the foreground or background is 'default' then all their compenents
         will be returned as None.
 
@@ -645,7 +660,7 @@ class AttrSpec(object):
 class ScreenError(Exception):
     pass
 
-class BaseScreen(object, metaclass=signals.MetaSignals):
+class BaseScreen(with_metaclass(signals.MetaSignals, object)):
     """
     Base class for Screen classes (raw_display.Screen, .. etc)
     """
@@ -658,11 +673,43 @@ class BaseScreen(object, metaclass=signals.MetaSignals):
 
     started = property(lambda self: self._started)
 
-    def start(self):
+    def start(self, *args, **kwargs):
+        """Set up the screen.  If the screen has already been started, does
+        nothing.
+
+        May be used as a context manager, in which case :meth:`stop` will
+        automatically be called at the end of the block:
+
+            with screen.start():
+                ...
+
+        You shouldn't override this method in a subclass; instead, override
+        :meth:`_start`.
+        """
+        if not self._started:
+            self._start(*args, **kwargs)
         self._started = True
+        return StoppingContext(self)
+
+    def _start(self):
+        pass
 
     def stop(self):
+        if self._started:
+            self._stop()
         self._started = False
+
+    def _stop(self):
+        pass
+
+    def run_wrapper(self, fn, *args, **kwargs):
+        """Start the screen, call a function, then stop the screen.  Extra
+        arguments are passed to `start`.
+
+        Deprecated in favor of calling `start` as a context manager.
+        """
+        with self.start(*args, **kwargs):
+            return fn()
 
 
     def register_palette(self, palette):
@@ -711,7 +758,7 @@ class BaseScreen(object, metaclass=signals.MetaSignals):
             'light magenta', 'light cyan', 'white'
 
             Settings:
-            'bold', 'underline', 'blink', 'standout'
+            'bold', 'underline', 'blink', 'standout', 'strikethrough'
 
             Some terminals use 'bold' for bright colors.  Most terminals
             ignore the 'blink' setting.  If the color is not given then
@@ -760,7 +807,7 @@ class BaseScreen(object, metaclass=signals.MetaSignals):
         if mono is None:
             mono = DEFAULT
         mono = AttrSpec(mono, DEFAULT, 1)
-        
+
         if foreground_high is None:
             foreground_high = foreground
         if background_high is None:
@@ -768,10 +815,24 @@ class BaseScreen(object, metaclass=signals.MetaSignals):
         high_88 = AttrSpec(foreground_high, background_high, 88)
         high_256 = AttrSpec(foreground_high, background_high, 256)
 
+        # 'hX' where X > 15 are different in 88/256 color, use
+        # basic colors for 88-color mode if high colors are specified
+        # in this way (also avoids crash when X > 87)
+        def large_h(desc):
+            if not desc.startswith('h'):
+                return False
+            if ',' in desc:
+            	desc = desc.split(',',1)[0]
+            num = int(desc[1:], 10)
+            return num > 15
+        if large_h(foreground_high) or large_h(background_high):
+            high_88 = basic
+        else:
+            high_88 = AttrSpec(foreground_high, background_high, 88)
+
         signals.emit_signal(self, UPDATE_PALETTE_ENTRY,
             name, basic, mono, high_88, high_256)
         self._palette[name] = (basic, mono, high_88, high_256)
-        
 
 
 def _test():

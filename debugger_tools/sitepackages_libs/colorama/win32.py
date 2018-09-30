@@ -8,6 +8,7 @@ try:
 except (AttributeError, ImportError):
     windll = None
     SetConsoleTextAttribute = lambda *_: None
+    winapi_test = lambda *_: None
 else:
     #from ctypes import byref, Structure, c_char, POINTER
     from .win32_util import *

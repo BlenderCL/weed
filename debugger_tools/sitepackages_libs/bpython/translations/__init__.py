@@ -1,18 +1,29 @@
+# encoding: utf-8
+
+from __future__ import absolute_import
+
 import gettext
 import locale
 import os.path
 import sys
 
-from bpython import package_dir
+from .. import package_dir
+from .._py3compat import py3
 
 translator = None
 
-if sys.version_info >= (3, 0):
+if py3:
     def _(message):
         return translator.gettext(message)
+
+    def ngettext(singular, plural, n):
+        return translator.ngettext(singular, plural, n)
 else:
     def _(message):
         return translator.ugettext(message)
+
+    def ngettext(singular, plural, n):
+        return translator.ungettext(singular, plural, n)
 
 
 def init(locale_dir=None, languages=None):
@@ -31,4 +42,3 @@ def init(locale_dir=None, languages=None):
 
     translator = gettext.translation('bpython', locale_dir, languages,
                                      fallback=True)
-

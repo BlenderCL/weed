@@ -1,5 +1,8 @@
-import unittest
-import bpython.keys as keys
+# encoding: utf-8
+
+from bpython import keys
+from bpython.test import unittest
+
 
 class TestCLIKeys(unittest.TestCase):
     def test_keymap_map(self):
@@ -9,7 +12,7 @@ class TestCLIKeys(unittest.TestCase):
 
     def test_keymap_setitem(self):
         """Verify keys.KeyMap correctly setting items."""
-        keys.cli_key_dispatch['simon'] = 'awesome';
+        keys.cli_key_dispatch['simon'] = 'awesome'
         self.assertEqual(keys.cli_key_dispatch['simon'], 'awesome')
 
     def test_keymap_delitem(self):
@@ -27,10 +30,10 @@ class TestCLIKeys(unittest.TestCase):
 
     def test_keymap_keyerror(self):
         """Verify keys.KeyMap raising KeyError when getting undefined key"""
-        def raiser():
+        with self.assertRaises(KeyError):
             keys.cli_key_dispatch['C-asdf']
             keys.cli_key_dispatch['C-qwerty']
-        self.assertRaises(KeyError, raiser);
+
 
 class TestUrwidKeys(unittest.TestCase):
     def test_keymap_map(self):
@@ -40,7 +43,7 @@ class TestUrwidKeys(unittest.TestCase):
 
     def test_keymap_setitem(self):
         """Verify keys.KeyMap correctly setting items."""
-        keys.urwid_key_dispatch['simon'] = 'awesome';
+        keys.urwid_key_dispatch['simon'] = 'awesome'
         self.assertEqual(keys.urwid_key_dispatch['simon'], 'awesome')
 
     def test_keymap_delitem(self):
@@ -58,10 +61,9 @@ class TestUrwidKeys(unittest.TestCase):
 
     def test_keymap_keyerror(self):
         """Verify keys.KeyMap raising KeyError when getting undefined key"""
-        def raiser():
+        with self.assertRaises(KeyError):
             keys.urwid_key_dispatch['C-asdf']
             keys.urwid_key_dispatch['C-qwerty']
-        self.assertRaises(KeyError, raiser);
 
 
 if __name__ == '__main__':

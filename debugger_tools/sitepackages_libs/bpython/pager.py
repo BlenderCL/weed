@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 # The MIT License
 #
 # Copyright (c) 2009-2011 Andreas Stuehrk
@@ -20,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import absolute_import
 
 import curses
 import errno
@@ -27,10 +30,13 @@ import os
 import pydoc
 import subprocess
 import sys
+import shlex
+
+from bpython._py3compat import py3
 
 
-def get_pager_command():
-    command = os.environ.get('PAGER', 'less -r').split()
+def get_pager_command(default='less -rf'):
+    command = shlex.split(os.environ.get('PAGER', default))
     return command
 
 
@@ -50,7 +56,7 @@ def page(data, use_internal=False):
         curses.endwin()
         try:
             popen = subprocess.Popen(command, stdin=subprocess.PIPE)
-            if isinstance(data, str):
+            if py3 or isinstance(data, unicode):
                 data = data.encode(sys.__stdout__.encoding, 'replace')
             popen.stdin.write(data)
             popen.stdin.close()
@@ -71,3 +77,5 @@ def page(data, use_internal=False):
             else:
                 break
         curses.doupdate()
+
+# vim: sw=4 ts=4 sts=4 ai et

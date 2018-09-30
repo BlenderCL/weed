@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 # The MIT License
 #
 # Copyright (c) 2009-2011 Andreas Stuehrk
@@ -20,99 +22,101 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import absolute_import
 
+from ._py3compat import py3, try_decode
+from .line import (current_word, current_import, current_from_import_from,
+                   current_from_import_import)
 
 import imp
 import os
 import sys
 import warnings
+from warnings import catch_warnings
+from six.moves import filter
 
-if sys.version_info[0] == 3 and sys.version_info[1] >= 3:
+if py3:
     import importlib.machinery
     SUFFIXES = importlib.machinery.all_suffixes()
 else:
     SUFFIXES = [suffix for suffix, mode, type in imp.get_suffixes()]
-
-try:
-    from warnings import catch_warnings
-except ImportError:
-    import contextlib
-    @contextlib.contextmanager
-    def catch_warnings():
-        """Stripped-down version of `warnings.catch_warnings()`
-        (available in Py >= 2.6)."""
-        filters = warnings.filters
-        warnings.filters = list(filters)
-        try:
-            yield
-        finally:
-            warnings.filters = filters
-
-from bpython._py3compat import py3
 
 # The cached list of all known modules
 modules = set()
 fully_loaded = False
 
 
-def complete(line, cw):
+def module_matches(cw, prefix=''):
+    """Modules names to replace cw with"""
+    full = '%s.%s' % (prefix, cw) if prefix else cw
+    matches = (name for name in modules
+               if (name.startswith(full) and
+                   name.find('.', len(full)) == -1))
+    if prefix:
+        return set(match[len(prefix)+1:] for match in matches)
+    else:
+        return set(matches)
+
+
+def attr_matches(cw, prefix='', only_modules=False):
+    """Attributes to replace name with"""
+    full = '%s.%s' % (prefix, cw) if prefix else cw
+    module_name, _, name_after_dot = full.rpartition('.')
+    if module_name not in sys.modules:
+        return set()
+    module = sys.modules[module_name]
+    if only_modules:
+        matches = (name for name in dir(module)
+                   if (name.startswith(name_after_dot) and
+                       '%s.%s' % (module_name, name)) in sys.modules)
+    else:
+        matches = (name for name in dir(module)
+                   if name.startswith(name_after_dot))
+    module_part, _, _ = cw.rpartition('.')
+    if module_part:
+        matches = ('%s.%s' % (module_part, m) for m in matches)
+
+    generator = (try_decode(match, 'ascii') for match in matches)
+    return set(filter(lambda x: x is not None, generator))
+
+
+def module_attr_matches(name):
+    """Only attributes which are modules to replace name with"""
+    return attr_matches(name, prefix='', only_modules=True)
+
+
+def complete(cursor_offset, line):
     """Construct a full list of possibly completions for imports."""
-    if not cw:
-        return None
-
-    # TODO if this is done in a thread (as it prob will be in Windows) we'll need this
-    # if not fully_loaded:
-    #     return []
-
     tokens = line.split()
-    if tokens[0] not in ['from', 'import']:
+    if 'from' not in tokens and 'import' not in tokens:
         return None
 
-    completing_from = False
-    if tokens[0] == 'from':
-        if len(tokens) > 3:
-            if '.' in cw:
-                # This will result in a SyntaxError, so do not return
-                # any matches
-                return None
-            completing_from = True
-            cw = '%s.%s' % (tokens[1], cw)
-        elif len(tokens) == 3:
-            if 'import '.startswith(cw):
-                return ['import ']
-            else:
-                # Will result in a SyntaxError
-                return None
+    result = current_word(cursor_offset, line)
+    if result is None:
+        return None
 
-    matches = list()
-    for name in modules:
-        if not (name.startswith(cw) and name.find('.', len(cw)) == -1):
-            continue
-        if completing_from:
-            name = name[len(tokens[1]) + 1:]
-        matches.append(name)
-    if completing_from and tokens[1] in sys.modules:
-        # from x import y -> search for attributes starting with y if
-        # x is in sys.modules
-        _, _, cw = cw.rpartition('.')
-        module = sys.modules[tokens[1]]
-        matches.extend(name for name in dir(module) if name.startswith(cw))
-    elif len(tokens) == 2:
-        # from x.y or import x.y -> search for attributes starting
-        # with y if x is in sys.modules and the attribute is also in
-        # sys.modules
-        module_name, _, cw = cw.rpartition('.')
-        if module_name in sys.modules:
-            module = sys.modules[module_name]
-            for name in dir(module):
-                if not name.startswith(cw):
-                    continue
-                submodule_name = '%s.%s' % (module_name, name)
-                if submodule_name in sys.modules:
-                    matches.append(submodule_name)
-    if not matches:
-        return []
-    return matches
+    from_import_from = current_from_import_from(cursor_offset, line)
+    if from_import_from is not None:
+        import_import = current_from_import_import(cursor_offset, line)
+        if import_import is not None:
+            # `from a import <b|>` completion
+            matches = module_matches(import_import[2], from_import_from[2])
+            matches.update(attr_matches(import_import[2],
+                                        from_import_from[2]))
+        else:
+            # `from <a|>` completion
+            matches = module_attr_matches(from_import_from[2])
+            matches.update(module_matches(from_import_from[2]))
+        return matches
+
+    cur_import = current_import(cursor_offset, line)
+    if cur_import is not None:
+        # `import <a|>` completion
+        matches = module_matches(cur_import[2])
+        matches.update(module_attr_matches(cur_import[2]))
+        return matches
+    else:
+        return None
 
 
 def find_modules(path):
@@ -166,19 +170,17 @@ def find_all_modules(path=None):
     """Return a list with all modules in `path`, which should be a list of
     directory names. If path is not given, sys.path will be used."""
     if path is None:
-        modules.update(sys.builtin_module_names)
+        modules.update(try_decode(m, 'ascii')
+                       for m in sys.builtin_module_names)
         path = sys.path
 
     for p in path:
         if not p:
             p = os.curdir
         for module in find_modules(p):
-            if not py3 and not isinstance(module, str):
-                try:
-                    module = module.decode(sys.getfilesystemencoding())
-                except UnicodeDecodeError:
-                    # Not importable anyway, ignore it
-                    continue
+            module = try_decode(module, 'ascii')
+            if module is None:
+                continue
             modules.add(module)
             yield
 
@@ -202,5 +204,6 @@ def reload():
     modules.clear()
     for _ in find_all_modules():
         pass
+
 
 find_iterator = find_all_modules()

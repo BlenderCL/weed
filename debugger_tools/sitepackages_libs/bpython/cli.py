@@ -24,7 +24,7 @@
 
 # Modified by Brandon Navra
 # Notes for Windows
-# Prerequsites
+# Prerequisites
 #  - Curses
 #  - pyreadline
 #
@@ -39,7 +39,7 @@
 # - Instead the suspend key exits the program
 # - View source doesn't work on windows unless you install the less program (From GnuUtils or Cygwin)
 
-
+from __future__ import division, absolute_import
 
 import platform
 import os
@@ -52,40 +52,38 @@ import functools
 
 import struct
 if platform.system() != 'Windows':
-    import signal      #Windows does not have job control
-    import termios     #Windows uses curses
-    import fcntl       #Windows uses curses
+    import signal  # Windows does not have job control
+    import termios  # Windows uses curses
+    import fcntl  # Windows uses curses
 import unicodedata
 import errno
 
-import locale
-from types import ModuleType
+from six.moves import range
 
 # These are used for syntax highlighting
 from pygments import format
 from pygments.formatters import TerminalFormatter
-from pygments.lexers import PythonLexer
+from ._py3compat import PythonLexer
 from pygments.token import Token
-from bpython.formatter import BPythonFormatter
+from .formatter import BPythonFormatter
 
 # This for completion
-from bpython import importcompletion
+from . import importcompletion
 
 # This for config
-from bpython.config import Struct
+from .config import Struct, getpreferredencoding
 
 # This for keys
-from bpython.keys import cli_key_dispatch as key_dispatch
+from .keys import cli_key_dispatch as key_dispatch
 
 # This for i18n
-from bpython import translations
-from bpython.translations import _
+from . import translations
+from .translations import _
 
-from bpython import repl
-from bpython._py3compat import py3
-from bpython.pager import page
-from bpython import autocomplete
-import bpython.args
+from . import repl
+from ._py3compat import py3
+from .pager import page
+from .args import parse as argsparse
 
 if not py3:
     import inspect
@@ -98,9 +96,6 @@ colors = None
 DO_RESIZE = False
 # ---
 
-
-def getpreferredencoding():
-    return locale.getpreferredencoding() or sys.getdefaultencoding()
 
 def calculate_screen_lines(tokens, width, cursor=0):
     """Given a stream of tokens and a screen width plus an optional
@@ -116,6 +111,7 @@ def calculate_screen_lines(tokens, width, cursor=0):
             lines += pos // width
             pos %= width
     return lines
+
 
 def forward_if_not_current(func):
     @functools.wraps(func)
@@ -207,7 +203,7 @@ class FakeStdin(object):
                     # C-d
                     return ''
                 elif (key not in ('\n', '\r') and
-                    (len(key) > 1 or unicodedata.category(key) == 'Cc')):
+                      (len(key) > 1 or unicodedata.category(key) == 'Cc')):
                     continue
                 sys.stdout.write(key)
                 # Include the \n in the buffer - raw_input() seems to deal with trailing
@@ -286,7 +282,7 @@ def make_colors(config):
 
     if platform.system() == 'Windows':
         c = dict(list(c.items()) +
-            [
+                 [
             ('K', 8),
             ('R', 9),
             ('G', 10),
@@ -295,8 +291,8 @@ def make_colors(config):
             ('M', 13),
             ('C', 14),
             ('W', 15),
-            ]
-         )
+        ]
+        )
 
     for i in range(63):
         if i > 7:
@@ -321,8 +317,7 @@ class CLIInteraction(repl.Interaction):
 
         return reply.lower() in (_('y'), _('yes'))
 
-
-    def notify(self, s, n=10):
+    def notify(self, s, n=10, wait_for_keypress=False):
         return self.statusbar.message(s, n)
 
     def file_prompt(self, s):
@@ -335,7 +330,7 @@ class CLIRepl(repl.Repl):
         repl.Repl.__init__(self, interp, config)
         self.interp.writetb = self.writetb
         self.scr = scr
-        self.stdout_hist = ''
+        self.stdout_hist = ''  # native str (bytes in Py2, unicode in Py3)
         self.list_win = newwin(get_colpair(config, 'background'), 1, 1, 1, 1)
         self.cpos = 0
         self.do_exit = False
@@ -352,6 +347,14 @@ class CLIRepl(repl.Repl):
 
         if config.cli_suggestion_width <= 0 or config.cli_suggestion_width > 1:
             config.cli_suggestion_width = 0.8
+
+    def _get_cursor_offset(self):
+        return len(self.s) - self.cpos
+
+    def _set_cursor_offset(self, offset):
+        self.cpos = len(self.s) - offset
+    cursor_offset = property(_get_cursor_offset, _set_cursor_offset, None,
+                             "The cursor offset from the beginning of the line")
 
     def addstr(self, s):
         """Add a string to the current input line and figure out
@@ -425,13 +428,13 @@ class CLIRepl(repl.Repl):
         it and force syntax highlighting."""
 
         if (self.paste_mode
-            and time.time() - self.last_key_press > self.config.paste_time):
+                and time.time() - self.last_key_press > self.config.paste_time):
             self.paste_mode = False
             self.print_line(self.s)
 
     def clear_current_line(self):
-        """Called when a SyntaxError occured in the interpreter. It is
-        used to prevent autoindentation from occuring after a
+        """Called when a SyntaxError occurred in the interpreter. It is
+        used to prevent autoindentation from occurring after a
         traceback."""
         repl.Repl.clear_current_line(self)
         self.s = ''
@@ -446,34 +449,31 @@ class CLIRepl(repl.Repl):
             self.scr.clrtoeol()
 
     def complete(self, tab=False):
-        """Get Autcomplete list and window."""
-        if self.paste_mode and self.list_win_visible:
-            self.scr.touchwin()
+        """Get Autocomplete list and window.
 
+        Called whenever these should be updated, and called
+        with tab
+        """
         if self.paste_mode:
+            self.scr.touchwin()  # TODO necessary?
             return
 
-        if self.list_win_visible and not self.config.auto_display_list:
-            self.scr.touchwin()
-            self.list_win_visible = False
-            self.matches_iter.update()
-            return
-
-        if self.config.auto_display_list or tab:
-            self.list_win_visible = repl.Repl.complete(self, tab)
-            if self.list_win_visible:
-                try:
-                    self.show_list(self.matches, self.argspec)
-                except curses.error:
-                    # XXX: This is a massive hack, it will go away when I get
-                    # cusswords into a good enough state that we can start
-                    # using it.
-                    self.list_win.border()
-                    self.list_win.refresh()
-                    self.list_win_visible = False
-            if not self.list_win_visible:
-                self.scr.redrawwin()
-                self.scr.refresh()
+        list_win_visible = repl.Repl.complete(self, tab)
+        if list_win_visible:
+            try:
+                self.show_list(self.matches_iter.matches, self.arg_pos,
+                               topline=self.funcprops,
+                               formatter=self.matches_iter.completer.format)
+            except curses.error:
+                # XXX: This is a massive hack, it will go away when I get
+                # cusswords into a good enough state that we can start
+                # using it.
+                self.list_win.border()
+                self.list_win.refresh()
+                list_win_visible = False
+        if not list_win_visible:
+            self.scr.redrawwin()
+            self.scr.refresh()
 
     def clrtobol(self):
         """Clear from cursor to beginning of line; usual C-u behaviour"""
@@ -488,9 +488,13 @@ class CLIRepl(repl.Repl):
         self.scr.redrawwin()
         self.scr.refresh()
 
-    def current_line(self):
-        """Return the current line."""
+    def _get_current_line(self):
         return self.s
+
+    def _set_current_line(self, line):
+        self.s = line
+    current_line = property(_get_current_line, _set_current_line, None,
+                            "The characters of the current line")
 
     def cut_to_buffer(self):
         """Clear from cursor to end of line, placing into cut buffer"""
@@ -500,31 +504,6 @@ class CLIRepl(repl.Repl):
         self.print_line(self.s, clr=True)
         self.scr.redrawwin()
         self.scr.refresh()
-
-    def cw(self):
-        """Return the current word, i.e. the (incomplete) word directly to the
-        left of the cursor"""
-
-        # I don't know if autocomplete should be disabled if the cursor
-        # isn't at the end of the line, but that's what this does for now.
-        if self.cpos: return
-
-        # look from right to left for a bad method or dictionary character
-        l = len(self.s)
-        is_method_char = lambda c: c.isalnum() or c in ('.', '_')
-        dict_chars = ['[']
-
-        if not self.s or not (is_method_char(self.s[-1])
-                                or self.s[-1] in dict_chars):
-            return
-
-        for i in range(1, l+1):
-            c = self.s[-i]
-            if not (is_method_char(c) or c in dict_chars):
-                i -= 1
-                break
-
-        return self.s[-i:]
 
     def delete(self):
         """Process a del"""
@@ -539,7 +518,7 @@ class CLIRepl(repl.Repl):
         uses the formatting method as defined in formatter.py to parse the
         srings. It won't update the screen if it's reevaluating the code (as it
         does with undo)."""
-        if not py3 and isinstance(s, str):
+        if not py3 and isinstance(s, unicode):
             s = s.encode(getpreferredencoding())
 
         a = get_colpair(self.config, 'output')
@@ -715,7 +694,7 @@ class CLIRepl(repl.Repl):
         self.print_line(self.s, newline=True)
         self.echo("\n")
 
-    def mkargspec(self, topline, down):
+    def mkargspec(self, topline, in_arg, down):
         """This figures out what to do with the argspec and puts it nicely into
         the list window. It returns the number of lines used to display the
         argspec.  It's also kind of messy due to it having to call so many
@@ -723,16 +702,15 @@ class CLIRepl(repl.Repl):
         sturdy."""
 
         r = 3
-        fn = topline[0]
-        args = topline[1][0]
-        kwargs = topline[1][3]
-        _args = topline[1][1]
-        _kwargs = topline[1][2]
-        is_bound_method = topline[2]
-        in_arg = topline[3]
+        fn = topline.func
+        args = topline.argspec.args
+        kwargs = topline.argspec.defaults
+        _args = topline.argspec.varargs
+        _kwargs = topline.argspec.varkwargs
+        is_bound_method = topline.is_bound_method
         if py3:
-            kwonly = topline[1][4]
-            kwonly_defaults = topline[1][5] or dict()
+            kwonly = topline.argspec.kwonly
+            kwonly_defaults = topline.argspec.kwonly_defaults or dict()
         max_w = int(self.scr.getmaxyx()[1] * 0.6)
         self.list_win.erase()
         self.list_win.resize(3, max_w)
@@ -740,7 +718,7 @@ class CLIRepl(repl.Repl):
 
         self.list_win.addstr('\n  ')
         self.list_win.addstr(fn,
-            get_colpair(self.config, 'name') | curses.A_BOLD)
+                             get_colpair(self.config, 'name') | curses.A_BOLD)
         self.list_win.addstr(': (', get_colpair(self.config, 'name'))
         maxh = self.scr.getmaxyx()[0]
 
@@ -789,7 +767,7 @@ class CLIRepl(repl.Repl):
             if kw is not None:
                 self.list_win.addstr('=', punctuation_colpair)
                 self.list_win.addstr(kw, get_colpair(self.config, 'token'))
-            if k != len(args) -1:
+            if k != len(args) - 1:
                 self.list_win.addstr(', ', punctuation_colpair)
 
         if _args:
@@ -878,7 +856,7 @@ class CLIRepl(repl.Repl):
             key = '\n'
             # Don't return; let it get handled
 
-        if key == chr(27): #Escape Key
+        if key == chr(27):  # Escape Key
             return ''
 
         if key in (BACKSP, 'KEY_BACKSPACE'):
@@ -899,7 +877,9 @@ class CLIRepl(repl.Repl):
             return ''
 
         elif key in key_dispatch[config.undo_key]:  # C-r
-            self.undo()
+            n = self.prompt_undo()
+            if n > 0:
+                self.undo(n=n)
             return ''
 
         elif key in key_dispatch[config.search_key]:
@@ -916,7 +896,7 @@ class CLIRepl(repl.Repl):
             self.fwd()
             return ''
 
-        elif key in ("KEY_LEFT",' ^B', chr(2)):  # Cursor Left or ^B
+        elif key in ("KEY_LEFT", ' ^B', chr(2)):  # Cursor Left or ^B
             self.mvc(1)
             # Redraw (as there might have been highlighted parens)
             self.print_line(self.s)
@@ -936,11 +916,11 @@ class CLIRepl(repl.Repl):
             # Redraw (as there might have been highlighted parens)
             self.print_line(self.s)
 
-        elif key in ("KEY_NPAGE", '\T'): # page_down or \T
+        elif key in ("KEY_NPAGE", '\T'):  # page_down or \T
             self.hend()
             self.print_line(self.s)
 
-        elif key in ("KEY_PPAGE", '\S'): # page_up or \S
+        elif key in ("KEY_PPAGE", '\S'):  # page_up or \S
             self.hbegin()
             self.print_line(self.s)
 
@@ -983,19 +963,24 @@ class CLIRepl(repl.Repl):
             self.pastebin()
             return ''
 
+        elif key in key_dispatch[config.copy_clipboard_key]:
+            self.copy2clipboard()
+            return ''
+
         elif key in key_dispatch[config.last_output_key]:
             page(self.stdout_hist[self.prev_block_finished:-4])
             return ''
 
         elif key in key_dispatch[config.show_source_key]:
-            source = self.get_source_of_current_name()
-            if source is not None:
+            try:
+                source = self.get_source_of_current_name()
+            except repl.SourceNotFound as e:
+                self.statusbar.message('%s' % (e, ))
+            else:
                 if config.highlight_show_source:
                     source = format(PythonLexer().get_tokens(source),
                                     TerminalFormatter())
                 page(source)
-            else:
-                self.statusbar.message(_('Cannot show source.'))
             return ''
 
         elif key in ('\n', '\r', 'PADENTER'):
@@ -1018,6 +1003,9 @@ class CLIRepl(repl.Repl):
 
         elif key == '\x18':
             return self.send_current_line_to_editor()
+
+        elif key == '\x03':
+            raise KeyboardInterrupt()
 
         elif key[0:3] == 'PAD' and not key in ('PAD0', 'PADSTOP'):
             pad_keys = {
@@ -1079,15 +1067,23 @@ class CLIRepl(repl.Repl):
     def prompt(self, more):
         """Show the appropriate Python prompt"""
         if not more:
-            self.echo("\x01%s\x03%s" % (self.config.color_scheme['prompt'], self.ps1))
-            self.stdout_hist += self.ps1
+            self.echo("\x01%s\x03%s" %
+                      (self.config.color_scheme['prompt'], self.ps1))
+            if py3:
+                self.stdout_hist += self.ps1
+            else:
+                self.stdout_hist += self.ps1.encode(getpreferredencoding())
             self.s_hist.append('\x01%s\x03%s\x04' %
                                (self.config.color_scheme['prompt'], self.ps1))
         else:
             prompt_more_color = self.config.color_scheme['prompt_more']
             self.echo("\x01%s\x03%s" % (prompt_more_color, self.ps2))
-            self.stdout_hist += self.ps2
-            self.s_hist.append('\x01%s\x03%s\x04' % (prompt_more_color, self.ps2))
+            if py3:
+                self.stdout_hist += self.ps2
+            else:
+                self.stdout_hist += self.ps2.encode(getpreferredencoding())
+            self.s_hist.append('\x01%s\x03%s\x04' %
+                               (prompt_more_color, self.ps2))
 
     def push(self, s, insert_into_history=True):
         # curses.raw(True) prevents C-c from causing a SIGINT
@@ -1111,7 +1107,7 @@ class CLIRepl(repl.Repl):
             self.iy, self.ix = self.scr.getyx()
             for i in s.split('\x04'):
                 self.echo(i, redraw=False)
-            if k < len(self.s_hist) -1:
+            if k < len(self.s_hist) - 1:
                 self.scr.addstr('\n')
         self.iy, self.ix = self.scr.getyx()
         self.print_line(self.s)
@@ -1194,13 +1190,11 @@ class CLIRepl(repl.Repl):
         self.statusbar.resize(refresh=False)
         self.redraw()
 
-
     def getstdout(self):
         """This method returns the 'spoofed' stdout buffer, for writing to a
         file or sending to a pastebin or whatever."""
 
         return self.stdout_hist + '\n'
-
 
     def reevaluate(self):
         """Clear the buffer, redraw the screen and re-evaluate the history"""
@@ -1242,7 +1236,7 @@ class CLIRepl(repl.Repl):
 
         self.evaluating = False
         #map(self.push, self.history)
-        #^-- That's how simple this method was at first :(
+        # ^-- That's how simple this method was at first :(
 
     def write(self, s):
         """For overriding stdout defaults"""
@@ -1255,7 +1249,7 @@ class CLIRepl(repl.Repl):
         else:
             t = s
 
-        if not py3 and isinstance(t, str):
+        if not py3 and isinstance(t, unicode):
             t = t.encode(getpreferredencoding())
 
         if not self.stdout_hist:
@@ -1266,8 +1260,8 @@ class CLIRepl(repl.Repl):
         self.echo(s)
         self.s_hist.append(s.rstrip())
 
+    def show_list(self, items, arg_pos, topline=None, formatter=None, current_item=None):
 
-    def show_list(self, items, topline=None, current_item=None):
         shared = Struct()
         shared.cols = 0
         shared.rows = 0
@@ -1283,23 +1277,12 @@ class CLIRepl(repl.Repl):
         self.list_win.erase()
 
         if items:
-            sep = '.'
-            separators = ['.', os.path.sep, '[']
-            lastindex = max([items[0].rfind(c) for c in separators])
-            if lastindex > -1:
-                sep = items[0][lastindex]
-            items = [x.rstrip(sep).rsplit(sep)[-1] for x in items]
+            items = [formatter(x) for x in items]
             if current_item:
-                current_item = current_item.rstrip(sep).rsplit(sep)[-1]
-
-            if items[0].endswith(']'):
-                # dictionary key suggestions
-                items = [x.rstrip(']') for x in items]
-                if current_item:
-                    current_item = current_item.rstrip(']')
+                current_item = formatter(current_item)
 
         if topline:
-            height_offset = self.mkargspec(topline, down) + 1
+            height_offset = self.mkargspec(topline, arg_pos, down) + 1
         else:
             height_offset = 0
 
@@ -1363,7 +1346,7 @@ class CLIRepl(repl.Repl):
             self.list_win.resize(rows + 2, w)
         else:
             docstring = self.format_docstring(self.docstring, max_w - 2,
-                max_h - height_offset)
+                                              max_h - height_offset)
             docstring_string = ''.join(docstring)
             rows += len(docstring)
             self.list_win.resize(rows, max_w)
@@ -1392,13 +1375,13 @@ class CLIRepl(repl.Repl):
                 self.list_win.addstr('\n ')
 
         if self.docstring is not None:
-            if not py3 and isinstance(docstring_string, str):
+            if not py3 and isinstance(docstring_string, unicode):
                 docstring_string = docstring_string.encode(encoding, 'ignore')
             self.list_win.addstr('\n' + docstring_string,
                                  get_colpair(self.config, 'comment'))
             # XXX: After all the trouble I had with sizing the list box (I'm not very good
             # at that type of thing) I decided to do this bit of tidying up here just to
-            # make sure there's no unnececessary blank lines, it makes things look nicer.
+            # make sure there's no unnecessary blank lines, it makes things look nicer.
 
         y = self.list_win.getyx()[0]
         self.list_win.resize(y + 2, w)
@@ -1419,7 +1402,7 @@ class CLIRepl(repl.Repl):
 
     def size(self):
         """Set instance attributes for x and y top left corner coordinates
-        and width and heigth for the window."""
+        and width and height for the window."""
         global stdscr
         h, w = stdscr.getmaxyx()
         self.y = 0
@@ -1445,8 +1428,6 @@ class CLIRepl(repl.Repl):
         and don't indent if there are only whitespace in the line.
         """
 
-        mode = self.config.autocomplete_mode
-
         # 1. check if we should add a tab character
         if self.atbol() and not back:
             x_pos = len(self.s) - self.cpos
@@ -1458,66 +1439,40 @@ class CLIRepl(repl.Repl):
             self.print_line(self.s)
             return True
 
-        # 2. get the current word
+        # 2. run complete() if we aren't already iterating through matches
         if not self.matches_iter:
             self.complete(tab=True)
-            if not self.config.auto_display_list and not self.list_win_visible:
-                return True
-
-            cw = self.current_string() or self.cw()
-            if not cw:
-                return True
-        else:
-            cw = self.matches_iter.current_word
+            self.print_line(self.s)
 
         # 3. check to see if we can expand the current word
-        cseq = None
-        if mode == autocomplete.SUBSTRING:
-            if all([len(match.split(cw)) == 2 for match in self.matches]):
-                seq = [cw + match.split(cw)[1] for match in self.matches]
-                cseq = os.path.commonprefix(seq)
-        else:
-            seq = self.matches
-            cseq = os.path.commonprefix(seq)
-
-        if cseq and mode != autocomplete.FUZZY:
-            expanded_string = cseq[len(cw):]
-            self.s += expanded_string
-            expanded = bool(expanded_string)
+        if self.matches_iter.is_cseq():
+            # TODO resolve this error-prone situation:
+            # can't assign at same time to self.s and self.cursor_offset
+            # because for cursor_offset
+            # property to work correctly, self.s must already be set
+            temp_cursor_offset, self.s = self.matches_iter.substitute_cseq()
+            self.cursor_offset = temp_cursor_offset
             self.print_line(self.s)
-            if len(self.matches) == 1 and self.config.auto_display_list:
-                self.scr.touchwin()
-            if expanded:
-                self.matches_iter.update(cseq, self.matches)
-        else:
-            expanded = False
+            if not self.matches_iter:
+                self.complete()
 
         # 4. swap current word for a match list item
-        if not expanded and self.matches:
-            # reset s if this is the nth result
-            if self.matches_iter:
-                self.s = self.s[:-len(self.matches_iter.current())] + cw
-
+        elif self.matches_iter.matches:
             current_match = back and self.matches_iter.previous() \
-                                  or next(self.matches_iter)
-
-            # update s with the new match
-            if current_match:
-                try:
-                    self.show_list(self.matches, self.argspec, current_match)
-                except curses.error:
-                    # XXX: This is a massive hack, it will go away when I get
-                    # cusswords into a good enough state that we can start
-                    # using it.
-                    self.list_win.border()
-                    self.list_win.refresh()
-
-                if self.config.autocomplete_mode == autocomplete.SIMPLE:
-                    self.s += current_match[len(cw):]
-                else:
-                    self.s = self.s[:-len(cw)] + current_match
-
-                self.print_line(self.s, True)
+                or next(self.matches_iter)
+            try:
+                self.show_list(self.matches_iter.matches, self.arg_pos,
+                               topline=self.funcprops,
+                               formatter=self.matches_iter.completer.format,
+                               current_item=current_match)
+            except curses.error:
+                # XXX: This is a massive hack, it will go away when I get
+                # cusswords into a good enough state that we can start
+                # using it.
+                self.list_win.border()
+                self.list_win.refresh()
+            _, self.s = self.matches_iter.cur_line()
+            self.print_line(self.s, True)
         return True
 
     def undo(self, n=1):
@@ -1546,7 +1501,7 @@ class CLIRepl(repl.Repl):
             return ''
 
         self.f_string = ''
-        self.cpos = -1 # Set cursor position to -1 to prevent paren matching
+        self.cpos = -1  # Set cursor position to -1 to prevent paren matching
 
         self.iy, self.ix = self.scr.getyx()
         self.evaluating = True
@@ -1576,6 +1531,7 @@ class CLIRepl(repl.Repl):
         self.print_line(self.s)
         self.scr.redrawwin()
         return ''
+
 
 class Statusbar(object):
     """This class provides the status bar at the bottom of the screen.
@@ -1617,7 +1573,7 @@ class Statusbar(object):
 
     def size(self):
         """Set instance attributes for x and y top left corner coordinates
-        and width and heigth for the window."""
+        and width and height for the window."""
         h, w = gethw()
         self.y = h - 1
         self.w = w
@@ -1711,7 +1667,7 @@ class Statusbar(object):
             self.c = c
 
         if s:
-            if not py3 and isinstance(s, str):
+            if not py3 and isinstance(s, unicode):
                 s = s.encode(getpreferredencoding())
 
             if self.c:
@@ -1733,7 +1689,7 @@ class Statusbar(object):
 def init_wins(scr, config):
     """Initialise the two windows (the main repl interface and the little
     status bar at the bottom with some stuff in it)"""
-    #TODO: Document better what stuff is on the status bar.
+    # TODO: Document better what stuff is on the status bar.
 
     background = get_colpair(config, 'background')
     h, w = gethw()
@@ -1744,12 +1700,19 @@ def init_wins(scr, config):
     # Thanks to Angus Gibson for pointing out this missing line which was causing
     # problems that needed dirty hackery to fix. :)
 
-    statusbar = Statusbar(scr, main_win, background, config,
-        _(" <%s> Rewind  <%s> Save  <%s> Pastebin "
-          " <%s> Pager  <%s> Show Source ") %
-          (config.undo_key, config.save_key, config.pastebin_key,
-           config.last_output_key, config.show_source_key),
-            get_colpair(config, 'main'))
+    commands = (
+        (_('Rewind'), config.undo_key),
+        (_('Save'), config.save_key),
+        (_('Pastebin'), config.pastebin_key),
+        (_('Pager'), config.last_output_key),
+        (_('Show Source'), config.show_source_key)
+    )
+
+    message = '  '.join('<%s> %s' % (key, command) for command, key in commands
+                        if key)
+
+    statusbar = Statusbar(scr, main_win, background, config, message,
+                          get_colpair(config, 'main'))
 
     return main_win, statusbar
 
@@ -1758,10 +1721,12 @@ def sigwinch(unused_scr):
     global DO_RESIZE
     DO_RESIZE = True
 
+
 def sigcont(unused_scr):
     sigwinch(unused_scr)
     # Forces the redraw
     curses.ungetch('\x00')
+
 
 def gethw():
     """I found this code on a usenet post, and snipped out the bit I needed,
@@ -1800,7 +1765,8 @@ def gethw():
             sizex = right - left + 1
             sizey = bottom - top + 1
         else:
-            sizex, sizey = stdscr.getmaxyx()# can't determine actual size - return default values
+            # can't determine actual size - return default values
+            sizex, sizey = stdscr.getmaxyx()
 
         h, w = sizey, sizex
     return h, w
@@ -1835,7 +1801,7 @@ def do_resize(caller):
     global DO_RESIZE
     h, w = gethw()
     if not h:
-    # Hopefully this shouldn't happen. :)
+        # Hopefully this shouldn't happen. :)
         return
 
     curses.endwin()
@@ -1917,7 +1883,8 @@ def main_curses(scr, args, config, interactive=True, locals_=None,
         old_sigwinch_handler = signal.signal(signal.SIGWINCH,
                                              lambda *_: sigwinch(scr))
         # redraw window after being suspended
-        old_sigcont_handler = signal.signal(signal.SIGCONT, lambda *_: sigcont(scr))
+        old_sigcont_handler = signal.signal(
+            signal.SIGCONT, lambda *_: sigcont(scr))
 
     stdscr = scr
     try:
@@ -1935,9 +1902,6 @@ def main_curses(scr, args, config, interactive=True, locals_=None,
     curses.raw(True)
     main_win, statusbar = init_wins(scr, config)
 
-    if locals_ is None:
-        sys.modules['__main__'] = ModuleType('__main__')
-        locals_ = sys.modules['__main__'].__dict__
     interpreter = repl.Interpreter(locals_, getpreferredencoding())
 
     clirepl = CLIRepl(main_win, interpreter, statusbar, config, idle)
@@ -1961,7 +1925,12 @@ def main_curses(scr, args, config, interactive=True, locals_=None,
             return (exit_value, clirepl.getstdout())
     else:
         sys.path.insert(0, '')
-        clirepl.startup()
+        try:
+            clirepl.startup()
+        except OSError as e:
+            # Handle this with a proper error message.
+            if e.errno != errno.ENOENT:
+                raise
 
     if banner is not None:
         clirepl.write(banner)
@@ -1988,8 +1957,7 @@ def main_curses(scr, args, config, interactive=True, locals_=None,
 def main(args=None, locals_=None, banner=None):
     translations.init()
 
-
-    config, options, exec_args = bpython.args.parse(args)
+    config, options, exec_args = argsparse(args)
 
     # Save stdin, stdout and stderr for later restoration
     orig_stdin = sys.stdin
@@ -2012,8 +1980,8 @@ def main(args=None, locals_=None, banner=None):
         sys.stdout.flush()
     return repl.extract_exit_value(exit_value)
 
+
 if __name__ == '__main__':
-    from bpython.cli import main
     sys.exit(main())
 
 # vim: sw=4 ts=4 sts=4 ai et

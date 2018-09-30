@@ -20,6 +20,9 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
+from urwid.compat import with_metaclass
 from urwid.util import decompose_tagmarkup, get_encoding_mode
 from urwid.canvas import CompositeCanvas, CanvasJoin, TextCanvas, \
     CanvasCombine, SolidCanvas
@@ -30,9 +33,6 @@ from urwid.container import Pile, Columns
 from urwid.display_common import AttrSpec
 from urwid.decoration import WidgetDecoration
 
-#import locale
-#locale.setlocale(locale.LC_ALL, '')
-#code = locale.getpreferredencoding()
 
 class BigText(Widget):
     _sizing = frozenset([FIXED])
@@ -100,19 +100,20 @@ class BigText(Widget):
 class LineBox(WidgetDecoration, WidgetWrap):
 
     def __init__(self, original_widget, title="",
-                tlcorner=b'\xe2\x94\x8c'.decode('utf-8'),
-                tline=b'\xe2\x94\x80'.decode('utf-8'),
-                lline=b'\xe2\x94\x82'.decode('utf-8'),
-                trcorner=b'\xe2\x94\x90'.decode('utf-8'),
-                blcorner=b'\xe2\x94\x94'.decode('utf-8'),
-                rline=b'\xe2\x94\x82'.decode('utf-8'),
-                bline=b'\xe2\x94\x80'.decode('utf-8'),
-                brcorner=b'\xe2\x94\x98'.decode('utf-8')):
+                 title_align="center", title_attr=None,
+                 tlcorner=u'┌', tline=u'─', lline=u'│',
+                 trcorner=u'┐', blcorner=u'└', rline=u'│',
+                 bline=u'─', brcorner=u'┘'):
         """
         Draw a line around original_widget.
 
         Use 'title' to set an initial title text with will be centered
         on top of the box.
+
+        Use `title_attr` to apply a specific attribute to the title text.
+
+        Use `title_align` to align the title to the 'left', 'right', or 'center'.
+        The default is 'center'.
 
         You can also override the widgets used for the lines/corners:
             tline: top line
@@ -124,37 +125,80 @@ class LineBox(WidgetDecoration, WidgetWrap):
             blcorner: bottom left corner
             brcorner: bottom right corner
 
+        If empty string is specified for one of the lines/corners, then no
+        character will be output there.  This allows for seamless use of
+        adjoining LineBoxes.
         """
 
-        tline, bline = Divider(tline), Divider(bline)
-        lline, rline = SolidFill(lline), SolidFill(rline)
+        if tline:
+            tline = Divider(tline)
+        if bline:
+            bline = Divider(bline)
+        if lline:
+            lline = SolidFill(lline)
+        if rline:
+            rline = SolidFill(rline)
         tlcorner, trcorner = Text(tlcorner), Text(trcorner)
         blcorner, brcorner = Text(blcorner), Text(brcorner)
 
-        self.title_widget = Text(self.format_title(title))
-        self.tline_widget = Columns([
-            tline,
-            ('flow', self.title_widget),
-            tline,
-        ])
+        if not tline and title:
+            raise ValueError('Cannot have a title when tline is empty string')
 
-        top = Columns([
-            ('fixed', 1, tlcorner),
-            self.tline_widget,
-            ('fixed', 1, trcorner)
-        ])
+        if title_attr:
+            self.title_widget = Text((title_attr, self.format_title(title)))
+        else:
+            self.title_widget = Text(self.format_title(title))
 
-        middle = Columns([
-            ('fixed', 1, lline),
-            original_widget,
-            ('fixed', 1, rline),
-        ], box_columns=[0, 2], focus_column=1)
+        if tline:
+            if title_align not in ('left', 'center', 'right'):
+                raise ValueError('title_align must be one of "left", "right", or "center"')
+            if title_align == 'left':
+                tline_widgets = [('flow', self.title_widget), tline]
+            else:
+                tline_widgets = [tline, ('flow', self.title_widget)]
+                if title_align == 'center':
+                    tline_widgets.append(tline)
+            self.tline_widget = Columns(tline_widgets)
+            top = Columns([
+                ('fixed', 1, tlcorner),
+                self.tline_widget,
+                ('fixed', 1, trcorner)
+            ])
 
-        bottom = Columns([
-            ('fixed', 1, blcorner), bline, ('fixed', 1, brcorner)
-        ])
+        else:
+            self.tline_widget = None
+            top = None
 
-        pile = Pile([('flow', top), middle, ('flow', bottom)], focus_item=1)
+        middle_widgets = []
+        if lline:
+            middle_widgets.append(('fixed', 1, lline))
+        else:
+            # Note: We need to define a fixed first widget (even if it's 0 width) so that the other
+            # widgets have something to anchor onto
+            middle_widgets.append(('fixed', 0, SolidFill(u"")))
+        middle_widgets.append(original_widget)
+        focus_col = len(middle_widgets) - 1
+        if rline:
+            middle_widgets.append(('fixed', 1, rline))
+
+        middle = Columns(middle_widgets,
+                box_columns=[0, 2], focus_column=focus_col)
+
+        if bline:
+            bottom = Columns([
+                ('fixed', 1, blcorner), bline, ('fixed', 1, brcorner)
+            ])
+        else:
+            bottom = None
+
+        pile_widgets = []
+        if top:
+            pile_widgets.append(('flow', top))
+        pile_widgets.append(middle)
+        focus_pos = len(pile_widgets) - 1
+        if bottom:
+            pile_widgets.append(('flow', bottom))
+        pile = Pile(pile_widgets, focus_item=focus_pos)
 
         WidgetDecoration.__init__(self, original_widget)
         WidgetWrap.__init__(self, pile)
@@ -166,6 +210,8 @@ class LineBox(WidgetDecoration, WidgetWrap):
             return ""
 
     def set_title(self, text):
+        if not self.title_widget:
+            raise ValueError('Cannot set title when tline is unset')
         self.title_widget.set_text(self.format_title(text))
         self.tline_widget._invalidate()
 
@@ -200,17 +246,13 @@ def nocache_bargraph_get_data(self, get_data_fn):
 class BarGraphError(Exception):
     pass
 
-class BarGraph(Widget):
-    __metaclass__ = BarGraphMeta
-
+class BarGraph(with_metaclass(BarGraphMeta, Widget)):
     _sizing = frozenset([BOX])
 
     ignore_focus = True
 
-    eighths = b''.join((b' \xe2\x96\x81\xe2\x96\x82\xe2\x96\x83\xe2\x96\x84',
-                    b'\xe2\x96\x85\xe2\x96\x86\xe2\x96\x87')).decode('utf-8')
-    hlines = b''.join((b'_\xe2\x8e\xba\xe2\x8e\xbb\xe2\x94\x80',
-                    b'\xe2\x8e\xbc\xe2\x8e\xbd')).decode('utf-8')
+    eighths = u' ▁▂▃▄▅▆▇'
+    hlines = u'_⎺⎻─⎼⎽'
 
     def __init__(self, attlist, hatt=None, satt=None):
         """
@@ -230,20 +272,20 @@ class BarGraph(Widget):
                         ie. len(attlist) == num segments+1
                         character defaults to ' ' if not specified.
         :param hatt: list containing attributes for horizontal lines. First
-                    element is for lines on background, second is for lines
-                    on first segment, third is for lines on second segment
-                    etc.
+                     element is for lines on background, second is for lines
+                     on first segment, third is for lines on second segment
+                     etc.
         :param satt: dictionary containing attributes for smoothed
-                    transitions of bars in UTF-8 display mode. The values
-                    are in the form:
+                     transitions of bars in UTF-8 display mode. The values
+                     are in the form:
 
-                        (fg,bg) : attr
+                       (fg,bg) : attr
 
-                    fg and bg are integers where 0 is the graph background,
-                    1 is the first segment, 2 is the second, ...
-                    fg > bg in all values.  attr is an attribute with a
-                    foreground corresponding to fg and a background
-                    corresponding to bg.
+                     fg and bg are integers where 0 is the graph background,
+                     1 is the first segment, 2 is the second, ...
+                     fg > bg in all values.  attr is an attribute with a
+                     foreground corresponding to fg and a background
+                     corresponding to bg.
 
         If satt is not None and the bar graph is being displayed in
         a terminal using the UTF-8 encoding then the character cell
@@ -314,6 +356,7 @@ class BarGraph(Widget):
         if hlines is not None:
             hlines = hlines[:]  # shallow copy
             hlines.sort()
+            hlines.reverse()
         self.data = bardata, top, hlines
         self._invalidate()
 
@@ -396,7 +439,7 @@ class BarGraph(Widget):
 
         else:
             disp = calculate_bargraph_display(bardata, top, widths,
-                                            maxrow)
+                                              maxrow)
 
         if hlines:
             disp = self.hlines_display(disp, top, hlines, maxrow)
@@ -415,10 +458,10 @@ class BarGraph(Widget):
         if self.use_smoothed():
             shiftr = 0
             r = [(0.2, 1),
-                (0.4, 2),
-                (0.6, 3),
-                (0.8, 4),
-                (1.0, 5), ]
+                 (0.4, 2),
+                 (0.6, 3),
+                 (0.8, 4),
+                 (1.0, 5), ]
         else:
             shiftr = 0.5
             r = [(1.0, 0), ]
@@ -490,9 +533,8 @@ class BarGraph(Widget):
         o = []
         r = 0  # row remainder
 
-        def seg_combine(xxx_todo_changeme, xxx_todo_changeme1):
-            (bt1, w1) = xxx_todo_changeme
-            (bt2, w2) = xxx_todo_changeme1
+        def seg_combine(a, b):
+            (bt1, w1), (bt2, w2) = a, b
             if (bt1, w1) == (bt2, w2):
                 return (bt1, w1), None, None
             wmin = min(w1, w2)
@@ -595,7 +637,7 @@ def calculate_bargraph_display(bardata, top, bar_widths, maxrow):
     maxrow -- rows for display of bargraph
 
     Returns a structure as follows:
-        [ ( y_count, [ ( bar_type, width), ... ] ), ... ]
+      [ ( y_count, [ ( bar_type, width), ... ] ), ... ]
 
     The outer tuples represent a set of identical rows. y_count is
     the number of rows in this set, the list contains the data to be
@@ -624,10 +666,10 @@ def calculate_bargraph_display(bardata, top, bar_widths, maxrow):
                     del rows[row][-1]
                 else:
                     rows[row][-1] = (last_seg,
-                                    last_col, col)
+                                     last_col, col)
             elif last_seg == seg_num and last_end == col:
                 rows[row][-1] = (last_seg, last_col,
-                                last_end + width)
+                                 last_end + width)
                 return
         elif rows[row] is None:
             rows[row] = []
@@ -808,21 +850,42 @@ def scale_bar_values( bar, top, maxrow ):
 class ProgressBar(Widget):
     _sizing = frozenset([FLOW])
 
-    eighths = b''.join((b' \xe2\x96\x8f\xe2\x96\x8e\xe2\x96\x8d\xe2\x96\x8c',
-                    b'\xe2\x96\x8b\xe2\x96\x8a\xe2\x96\x89')).decode('utf-8')
+    eighths = u' ▏▎▍▌▋▊▉'
 
     text_align = CENTER
 
     def __init__(self, normal, complete, current=0, done=100, satt=None):
         """
-        :param normal: display attribute for uncomplete part of progress bar
+        :param normal: display attribute for incomplete part of progress bar
         :param complete: display attribute for complete part of progress bar
         :param current: current progress
         :param done: progress amount at 100%
         :param satt: display attribute for smoothed part of bar where the
-                    foreground of satt corresponds to the normal part and the
-                    background corresponds to the complete part.  If satt
-                    is ``None`` then no smoothing will be done.
+                     foreground of satt corresponds to the normal part and the
+                     background corresponds to the complete part.  If satt
+                     is ``None`` then no smoothing will be done.
+
+        >>> pb = ProgressBar('a', 'b')
+        >>> pb
+        <ProgressBar flow widget>
+        >>> print(pb.get_text())
+        0 %
+        >>> pb.set_completion(34.42)
+        >>> print(pb.get_text())
+        34 %
+        >>> class CustomProgressBar(ProgressBar):
+        ...     def get_text(self):
+        ...         return u'Foobar'
+        >>> cpb = CustomProgressBar('a', 'b')
+        >>> print(cpb.get_text())
+        Foobar
+        >>> for x in range(101):
+        ...     cpb.set_completion(x)
+        ...     s = cpb.render((10, ))
+        >>> cpb2 = CustomProgressBar('a', 'b', satt='c')
+        >>> for x in range(101):
+        ...     cpb2.set_completion(x)
+        ...     s = cpb2.render((10, ))
         """
         self.normal = normal
         self.complete = complete
@@ -852,6 +915,7 @@ class ProgressBar(Widget):
     def get_text(self):
         """
         Return the progress bar percentage text.
+        You can override this method to display custom text.
         """
         percent = min(100, max(0, int(self.current * 100 / self.done)))
         return str(percent) + " %"
@@ -865,7 +929,12 @@ class ProgressBar(Widget):
         c = txt.render((maxcol,))
 
         cf = float(self.current) * maxcol / self.done
-        ccol = int(cf)
+        ccol_dirty = int(cf)
+        ccol = len(c._text[0][:ccol_dirty].decode(
+            'utf-8', 'ignore'
+        ).encode(
+            'utf-8'
+        ))
         cs = 0
         if self.satt is not None:
             cs = int((cf - ccol) * 8)
@@ -875,7 +944,7 @@ class ProgressBar(Widget):
             c._attr = [[(self.complete, maxcol)]]
         elif cs and c._text[0][ccol] == " ":
             t = c._text[0]
-            cenc = self.eighths[cs].encode('utf8')
+            cenc = self.eighths[cs].encode("utf-8")
             c._text[0] = t[:ccol] + cenc + t[ccol + 1:]
             a = []
             if ccol > 0:
@@ -921,3 +990,10 @@ class PythonLogo(Widget):
         """
         fixed_size(size)
         return self._canvas
+
+def _test():
+    import doctest
+    doctest.testmod()
+
+if __name__=='__main__':
+    _test()

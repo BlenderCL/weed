@@ -19,6 +19,7 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
 
 from urwid.util import int_scale
 from urwid.widget import (Widget, WidgetError,
@@ -42,7 +43,7 @@ class WidgetDecoration(Widget):  # "decorator" was already taken
     Don't actually do this -- use a WidgetDecoration subclass
     instead, these are not real widgets:
 
-    >>> WidgetDecoration(Text("hi"))
+    >>> WidgetDecoration(Text(u"hi"))
     <WidgetDecoration flow widget <Text flow widget 'hi'>>
     """
     def __init__(self, original_widget):
@@ -123,17 +124,17 @@ class AttrMap(delegate_to_widget_mixin('_original_widget'), WidgetDecoration):
             if ``None`` use *attr*
         :type focus_map: display attribute or dict
 
-        >>> AttrMap(Divider("!"), 'bright')
+        >>> AttrMap(Divider(u"!"), 'bright')
         <AttrMap flow widget <Divider flow widget '!'> attr_map={None: 'bright'}>
         >>> AttrMap(Edit(), 'notfocus', 'focus')
         <AttrMap selectable flow widget <Edit selectable flow widget '' edit_pos=0> attr_map={None: 'notfocus'} focus_map={None: 'focus'}>
         >>> size = (5,)
-        >>> am = AttrMap(Text("hi"), 'greeting', 'fgreet')
+        >>> am = AttrMap(Text(u"hi"), 'greeting', 'fgreet')
         >>> next(am.render(size, focus=False).content()) # ... = b in Python 3
         [('greeting', None, ...'hi   ')]
         >>> next(am.render(size, focus=True).content())
         [('fgreet', None, ...'hi   ')]
-        >>> am2 = AttrMap(Text(('word', "hi")), {'word':'greeting', None:'bg'})
+        >>> am2 = AttrMap(Text(('word', u"hi")), {'word':'greeting', None:'bg'})
         >>> am2
         <AttrMap flow widget <Text flow widget 'hi'> attr_map={'word': 'greeting', None: 'bg'}>
         >>> next(am2.render(size).content())
@@ -169,12 +170,12 @@ class AttrMap(delegate_to_widget_mixin('_original_widget'), WidgetDecoration):
         Note this function does not accept a single attribute the way the
         constructor does.  You must specify {None: attribute} instead.
 
-        >>> w = AttrMap(Text("hi"), None)
+        >>> w = AttrMap(Text(u"hi"), None)
         >>> w.set_attr_map({'a':'b'})
         >>> w
         <AttrMap flow widget <Text flow widget 'hi'> attr_map={'a': 'b'}>
         """
-        for from_attr, to_attr in list(attr_map.items()):
+        for from_attr, to_attr in attr_map.items():
             if not from_attr.__hash__ or not to_attr.__hash__:
                 raise AttrMapError("%r:%r attribute mapping is invalid.  "
                     "Attributes must be hashable" % (from_attr, to_attr))
@@ -198,7 +199,7 @@ class AttrMap(delegate_to_widget_mixin('_original_widget'), WidgetDecoration):
         Note this function does not accept a single attribute the way the
         constructor does.  You must specify {None: attribute} instead.
 
-        >>> w = AttrMap(Text("hi"), {})
+        >>> w = AttrMap(Text(u"hi"), {})
         >>> w.set_focus_map({'a':'b'})
         >>> w
         <AttrMap flow widget <Text flow widget 'hi'> attr_map={} focus_map={'a': 'b'}>
@@ -207,7 +208,7 @@ class AttrMap(delegate_to_widget_mixin('_original_widget'), WidgetDecoration):
         <AttrMap flow widget <Text flow widget 'hi'> attr_map={}>
         """
         if focus_map is not None:
-            for from_attr, to_attr in list(focus_map.items()):
+            for from_attr, to_attr in focus_map.items():
                 if not from_attr.__hash__ or not to_attr.__hash__:
                     raise AttrMapError("%r:%r attribute mapping is invalid.  "
                         "Attributes must be hashable" % (from_attr, to_attr))
@@ -241,12 +242,12 @@ class AttrWrap(AttrMap):
         widget.  This class is maintained for backwards compatibility only,
         new code should use AttrMap instead.
 
-        >>> AttrWrap(Divider("!"), 'bright')
+        >>> AttrWrap(Divider(u"!"), 'bright')
         <AttrWrap flow widget <Divider flow widget '!'> attr='bright'>
         >>> AttrWrap(Edit(), 'notfocus', 'focus')
         <AttrWrap selectable flow widget <Edit selectable flow widget '' edit_pos=0> attr='notfocus' focus_attr='focus'>
         >>> size = (5,)
-        >>> aw = AttrWrap(Text("hi"), 'greeting', 'fgreet')
+        >>> aw = AttrWrap(Text(u"hi"), 'greeting', 'fgreet')
         >>> next(aw.render(size, focus=False).content())
         [('greeting', None, ...'hi   ')]
         >>> next(aw.render(size, focus=True).content())
@@ -310,7 +311,7 @@ class AttrWrap(AttrMap):
         """
         Call getattr on wrapped widget.  This has been the longstanding
         behaviour of AttrWrap, but is discouraged.  New code should be
-        using AttrMap and .base_widget or .original_widget instad.
+        using AttrMap and .base_widget or .original_widget instead.
         """
         return getattr(self._original_widget, name)
 
@@ -337,7 +338,7 @@ class BoxAdapter(WidgetDecoration):
         :param height: number of rows for box widget
         :type height: int
 
-        >>> BoxAdapter(SolidFill("x"), 5) # 5-rows of x's
+        >>> BoxAdapter(SolidFill(u"x"), 5) # 5-rows of x's
         <BoxAdapter flow widget <SolidFill box widget 'x'> height=5>
         """
         if hasattr(box_widget, 'sizing') and BOX not in box_widget.sizing():
@@ -361,7 +362,7 @@ class BoxAdapter(WidgetDecoration):
         """
         Return the predetermined height (behave like a flow widget)
 
-        >>> BoxAdapter(SolidFill("x"), 5).rows((20,))
+        >>> BoxAdapter(SolidFill(u"x"), 5).rows((20,))
         5
         """
         return self.height
@@ -447,7 +448,7 @@ class Padding(WidgetDecoration):
         :param left: a fixed number of columns to pad on the left
         :type left: int
 
-        :param right: a fixed number of columns to pad on thr right
+        :param right: a fixed number of columns to pad on the right
         :type right: int
 
         Clipping Mode: (width= ``'clip'``)
@@ -461,13 +462,13 @@ class Padding(WidgetDecoration):
         >>> def pr(w):
         ...     for t in w.render(size).text:
         ...         print("|%s|" % (t.decode('ascii'),))
-        >>> pr(Padding(Text("Head"), ('relative', 20), 'pack'))
+        >>> pr(Padding(Text(u"Head"), ('relative', 20), 'pack'))
         | Head  |
-        >>> pr(Padding(Divider("-"), left=2, right=1))
+        >>> pr(Padding(Divider(u"-"), left=2, right=1))
         |  ---- |
-        >>> pr(Padding(Divider("*"), 'center', 3))
+        >>> pr(Padding(Divider(u"*"), 'center', 3))
         |  ***  |
-        >>> p=Padding(Text("1234"), 'left', 2, None, 1, 1)
+        >>> p=Padding(Text(u"1234"), 'left', 2, None, 1, 1)
         >>> p
         <Padding flow widget <Text flow widget '1234'> left=1 right=1 width=2>
         >>> pr(p)   # align against left
@@ -477,7 +478,7 @@ class Padding(WidgetDecoration):
         >>> pr(p)   # align against right
         |    12 |
         |    34 |
-        >>> pr(Padding(Text("hi\\nthere"), 'right', 'pack')) # pack text first
+        >>> pr(Padding(Text(u"hi\\nthere"), 'right', 'pack')) # pack text first
         |  hi   |
         |  there|
         """
@@ -537,11 +538,12 @@ class Padding(WidgetDecoration):
         """
         self._align_type, self._align_amount = normalize_align(align,
             PaddingError)
+        self._invalidate()
     align = property(_get_align, _set_align)
 
     def _get_width(self):
         """
-        Return the padding widthment setting.
+        Return the padding width.
         """
         return simplify_width(self._width_type, self._width_amount)
     def _set_width(self, width):
@@ -550,6 +552,7 @@ class Padding(WidgetDecoration):
         """
         self._width_type, self._width_amount = normalize_width(width,
             PaddingError)
+        self._invalidate()
     width = property(_get_width, _set_width)
 
     def render(self, size, focus=False):
@@ -729,14 +732,14 @@ class Filler(WidgetDecoration):
         if isinstance(height, tuple):
             if height[0] == 'fixed top':
                 if not isinstance(valign, tuple) or valign[0] != 'fixed bottom':
-                    raise FillerError("fixed bottom height may only be used "
-                        "with fixed top valign")
+                    raise FillerError("fixed top height may only be used "
+                        "with fixed bottom valign")
                 top = height[1]
                 height = RELATIVE_100
             elif height[0] == 'fixed bottom':
                 if not isinstance(valign, tuple) or valign[0] != 'fixed top':
-                    raise FillerError("fixed top height may only be used "
-                        "with fixed bottom valign")
+                    raise FillerError("fixed bottom height may only be used "
+                        "with fixed top valign")
                 bottom = height[1]
                 height = RELATIVE_100
         if isinstance(valign, tuple):
@@ -1166,4 +1169,3 @@ def _test():
 
 if __name__=='__main__':
     _test()
-

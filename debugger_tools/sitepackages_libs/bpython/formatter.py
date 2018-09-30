@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 # The MIT License
 #
 # Copyright (c) 2008 Bob Farrell
@@ -24,13 +26,16 @@
 # Pygments really kicks ass, it made it really easy to
 # get the exact behaviour I wanted, thanks Pygments.:)
 
+from __future__ import absolute_import
+
 from pygments.formatter import Formatter
 from pygments.token import Keyword, Name, Comment, String, Error, \
-     Number, Operator, Token, Whitespace, Literal, Punctuation
+    Number, Operator, Token, Whitespace, Literal, Punctuation
+from six import iteritems
 
 """These format strings are pretty ugly.
 \x01 represents a colour marker, which
-    can be proceded by one or two of
+    can be preceded by one or two of
     the following letters:
     k, r, g, y, b, m, c, w, d
     Which represent:
@@ -48,7 +53,7 @@ from pygments.token import Keyword, Name, Comment, String, Error, \
 \x04 represents the end of the string; this is
     necessary because the strings are all joined
     together at the end so the parser needs them
-    as delimeters
+    as delimiters
 
 """
 
@@ -85,7 +90,7 @@ class BPythonFormatter(Formatter):
 
     def __init__(self, color_scheme, **options):
         self.f_strings = {}
-        for k, v in theme_map.items():
+        for k, v in iteritems(theme_map):
             self.f_strings[k] = '\x01%s' % (color_scheme[v],)
             if k is Parenthesis:
                 # FIXME: Find a way to make this the inverse of the current

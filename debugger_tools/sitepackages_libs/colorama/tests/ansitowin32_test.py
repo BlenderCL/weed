@@ -1,25 +1,11 @@
 # Copyright Jonathan Hartley 2013. BSD 3-Clause license, see LICENSE file.
-try:
-    # python3
-    from io import StringIO
-except ImportError:
-    # python2
-    import StringIO
+from io import StringIO
+from unittest import TestCase, main
 
-try:
-    # with unittest2 installed, presumably is Python <= 2.6
-    from unittest2 import TestCase, main
-except ImportError:
-    # without unittest2 installed, hopefully is Python > 2.6
-    from unittest import TestCase, main
+from mock import MagicMock, Mock, patch
 
-from mock import Mock, patch
-
-from .utils import osname
-
-from ..ansi import Style
 from ..ansitowin32 import AnsiToWin32, StreamWrapper
-
+from .utils import osname
 
 
 class StreamWrapperTest(TestCase):
@@ -36,18 +22,33 @@ class StreamWrapperTest(TestCase):
         wrapper.write('hello')
         self.assertTrue(mockConverter.write.call_args, (('hello',), {}))
 
+    def testDelegatesContext(self):
+        mockConverter = Mock()
+        s = StringIO()
+        with StreamWrapper(s, mockConverter) as fp:
+            fp.write(u'hello')
+        self.assertTrue(s.closed)
+
+    def testProxyNoContextManager(self):
+        mockStream = MagicMock()
+        mockStream.__enter__.side_effect = AttributeError()
+        mockConverter = Mock()
+        with self.assertRaises(AttributeError) as excinfo:
+            with StreamWrapper(mockStream, mockConverter) as wrapper:
+                wrapper.write('hello')
+
 
 class AnsiToWin32Test(TestCase):
 
     def testInit(self):
-        mockStdout = object()
-        auto = object()
+        mockStdout = Mock()
+        auto = Mock()
         stream = AnsiToWin32(mockStdout, autoreset=auto)
         self.assertEqual(stream.wrapped, mockStdout)
         self.assertEqual(stream.autoreset, auto)
 
     @patch('colorama.ansitowin32.winterm', None)
-    @patch('os.environ', dict())
+    @patch('colorama.ansitowin32.winapi_test', lambda *_: True)
     def testStripIsTrueOnWindows(self):
         with osname('nt'):
             mockStdout = Mock()
@@ -56,9 +57,9 @@ class AnsiToWin32Test(TestCase):
 
     def testStripIsFalseOffWindows(self):
         with osname('posix'):
-            stream = AnsiToWin32(None)
+            mockStdout = Mock(closed=False)
+            stream = AnsiToWin32(mockStdout)
             self.assertFalse(stream.strip)
-
 
     def testWriteStripsAnsi(self):
         mockStdout = Mock()
@@ -72,7 +73,6 @@ class AnsiToWin32Test(TestCase):
         self.assertFalse(stream.wrapped.write.called)
         self.assertEqual(stream.write_and_convert.call_args, (('abc',), {}))
 
-
     def testWriteDoesNotStripAnsi(self):
         mockStdout = Mock()
         stream = AnsiToWin32(mockStdout)
@@ -85,7 +85,6 @@ class AnsiToWin32Test(TestCase):
 
         self.assertFalse(stream.write_and_convert.called)
         self.assertEqual(stream.wrapped.write.call_args, (('abc',), {}))
-
 
     def assert_autoresets(self, convert, autoreset=True):
         stream = AnsiToWin32(Mock())
@@ -165,6 +164,17 @@ class AnsiToWin32Test(TestCase):
 
         converter.reset_all()
 
+    def test_wrap_shouldnt_raise_on_closed_orig_stdout(self):
+        stream = StringIO()
+        stream.close()
+        converter = AnsiToWin32(stream)
+        self.assertFalse(converter.strip)
+        self.assertFalse(converter.convert)
+
+    def test_wrap_shouldnt_raise_on_missing_closed_attr(self):
+        converter = AnsiToWin32(object())
+        self.assertFalse(converter.strip)
+        self.assertFalse(converter.convert)
 
     def testExtractParams(self):
         stream = AnsiToWin32(Mock())
@@ -196,4 +206,3 @@ class AnsiToWin32Test(TestCase):
 
 if __name__ == '__main__':
     main()
-

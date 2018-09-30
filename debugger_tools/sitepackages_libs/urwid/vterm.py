@@ -20,28 +20,32 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 import os
 import sys
-import pty
 import time
 import copy
-import fcntl
 import errno
 import select
 import struct
 import signal
 import atexit
-import termios
 import traceback
+
+try:
+    import pty
+    import fcntl
+    import termios
+except ImportError:
+    pass # windows
 
 from urwid import util
 from urwid.escape import DEC_SPECIAL_CHARS, ALT_DEC_SPECIAL_CHARS
 from urwid.canvas import Canvas
 from urwid.widget import Widget, BOX
-from urwid.display_common import AttrSpec, _BASIC_COLORS
-from urwid.display_unix_common import RealTerminal
-from urwid.compat import ord2, chr2, B, bytes, PYTHON3
-import collections
+from urwid.display_common import AttrSpec, RealTerminal, _BASIC_COLORS
+from urwid.compat import ord2, chr2, B, bytes, PYTHON3, xrange
 
 ESC = chr(27)
 
@@ -345,7 +349,7 @@ class TermCanvas(Canvas):
 
     def set_tabstop(self, x=None, remove=False, clear=False):
         if clear:
-            for tab in range(len(self.tabstops)):
+            for tab in xrange(len(self.tabstops)):
                 self.tabstops[tab] = 0
             return
 
@@ -387,18 +391,18 @@ class TermCanvas(Canvas):
 
         if width > self.width:
             # grow
-            for y in range(self.height):
+            for y in xrange(self.height):
                 self.term[y] += [self.empty_char()] * (width - self.width)
         elif width < self.width:
             # shrink
-            for y in range(self.height):
+            for y in xrange(self.height):
                 self.term[y] = self.term[y][:width]
 
         self.width = width
 
         if height > self.height:
             # grow
-            for y in range(self.height, height):
+            for y in xrange(self.height, height):
                 try:
                     last_line = self.scrollback_buffer.pop()
                 except IndexError:
@@ -419,7 +423,7 @@ class TermCanvas(Canvas):
                 self.term.insert(0, last_line)
         elif height < self.height:
             # shrink
-            for y in range(height, self.height):
+            for y in xrange(height, self.height):
                 self.scrollback_buffer.append(self.term.pop(0))
 
         self.height = height
@@ -479,7 +483,7 @@ class TermCanvas(Canvas):
             number_of_args, default_value, cmd = csi_cmd
             while len(escbuf) < number_of_args:
                 escbuf.append(default_value)
-            for i in range(len(escbuf)):
+            for i in xrange(len(escbuf)):
                 if escbuf[i] is None or escbuf[i] == 0:
                     escbuf[i] = default_value
 
@@ -533,7 +537,7 @@ class TermCanvas(Canvas):
     def parse_escape(self, char):
         if self.parsestate == 1:
             # within CSI
-            if char in list(CSI_COMMANDS.keys()):
+            if char in CSI_COMMANDS.keys():
                 self.parse_csi(char)
                 self.parsestate = 0
             elif char in B('0123456789;') or (not self.escbuf and char == B('?')):
@@ -669,7 +673,7 @@ class TermCanvas(Canvas):
             self.widget.beep()
         elif not dc and char in B("\x18\x1a"): # CAN/SUB
             self.leave_escape()
-        elif not dc and char == B("\x7f"): # DEL
+        elif not dc and char in B("\x00\x7f"): # NUL/DEL
             pass # this is ignored
         elif self.within_escape:
             self.parse_escape(char)
@@ -876,7 +880,7 @@ class TermCanvas(Canvas):
         """
         DEC screen alignment test: Fill screen with E's.
         """
-        for row in range(self.height):
+        for row in xrange(self.height):
             self.term[row] = self.empty_line('E')
 
     def blank_line(self, row):
@@ -983,7 +987,7 @@ class TermCanvas(Canvas):
 
         # within a single row
         if sy == ey:
-            for x in range(sx, ex + 1):
+            for x in xrange(sx, ex + 1):
                 self.term[sy][x] = self.empty_char()
             return
 
@@ -991,10 +995,10 @@ class TermCanvas(Canvas):
         y = sy
         while y <= ey:
             if y == sy:
-                for x in range(sx, self.width):
+                for x in xrange(sx, self.width):
                     self.term[y][x] = self.empty_char()
             elif y == ey:
-                for x in range(ex + 1):
+                for x in xrange(ex + 1):
                     self.term[y][x] = self.empty_char()
             else:
                 self.blank_line(y)
@@ -1129,8 +1133,8 @@ class TermCanvas(Canvas):
         """
         Reverse video/scanmode (DECSCNM) by swapping fg and bg colors.
         """
-        for y in range(self.height):
-            for x in range(self.width):
+        for y in xrange(self.height):
+            for x in xrange(self.width):
                 char = self.term[y][x]
                 attrs = self.reverse_attrspec(char[0], undo=undo)
                 self.term[y][x] = (attrs,) + char[1:]
@@ -1286,7 +1290,7 @@ class TermCanvas(Canvas):
         Clears the whole terminal screen and resets the cursor position
         to (0, 0) or to the coordinates given by 'cursor'.
         """
-        self.term = [self.empty_line() for x in range(self.height)]
+        self.term = [self.empty_line() for x in xrange(self.height)]
 
         if cursor is None:
             self.set_term_cursor(0, 0)
@@ -1381,7 +1385,7 @@ class Terminal(Widget):
         self.pid, self.master = pty.fork()
 
         if self.pid == 0:
-            if isinstance(self.command, collections.Callable):
+            if callable(self.command):
                 try:
                     try:
                         self.command()
@@ -1516,7 +1520,13 @@ class Terminal(Widget):
         return True
 
     def wait_and_feed(self, timeout=1.0):
-        select.select([self.master], [], [], timeout)
+        while True:
+            try:
+                select.select([self.master], [], [], timeout)
+                break
+            except select.error as e:
+                if e.args[0] != 4:
+                    raise
         self.feed()
 
     def feed(self):

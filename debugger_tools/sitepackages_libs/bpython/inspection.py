@@ -1,6 +1,9 @@
+# encoding: utf-8
+
 # The MIT License
 #
 # Copyright (c) 2009-2011 the bpython authors.
+# Copyright (c) 2015 Sebastian Ramacher
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,33 +22,30 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-#
 
+from __future__ import absolute_import
 
-import collections
 import inspect
+import io
 import keyword
 import pydoc
-import re
-import types
+from collections import namedtuple
+from six.moves import range
 
 from pygments.token import Token
 
-from bpython._py3compat import PythonLexer, py3
-
-try:
-    collections.Callable
-    has_collections_callable = True
-except AttributeError:
-    has_collections_callable = False
-try:
-    types.InstanceType
-    has_instance_type = True
-except AttributeError:
-    has_instance_type = False
+from ._py3compat import PythonLexer, py3
+from .lazyre import LazyReCompile
 
 if not py3:
-    _name = re.compile(r'[a-zA-Z_]\w*$')
+    import types
+
+    _name = LazyReCompile(r'[a-zA-Z_]\w*$')
+
+ArgSpec = namedtuple('ArgSpec', ['args', 'varargs', 'varkwargs', 'defaults',
+                                 'kwonly', 'kwonly_defaults', 'annotations'])
+
+FuncProps = namedtuple('FuncProps', ['func', 'argspec', 'is_bound_method'])
 
 
 class AttrCleaner(object):
@@ -70,7 +70,7 @@ class AttrCleaner(object):
         # original methods. :-(
         # The upshot being that introspecting on an object to display its
         # attributes will avoid unwanted side-effects.
-        if py3 or type_ != types.InstanceType:
+        if is_new_style(self.obj):
             __getattr__ = getattr(type_, '__getattr__', None)
             if __getattr__ is not None:
                 try:
@@ -98,6 +98,16 @@ class AttrCleaner(object):
             setattr(type_, '__getattr__', __getattr__)
         # /Dark magic
 
+
+if py3:
+    def is_new_style(obj):
+        return True
+else:
+    def is_new_style(obj):
+        """Returns True if obj is a new-style class or object"""
+        return type(obj) not in [types.InstanceType, types.ClassType]
+
+
 class _Repr(object):
     """
     Helper for `fixlongargs()`: Returns the given value in `__repr__()`.
@@ -111,6 +121,7 @@ class _Repr(object):
 
     __str__ = __repr__
 
+
 def parsekeywordpairs(signature):
     tokens = PythonLexer().get_tokens(signature)
     preamble = True
@@ -119,20 +130,20 @@ def parsekeywordpairs(signature):
     parendepth = 0
     for token, value in tokens:
         if preamble:
-            if token is Token.Punctuation and value == "(":
+            if token is Token.Punctuation and value == u"(":
                 preamble = False
             continue
 
         if token is Token.Punctuation:
-            if value in ['(', '{', '[']:
+            if value in [u'(', u'{', u'[']:
                 parendepth += 1
-            elif value in [')', '}', ']']:
+            elif value in [u')', u'}', u']']:
                 parendepth -= 1
             elif value == ':' and parendepth == -1:
                 # End of signature reached
                 break
             if ((value == ',' and parendepth == 0) or
-                  (value == ')' and parendepth == -1)):
+                    (value == ')' and parendepth == -1)):
                 stack.append(substack)
                 substack = []
                 continue
@@ -168,11 +179,14 @@ def fixlongargs(f, argspec):
     signature = ''.join(src[0])
     kwparsed = parsekeywordpairs(signature)
 
-    for i, (key, value) in enumerate(list(zip(keys, values))):
+    for i, (key, value) in enumerate(zip(keys, values)):
         if len(repr(value)) != len(kwparsed[key]):
             values[i] = _Repr(kwparsed[key])
 
     argspec[3] = values
+
+
+getpydocspec_re = LazyReCompile(r'([a-zA-Z_][a-zA-Z0-9_]*?)\((.*?)\)')
 
 
 def getpydocspec(f, func):
@@ -181,8 +195,7 @@ def getpydocspec(f, func):
     except NameError:
         return None
 
-    rx = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*?)\((.*?)\)')
-    s = rx.search(argspec)
+    s = getpydocspec_re.search(argspec)
     if s is None:
         return None
 
@@ -211,11 +224,11 @@ def getpydocspec(f, func):
                 if default:
                     defaults.append(default)
 
-    return [func, (args, varargs, varkwargs, defaults,
-                   kwonly_args, kwonly_defaults)]
+    return ArgSpec(args, varargs, varkwargs, defaults, kwonly_args,
+                   kwonly_defaults, None)
 
 
-def getargspec(func, f):
+def getfuncprops(func, f):
     # Check if it's a real bound method or if it's implicitly calling __init__
     # (i.e. FooClass(...) and not FooClass.__init__(...) -- the former would
     # not take 'self', the latter would:
@@ -226,9 +239,11 @@ def getargspec(func, f):
         func_name = None
 
     try:
-        is_bound_method = ((inspect.ismethod(f) and f.__self__ is not None)
-                    or (func_name == '__init__' and not
-                        func.endswith('.__init__')))
+        is_bound_method = ((inspect.ismethod(f) and f.__self__ is not None) or
+                           (func_name == '__init__' and not
+                            func.endswith('.__init__')) or
+                           (func_name == '__new__' and not
+                            func.endswith('.__new__')))
     except:
         # if f is a method from a xmlrpclib.Server instance, func_name ==
         # '__init__' throws xmlrpclib.Fault (see #202)
@@ -241,16 +256,19 @@ def getargspec(func, f):
 
         argspec = list(argspec)
         fixlongargs(f, argspec)
-        argspec = [func, argspec, is_bound_method]
+        if len(argspec) == 4:
+            argspec = argspec + [list(), dict(), None]
+        argspec = ArgSpec(*argspec)
+        fprops = FuncProps(func, argspec, is_bound_method)
     except (TypeError, KeyError):
         with AttrCleaner(f):
             argspec = getpydocspec(f, func)
         if argspec is None:
             return None
         if inspect.ismethoddescriptor(f):
-            argspec[1][0].insert(0, 'obj')
-        argspec.append(is_bound_method)
-    return argspec
+            argspec.args.insert(0, 'obj')
+        fprops = FuncProps(func, argspec, is_bound_method)
+    return fprops
 
 
 def is_eval_safe_name(string):
@@ -263,10 +281,46 @@ def is_eval_safe_name(string):
 
 
 def is_callable(obj):
-    if has_instance_type and isinstance(obj, types.InstanceType):
-        # Work around a CPython bug, see CPython issue #7624
-        return isinstance(obj, collections.Callable)
-    elif has_collections_callable:
-        return isinstance(obj, collections.Callable)
-    else:
-        return isinstance(obj, collections.Callable)
+    return callable(obj)
+
+
+get_encoding_line_re = LazyReCompile(r'^.*coding[:=]\s*([-\w.]+).*$')
+
+
+def get_encoding(obj):
+    """Try to obtain encoding information of the source of an object."""
+    for line in inspect.findsource(obj)[0][:2]:
+        m = get_encoding_line_re.search(line)
+        if m:
+            return m.group(1)
+    return 'ascii'
+
+
+def get_encoding_comment(source):
+    """Returns encoding line without the newline, or None is not found"""
+    for line in source.splitlines()[:2]:
+        m = get_encoding_line_re.search(line)
+        if m:
+            return m.group(0)
+    return None
+
+
+def get_encoding_file(fname):
+    """Try to obtain encoding information from a Python source file."""
+    with io.open(fname, 'rt', encoding='ascii', errors='ignore') as f:
+        for unused in range(2):
+            line = f.readline()
+            match = get_encoding_line_re.search(line)
+            if match:
+                return match.group(1)
+    return 'ascii'
+
+
+if py3:
+    def get_source_unicode(obj):
+        """Returns a decoded source of object"""
+        return inspect.getsource(obj)
+else:
+    def get_source_unicode(obj):
+        """Returns a decoded source of object"""
+        return inspect.getsource(obj).decode(get_encoding(obj))

@@ -19,6 +19,8 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 from inspect import getargspec
 from urwid.compat import PYTHON3, bytes
 
@@ -46,7 +48,7 @@ def split_repr(self):
     <Bar words here too attrs='appear too' barttr=42>
     """
     alist = [(str(k), normalize_repr(v))
-        for k, v in list(self._repr_attrs().items())]
+        for k, v in self._repr_attrs().items()]
     alist.sort()
     words = self._repr_words()
     if not words and not alist:
@@ -68,7 +70,7 @@ def normalize_repr(v):
     "'foo'"
     """
     if isinstance(v, dict):
-        items = [(repr(k), repr(v)) for k, v in list(v.items())]
+        items = [(repr(k), repr(v)) for k, v in v.items()]
         items.sort()
         return "{" + ", ".join([
             "%s: %s" % itm for itm in items]) + "}"
@@ -79,7 +81,7 @@ def python3_repr(v):
     """
     Return strings and byte strings as they appear in Python 3
 
-    >>> python3_repr("text")
+    >>> python3_repr(u"text")
     "'text'"
     >>> python3_repr(bytes())
     "b''"
@@ -97,9 +99,9 @@ def python3_repr(v):
 def remove_defaults(d, fn):
     """
     Remove keys in d that are set to the default values from
-    fn.  This method is used to unclutter the _repr_attrs() 
+    fn.  This method is used to unclutter the _repr_attrs()
     return value.
-    
+
     d will be modified by this function.
 
     Returns d.
@@ -128,13 +130,13 @@ def remove_defaults(d, fn):
     if varargs:
         del args[-1]
 
-    # create adictionary of args with default values
+    # create a dictionary of args with default values
     ddict = dict(list(zip(args[len(args) - len(defaults):], defaults)))
 
-    for k, v in list(d.items()):
+    for k in list(d.keys()):
         if k in ddict:
             # remove values that match their defaults
-            if ddict[k] == v:
+            if ddict[k] == d[k]:
                 del d[k]
 
     return d
@@ -147,4 +149,3 @@ def _test():
 
 if __name__=='__main__':
     _test()
-

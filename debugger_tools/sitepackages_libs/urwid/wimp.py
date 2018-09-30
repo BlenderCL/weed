@@ -19,6 +19,8 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 from urwid.widget import (Text, WidgetWrap, delegate_to_widget_mixin, BOX,
     FLOW)
 from urwid.canvas import CompositeCanvas
@@ -33,7 +35,7 @@ from urwid.command_map import ACTIVATE
 
 class SelectableIcon(Text):
     _selectable = True
-    def __init__(self, text, cursor_position=1):
+    def __init__(self, text, cursor_position=0):
         """
         :param text: markup for this widget; see :class:`Text` for
                      description of text markup
@@ -52,11 +54,11 @@ class SelectableIcon(Text):
         Render the text content of this widget with a cursor when
         in focus.
 
-        >>> si = SelectableIcon("[!]")
+        >>> si = SelectableIcon(u"[!]")
         >>> si
         <SelectableIcon selectable flow widget '[!]'>
         >>> si.render((4,), focus=True).cursor
-        (1, 0)
+        (0, 0)
         >>> si = SelectableIcon("((*))", 2)
         >>> si.render((8,), focus=True).cursor
         (2, 0)
@@ -101,15 +103,15 @@ class CheckBox(WidgetWrap):
         return frozenset([FLOW])
 
     states = {
-        True: SelectableIcon("[X]"),
-        False: SelectableIcon("[ ]"),
-        'mixed': SelectableIcon("[#]") }
+        True: SelectableIcon("[X]", 1),
+        False: SelectableIcon("[ ]", 1),
+        'mixed': SelectableIcon("[#]", 1) }
     reserve_columns = 4
 
     # allow users of this class to listen for change events
     # sent when the state of this widget is modified
     # (this variable is picked up by the MetaSignals metaclass)
-    signals = ["change"]
+    signals = ["change", 'postchange']
 
     def __init__(self, label, state=False, has_mixed=False,
              on_state_change=None, user_data=None):
@@ -121,7 +123,7 @@ class CheckBox(WidgetWrap):
                                 function call for a single callback
         :param user_data: user_data for on_state_change
 
-        Signals supported: ``'change'``
+        Signals supported: ``'change'``, ``"postchange"``
 
         Register signal handler with::
 
@@ -132,11 +134,11 @@ class CheckBox(WidgetWrap):
 
           urwid.disconnect_signal(check_box, 'change', callback, user_data)
 
-        >>> CheckBox("Confirm")
+        >>> CheckBox(u"Confirm")
         <CheckBox selectable flow widget 'Confirm' state=False>
-        >>> CheckBox("Yogourt", "mixed", True)
+        >>> CheckBox(u"Yogourt", "mixed", True)
         <CheckBox selectable flow widget 'Yogourt' state='mixed'>
-        >>> cb = CheckBox("Extra onions", True)
+        >>> cb = CheckBox(u"Extra onions", True)
         >>> cb
         <CheckBox selectable flow widget 'Extra onions' state=True>
         >>> cb.render((20,), focus=True).text # ... = b in Python 3
@@ -168,10 +170,10 @@ class CheckBox(WidgetWrap):
         label -- markup for label.  See Text widget for description
         of text markup.
 
-        >>> cb = CheckBox("foo")
+        >>> cb = CheckBox(u"foo")
         >>> cb
         <CheckBox selectable flow widget 'foo' state=False>
-        >>> cb.set_label(('bright_attr', "bar"))
+        >>> cb.set_label(('bright_attr', u"bar"))
         >>> cb
         <CheckBox selectable flow widget 'bar' state=False>
         """
@@ -183,12 +185,12 @@ class CheckBox(WidgetWrap):
         """
         Return label text.
 
-        >>> cb = CheckBox("Seriously")
+        >>> cb = CheckBox(u"Seriously")
         >>> print(cb.get_label())
         Seriously
         >>> print(cb.label)
         Seriously
-        >>> cb.set_label([('bright_attr', "flashy"), " normal"])
+        >>> cb.set_label([('bright_attr', u"flashy"), u" normal"])
         >>> print(cb.label)  #  only text is returned
         flashy normal
         """
@@ -200,7 +202,7 @@ class CheckBox(WidgetWrap):
         Set the CheckBox state.
 
         state -- True, False or "mixed"
-        do_callback -- False to supress signal from this change
+        do_callback -- False to suppress signal from this change
 
         >>> changes = []
         >>> def callback_a(cb, state, user_data):
@@ -208,8 +210,8 @@ class CheckBox(WidgetWrap):
         >>> def callback_b(cb, state):
         ...     changes.append("B %r" % state)
         >>> cb = CheckBox('test', False, False)
-        >>> connect_signal(cb, 'change', callback_a, "user_a")
-        >>> connect_signal(cb, 'change', callback_b)
+        >>> key1 = connect_signal(cb, 'change', callback_a, "user_a")
+        >>> key2 = connect_signal(cb, 'change', callback_b)
         >>> cb.set_state(True) # both callbacks will be triggered
         >>> cb.state
         True
@@ -233,7 +235,8 @@ class CheckBox(WidgetWrap):
 
         # self._state is None is a special case when the CheckBox
         # has just been created
-        if do_callback and self._state is not None:
+        old_state = self._state
+        if do_callback and old_state is not None:
             self._emit('change', state)
         self._state = state
         # rebuild the display widget with the new state
@@ -241,6 +244,8 @@ class CheckBox(WidgetWrap):
             ('fixed', self.reserve_columns, self.states[state] ),
             self._label ] )
         self._w.focus_col = 0
+        if do_callback and old_state is not None:
+            self._emit('postchange', old_state)
 
     def get_state(self):
         """Return the state of the checkbox."""
@@ -317,9 +322,9 @@ class CheckBox(WidgetWrap):
 
 class RadioButton(CheckBox):
     states = {
-        True: SelectableIcon("(X)"),
-        False: SelectableIcon("( )"),
-        'mixed': SelectableIcon("(#)") }
+        True: SelectableIcon("(X)", 1),
+        False: SelectableIcon("( )", 1),
+        'mixed': SelectableIcon("(#)", 1) }
     reserve_columns = 4
 
     def __init__(self, group, label, state="first True",
@@ -335,7 +340,7 @@ class RadioButton(CheckBox):
         This function will append the new radio button to group.
         "first True" will set to True if group is empty.
 
-        Signals supported: ``'change'``
+        Signals supported: ``'change'``, ``"postchange"``
 
         Register signal handler with::
 
@@ -347,8 +352,8 @@ class RadioButton(CheckBox):
           urwid.disconnect_signal(radio_button, 'change', callback, user_data)
 
         >>> bgroup = [] # button group
-        >>> b1 = RadioButton(bgroup, "Agree")
-        >>> b2 = RadioButton(bgroup, "Disagree")
+        >>> b1 = RadioButton(bgroup, u"Agree")
+        >>> b2 = RadioButton(bgroup, u"Disagree")
         >>> len(bgroup)
         2
         >>> b1
@@ -374,23 +379,23 @@ class RadioButton(CheckBox):
 
         state -- True, False or "mixed"
 
-        do_callback -- False to supress signal from this change
+        do_callback -- False to suppress signal from this change
 
         If state is True all other radio buttons in the same button
         group will be set to False.
 
         >>> bgroup = [] # button group
-        >>> b1 = RadioButton(bgroup, "Agree")
-        >>> b2 = RadioButton(bgroup, "Disagree")
-        >>> b3 = RadioButton(bgroup, "Unsure")
+        >>> b1 = RadioButton(bgroup, u"Agree")
+        >>> b2 = RadioButton(bgroup, u"Disagree")
+        >>> b3 = RadioButton(bgroup, u"Unsure")
         >>> b1.state, b2.state, b3.state
         (True, False, False)
         >>> b2.set_state(True)
         >>> b1.state, b2.state, b3.state
         (False, True, False)
         >>> def relabel_button(radio_button, new_state):
-        ...     radio_button.set_label("Think Harder!")
-        >>> connect_signal(b3, 'change', relabel_button)
+        ...     radio_button.set_label(u"Think Harder!")
+        >>> key = connect_signal(b3, 'change', relabel_button)
         >>> b3
         <RadioButton selectable flow widget 'Unsure' state=False>
         >>> b3.set_state(True) # this will trigger the callback
@@ -460,7 +465,7 @@ class Button(WidgetWrap):
 
           urwid.disconnect_signal(button, 'click', callback, user_data)
 
-        >>> Button("Ok")
+        >>> Button(u"Ok")
         <Button selectable flow widget 'Ok'>
         >>> b = Button("Cancel")
         >>> b.render((15,), focus=True).text # ... = b in Python 3
@@ -493,7 +498,7 @@ class Button(WidgetWrap):
         label -- markup for button label
 
         >>> b = Button("Ok")
-        >>> b.set_label("Yup yup")
+        >>> b.set_label(u"Yup yup")
         >>> b
         <Button selectable flow widget 'Yup yup'>
         """
@@ -503,7 +508,7 @@ class Button(WidgetWrap):
         """
         Return label text.
 
-        >>> b = Button("Ok")
+        >>> b = Button(u"Ok")
         >>> print(b.get_label())
         Ok
         >>> print(b.label)
@@ -519,11 +524,11 @@ class Button(WidgetWrap):
         >>> assert Button._command_map[' '] == 'activate'
         >>> assert Button._command_map['enter'] == 'activate'
         >>> size = (15,)
-        >>> b = Button("Cancel")
+        >>> b = Button(u"Cancel")
         >>> clicked_buttons = []
         >>> def handle_click(button):
         ...     clicked_buttons.append(button.label)
-        >>> connect_signal(b, 'click', handle_click)
+        >>> key = connect_signal(b, 'click', handle_click)
         >>> b.keypress(size, 'enter')
         >>> b.keypress(size, ' ')
         >>> clicked_buttons # ... = u in Python 2
@@ -539,11 +544,11 @@ class Button(WidgetWrap):
         Send 'click' signal on button 1 press.
 
         >>> size = (15,)
-        >>> b = Button("Ok")
+        >>> b = Button(u"Ok")
         >>> clicked_buttons = []
         >>> def handle_click(button):
         ...     clicked_buttons.append(button.label)
-        >>> connect_signal(b, 'click', handle_click)
+        >>> key = connect_signal(b, 'click', handle_click)
         >>> b.mouse_event(size, 'mouse press', 1, 4, 0, True)
         True
         >>> b.mouse_event(size, 'mouse press', 2, 4, 0, True) # ignored
@@ -566,7 +571,7 @@ class PopUpLauncher(delegate_to_widget_mixin('_original_widget'),
 
     def create_pop_up(self):
         """
-        Subclass must override this method and have is return a widget
+        Subclass must override this method and return a widget
         to be used for the pop-up.  This method is called once each time
         the pop-up is opened.
         """
@@ -662,4 +667,3 @@ def _test():
 
 if __name__=='__main__':
     _test()
-

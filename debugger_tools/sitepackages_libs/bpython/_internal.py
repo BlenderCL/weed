@@ -1,7 +1,11 @@
+# encoding: utf-8
+
+from __future__ import absolute_import
+
 import pydoc
 import sys
 
-from bpython.pager import page
+from .pager import page
 
 # Ugly monkeypatching
 pydoc.pager = page
@@ -22,6 +26,7 @@ class _Helper(object):
 
     def __call__(self, *args, **kwargs):
         self.helper(*args, **kwargs)
+
 
 _help = _Helper()
 

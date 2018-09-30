@@ -19,24 +19,30 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 """
 Direct terminal UI implementation
 """
 
-import fcntl
-import termios
 import os
 import select
 import struct
 import sys
-import tty
 import signal
+
+try:
+    import fcntl
+    import termios
+    import tty
+except ImportError:
+    pass # windows
 
 from urwid import util
 from urwid import escape
-from urwid.display_common import BaseScreen, UPDATE_PALETTE_ENTRY, AttrSpec,\
-    UNPRINTABLE_TRANS_TABLE, INPUT_DESCRIPTORS_CHANGED
-from urwid.display_unix_common import RealTerminal
+from urwid.display_common import BaseScreen, RealTerminal, \
+    UPDATE_PALETTE_ENTRY, AttrSpec, UNPRINTABLE_TRANS_TABLE, \
+    INPUT_DESCRIPTORS_CHANGED
 from urwid import signals
 from urwid.compat import PYTHON3, bytes, B
 
@@ -44,17 +50,17 @@ from subprocess import Popen, PIPE
 
 
 class Screen(BaseScreen, RealTerminal):
-    def __init__(self):
+    def __init__(self, input=sys.stdin, output=sys.stdout):
         """Initialize a screen that directly prints escape codes to an output
         terminal.
         """
         super(Screen, self).__init__()
         self._pal_escape = {}
-        signals.connect_signal(self, UPDATE_PALETTE_ENTRY, 
+        self._pal_attrspec = {}
+        signals.connect_signal(self, UPDATE_PALETTE_ENTRY,
             self._on_update_palette_entry)
         self.colors = 16 # FIXME: detect this
         self.has_underline = True # FIXME: detect this
-        self.register_palette_entry( None, 'default','default')
         self._keyqueue = []
         self.prev_input_resize = 0
         self.set_input_timeouts()
@@ -64,29 +70,39 @@ class Screen(BaseScreen, RealTerminal):
         self.maxrow = None
         self.gpm_mev = None
         self.gpm_event_pending = False
+        self._mouse_tracking_enabled = False
         self.last_bstate = 0
         self._setup_G1_done = False
         self._rows_used = None
         self._cy = 0
-        self.bright_is_bold = os.environ.get('TERM',None) != "xterm"
+        self.term = os.environ.get('TERM', '')
+        self.fg_bright_is_bold = not self.term.startswith("xterm")
+        self.bg_bright_is_blink = (self.term == "linux")
+        self.back_color_erase = not self.term.startswith("screen")
+        self.register_palette_entry( None, 'default','default')
         self._next_timeout = None
-        self._term_output_file = sys.stdout
-        self._term_input_file = sys.stdin
+        self.signal_handler_setter = signal.signal
+
+        # Our connections to the world
+        self._term_output_file = output
+        self._term_input_file = input
+
         # pipe for signalling external event loops about resize events
         self._resize_pipe_rd, self._resize_pipe_wr = os.pipe()
         fcntl.fcntl(self._resize_pipe_rd, fcntl.F_SETFL, os.O_NONBLOCK)
 
     def _on_update_palette_entry(self, name, *attrspecs):
         # copy the attribute to a dictionary containing the escape seqences
-        self._pal_escape[name] = self._attrspec_to_escape(
-            attrspecs[{16:0,1:1,88:2,256:3}[self.colors]])
+        a = attrspecs[{16:0,1:1,88:2,256:3}[self.colors]]
+        self._pal_attrspec[name] = a
+        self._pal_escape[name] = self._attrspec_to_escape(a)
 
-    def set_input_timeouts(self, max_wait=None, complete_wait=0.125, 
+    def set_input_timeouts(self, max_wait=None, complete_wait=0.125,
         resize_wait=0.125):
         """
         Set the get_input timeout values.  All values are in floating
         point numbers of seconds.
-        
+
         max_wait -- amount of time in seconds to wait for input when
             there is no input pending, wait forever if None
         complete_wait -- amount of time in seconds to wait when
@@ -106,43 +122,69 @@ class Screen(BaseScreen, RealTerminal):
         self.complete_wait = complete_wait
         self.resize_wait = resize_wait
 
-    def _sigwinch_handler(self, signum, frame):
+    def _sigwinch_handler(self, signum, frame=None):
+        """
+        frame -- will always be None when the GLib event loop is being used.
+        """
+
         if not self._resized:
             os.write(self._resize_pipe_wr, B('R'))
         self._resized = True
         self.screen_buf = None
-      
+
+    def _sigcont_handler(self, signum, frame=None):
+        """
+        frame -- will always be None when the GLib event loop is being used.
+        """
+
+        self.stop()
+        self.start()
+        self._sigwinch_handler(None, None)
+
     def signal_init(self):
         """
-        Called in the startup of run wrapper to set the SIGWINCH 
-        signal handler to self._sigwinch_handler.
+        Called in the startup of run wrapper to set the SIGWINCH
+        and SIGCONT signal handlers.
 
         Override this function to call from main thread in threaded
         applications.
         """
-        signal.signal(signal.SIGWINCH, self._sigwinch_handler)
-    
+        self.signal_handler_setter(signal.SIGWINCH, self._sigwinch_handler)
+        self.signal_handler_setter(signal.SIGCONT, self._sigcont_handler)
+
     def signal_restore(self):
         """
         Called in the finally block of run wrapper to restore the
-        SIGWINCH handler to the default handler.
+        SIGWINCH and SIGCONT signal handlers.
 
         Override this function to call from main thread in threaded
         applications.
         """
-        signal.signal(signal.SIGWINCH, signal.SIG_DFL)
-      
-    def set_mouse_tracking(self):
+        self.signal_handler_setter(signal.SIGCONT, signal.SIG_DFL)
+        self.signal_handler_setter(signal.SIGWINCH, signal.SIG_DFL)
+
+    def set_mouse_tracking(self, enable=True):
         """
-        Enable mouse tracking.  
-        
+        Enable (or disable) mouse tracking.
+
         After calling this function get_input will include mouse
         click events along with keystrokes.
         """
-        self._term_output_file.write(escape.MOUSE_TRACKING_ON)
+        enable = bool(enable)
+        if enable == self._mouse_tracking_enabled:
+            return
 
-        self._start_gpm_tracking()
-    
+        self._mouse_tracking(enable)
+        self._mouse_tracking_enabled = enable
+
+    def _mouse_tracking(self, enable):
+        if enable:
+            self.write(escape.MOUSE_TRACKING_ON)
+            self._start_gpm_tracking()
+        else:
+            self.write(escape.MOUSE_TRACKING_OFF)
+            self._stop_gpm_tracking()
+
     def _start_gpm_tracking(self):
         if not os.path.isfile("/usr/bin/mev"):
             return
@@ -154,21 +196,22 @@ class Screen(BaseScreen, RealTerminal):
             close_fds=True)
         fcntl.fcntl(m.stdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
         self.gpm_mev = m
-    
+
     def _stop_gpm_tracking(self):
+        if not self.gpm_mev:
+            return
         os.kill(self.gpm_mev.pid, signal.SIGINT)
         os.waitpid(self.gpm_mev.pid, 0)
         self.gpm_mev = None
-    
-    def start(self, alternate_buffer=True):
+
+    def _start(self, alternate_buffer=True):
         """
         Initialize the screen and input mode.
 
         alternate_buffer -- use alternate screen buffer
         """
-        assert not self._started
         if alternate_buffer:
-            self._term_output_file.write(escape.SWITCH_TO_ALTERNATE_BUFFER)
+            self.write(escape.SWITCH_TO_ALTERNATE_BUFFER)
             self._rows_used = None
         else:
             self._rows_used = 0
@@ -180,24 +223,22 @@ class Screen(BaseScreen, RealTerminal):
 
         self.signal_init()
         self._alternate_buffer = alternate_buffer
-        self._input_iter = self._run_input_iter()
         self._next_timeout = self.max_wait
 
         if not self._signal_keys_set:
             self._old_signal_keys = self.tty_signal_keys(fileno=fd)
 
-        super(Screen, self).start()
-
         signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
+        # restore mouse tracking to previous state
+        self._mouse_tracking(self._mouse_tracking_enabled)
 
+        return super(Screen, self)._start()
 
-    def stop(self):
+    def _stop(self):
         """
         Restore the screen.
         """
         self.clear()
-        if not self._started:
-            return
 
         signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
 
@@ -208,40 +249,42 @@ class Screen(BaseScreen, RealTerminal):
             termios.tcsetattr(fd, termios.TCSADRAIN,
         self._old_termios_settings)
 
+        self._mouse_tracking(False)
+
         move_cursor = ""
-        if self.gpm_mev:
-            self._stop_gpm_tracking()
         if self._alternate_buffer:
             move_cursor = escape.RESTORE_NORMAL_BUFFER
         elif self.maxrow is not None:
-            move_cursor = escape.set_cursor_position( 
+            move_cursor = escape.set_cursor_position(
                 0, self.maxrow)
-        self._term_output_file.write(self._attrspec_to_escape(AttrSpec('','')) 
+        self.write(
+            self._attrspec_to_escape(AttrSpec('',''))
             + escape.SI
-            + escape.MOUSE_TRACKING_OFF
-            + escape.SHOW_CURSOR
-            + move_cursor + "\n" + escape.SHOW_CURSOR )
-        self._input_iter = self._fake_input_iter()
+            + move_cursor
+            + escape.SHOW_CURSOR)
+        self.flush()
 
         if self._old_signal_keys:
             self.tty_signal_keys(*(self._old_signal_keys + (fd,)))
 
-        super(Screen, self).stop()
+        super(Screen, self)._stop()
 
 
-    def run_wrapper(self, fn, alternate_buffer=True):
+    def write(self, data):
+        """Write some data to the terminal.
+
+        You may wish to override this if you're using something other than
+        regular files for input and output.
         """
-        Call start to initialize screen, then call fn.  
-        When fn exits call stop to restore the screen to normal.
+        self._term_output_file.write(data)
 
-        alternate_buffer -- use alternate screen buffer and restore
-            normal screen buffer on exit
+    def flush(self):
+        """Flush the output buffer.
+
+        You may wish to override this if you're using something other than
+        regular files for input and output.
         """
-        try:
-            self.start(alternate_buffer)
-            return fn()
-        finally:
-            self.stop()
+        self._term_output_file.flush()
 
     def get_input(self, raw_keys=False):
         """Return pending input as a list.
@@ -259,7 +302,7 @@ class Screen(BaseScreen, RealTerminal):
 
         Examples of keys returned:
 
-        * ASCII printable characters:  " ", "a", "0", "A", "-", "/" 
+        * ASCII printable characters:  " ", "a", "0", "A", "-", "/"
         * ASCII control characters:  "tab", "enter"
         * Escape sequences:  "up", "page up", "home", "insert", "f1"
         * Key combinations:  "shift f1", "meta a", "ctrl b"
@@ -279,7 +322,7 @@ class Screen(BaseScreen, RealTerminal):
 
         Examples of mouse events returned:
 
-        * Mouse button press: ('mouse press', 1, 15, 13), 
+        * Mouse button press: ('mouse press', 1, 15, 13),
                               ('meta mouse press', 2, 17, 23)
         * Mouse drag: ('mouse drag', 1, 16, 13),
                       ('mouse drag', 1, 17, 13),
@@ -290,17 +333,16 @@ class Screen(BaseScreen, RealTerminal):
         assert self._started
 
         self._wait_for_input_ready(self._next_timeout)
-        self._next_timeout, keys, raw = next(self._input_iter)
+        keys, raw = self.parse_input(None, None, self.get_available_raw_input())
 
         # Avoid pegging CPU at 100% when slowly resizing
         if keys==['window resize'] and self.prev_input_resize:
             while True:
                 self._wait_for_input_ready(self.resize_wait)
-                self._next_timeout, keys, raw2 = \
-                    next(self._input_iter)
+                keys, raw2 = self.parse_input(None, None, self.get_available_raw_input())
                 raw += raw2
                 #if not keys:
-                #    keys, raw2 = self._get_input( 
+                #    keys, raw2 = self._get_input(
                 #        self.resize_wait)
                 #    raw += raw2
                 if keys!=['window resize']:
@@ -324,7 +366,7 @@ class Screen(BaseScreen, RealTerminal):
         Return a list of integer file descriptors that should be
         polled in external event loops to check for user input.
 
-        Use this method if you are implementing yout own event loop.
+        Use this method if you are implementing your own event loop.
         """
         if not self._started:
             return []
@@ -334,71 +376,133 @@ class Screen(BaseScreen, RealTerminal):
             fd_list.append(self.gpm_mev.stdout.fileno())
         return fd_list
 
-    def get_input_nonblocking(self):
+    _current_event_loop_handles = ()
+
+    def unhook_event_loop(self, event_loop):
         """
-        Return a (next_input_timeout, keys_pressed, raw_keycodes)
-        tuple.
-
-        Use this method if you are implementing your own event loop.
-
-        When there is input waiting on one of the descriptors returned
-        by get_input_descriptors() this method should be called to
-        read and process the input.
-
-        This method expects to be called in next_input_timeout seconds
-        (a floating point number) if there is no input waiting.
+        Remove any hooks added by hook_event_loop.
         """
-        return next(self._input_iter)
+        for handle in self._current_event_loop_handles:
+            event_loop.remove_watch_file(handle)
 
-    def _run_input_iter(self):
-        def empty_resize_pipe():
-            # clean out the pipe used to signal external event loops
-            # that a resize has occured
-            try:
-                while True: os.read(self._resize_pipe_rd, 1)
-            except OSError:
-                pass
+        if self._input_timeout:
+            event_loop.remove_alarm(self._input_timeout)
+            self._input_timeout = None
 
-        while True:
-            processed = []
-            codes = self._get_gpm_codes() + \
-                self._get_keyboard_codes()
-
-            original_codes = codes
-            try:
-                while codes:
-                    run, codes = escape.process_keyqueue(
-                        codes, True)
-                    processed.extend(run)
-            except escape.MoreInputRequired:
-                k = len(original_codes) - len(codes)
-                yield (self.complete_wait, processed,
-                    original_codes[:k])
-                empty_resize_pipe()
-                original_codes = codes
-                processed = []
-
-                codes += self._get_keyboard_codes() + \
-                    self._get_gpm_codes()
-                while codes:
-                    run, codes = escape.process_keyqueue(
-                        codes, False)
-                    processed.extend(run)
-            
-            if self._resized:
-                processed.append('window resize')
-                self._resized = False
-
-            yield (self.max_wait, processed, original_codes)
-            empty_resize_pipe()
-
-    def _fake_input_iter(self):
+    def hook_event_loop(self, event_loop, callback):
         """
-        This generator is a placeholder for when the screen is stopped
-        to always return that no input is available.
+        Register the given callback with the event loop, to be called with new
+        input whenever it's available.  The callback should be passed a list of
+        processed keys and a list of unprocessed keycodes.
+
+        Subclasses may wish to use parse_input to wrap the callback.
         """
-        while True:
-            yield (self.max_wait, [], [])
+        if hasattr(self, 'get_input_nonblocking'):
+            wrapper = self._make_legacy_input_wrapper(event_loop, callback)
+        else:
+            wrapper = lambda: self.parse_input(
+                event_loop, callback, self.get_available_raw_input())
+        fds = self.get_input_descriptors()
+        handles = [event_loop.watch_file(fd, wrapper) for fd in fds]
+        self._current_event_loop_handles = handles
+
+    _input_timeout = None
+    _partial_codes = None
+
+    def _make_legacy_input_wrapper(self, event_loop, callback):
+        """
+        Support old Screen classes that still have a get_input_nonblocking and
+        expect it to work.
+        """
+        def wrapper():
+            if self._input_timeout:
+                event_loop.remove_alarm(self._input_timeout)
+                self._input_timeout = None
+            timeout, keys, raw = self.get_input_nonblocking()
+            if timeout is not None:
+                self._input_timeout = event_loop.alarm(timeout, wrapper)
+
+            callback(keys, raw)
+
+        return wrapper
+
+    def get_available_raw_input(self):
+        """
+        Return any currently-available input.  Does not block.
+
+        This method is only used by the default `hook_event_loop`
+        implementation; you can safely ignore it if you implement your own.
+        """
+        codes = self._get_gpm_codes() + self._get_keyboard_codes()
+
+        if self._partial_codes:
+            codes = self._partial_codes + codes
+            self._partial_codes = None
+
+        # clean out the pipe used to signal external event loops
+        # that a resize has occurred
+        try:
+            while True: os.read(self._resize_pipe_rd, 1)
+        except OSError:
+            pass
+
+        return codes
+
+    def parse_input(self, event_loop, callback, codes, wait_for_more=True):
+        """
+        Read any available input from get_available_raw_input, parses it into
+        keys, and calls the given callback.
+
+        The current implementation tries to avoid any assumptions about what
+        the screen or event loop look like; it only deals with parsing keycodes
+        and setting a timeout when an incomplete one is detected.
+
+        `codes` should be a sequence of keycodes, i.e. bytes.  A bytearray is
+        appropriate, but beware of using bytes, which only iterates as integers
+        on Python 3.
+        """
+        # Note: event_loop may be None for 100% synchronous support, only used
+        # by get_input.  Not documented because you shouldn't be doing it.
+        if self._input_timeout and event_loop:
+            event_loop.remove_alarm(self._input_timeout)
+            self._input_timeout = None
+
+        original_codes = codes
+        processed = []
+        try:
+            while codes:
+                run, codes = escape.process_keyqueue(
+                    codes, wait_for_more)
+                processed.extend(run)
+        except escape.MoreInputRequired:
+            # Set a timer to wait for the rest of the input; if it goes off
+            # without any new input having come in, use the partial input
+            k = len(original_codes) - len(codes)
+            processed_codes = original_codes[:k]
+            self._partial_codes = codes
+
+            def _parse_incomplete_input():
+                self._input_timeout = None
+                self._partial_codes = None
+                self.parse_input(
+                    event_loop, callback, codes, wait_for_more=False)
+            if event_loop:
+                self._input_timeout = event_loop.alarm(
+                    self.complete_wait, _parse_incomplete_input)
+
+        else:
+            processed_codes = original_codes
+            self._partial_codes = None
+
+        if self._resized:
+            processed.append('window resize')
+            self._resized = False
+
+        if callback:
+            callback(processed, processed_codes)
+        else:
+            # For get_input
+            return processed, processed_codes
 
     def _get_keyboard_codes(self):
         codes = []
@@ -434,13 +538,13 @@ class Screen(BaseScreen, RealTerminal):
                         fd_list,[],fd_list, timeout)
                 break
             except select.error as e:
-                if e.args[0] != 4: 
+                if e.args[0] != 4:
                     raise
                 if self._resized:
                     ready = []
                     break
-        return ready    
-        
+        return ready
+
     def _getch(self, timeout):
         ready = self._wait_for_input_ready(timeout)
         if self.gpm_mev is not None:
@@ -449,7 +553,7 @@ class Screen(BaseScreen, RealTerminal):
         if self._term_input_file.fileno() in ready:
             return ord(os.read(self._term_input_file.fileno(), 1))
         return -1
-    
+
     def _encode_gpm_event( self ):
         self.gpm_event_pending = False
         s = self.gpm_mev.stdout.readline().decode('ascii')
@@ -470,7 +574,7 @@ class Screen(BaseScreen, RealTerminal):
 
         last = next = self.last_bstate
         l = []
-        
+
         mod = 0
         if m & 1:    mod |= 4 # shift
         if m & 10:    mod |= 8 # alt
@@ -480,7 +584,18 @@ class Screen(BaseScreen, RealTerminal):
             b |= mod
             l.extend([ 27, ord('['), ord('M'), b+32, x+32, y+32 ])
 
-        if ev == 20: # press
+        def determine_button_release( flag ):
+            if b & 4 and last & 1:
+                append_button( 0 + flag )
+                next |= 1
+            if b & 2 and last & 2:
+                append_button( 1 + flag )
+                next |= 2
+            if b & 1 and last & 4:
+                append_button( 2 + flag )
+                next |= 4
+
+        if ev == 20 or ev == 36 or ev == 52: # press
             if b & 4 and last & 1 == 0:
                 append_button( 0 )
                 next |= 1
@@ -507,18 +622,38 @@ class Screen(BaseScreen, RealTerminal):
             if b & 1 and last & 4:
                 append_button( 2 + escape.MOUSE_RELEASE_FLAG )
                 next &= ~ 4
-            
+        if ev == 40: # double click (release)
+            if b & 4 and last & 1:
+                append_button( 0 + escape.MOUSE_MULTIPLE_CLICK_FLAG )
+            if b & 2 and last & 2:
+                append_button( 1 + escape.MOUSE_MULTIPLE_CLICK_FLAG )
+            if b & 1 and last & 4:
+                append_button( 2 + escape.MOUSE_MULTIPLE_CLICK_FLAG )
+        elif ev == 52:
+            if b & 4 and last & 1:
+                append_button( 0 + escape.MOUSE_MULTIPLE_CLICK_FLAG*2 )
+            if b & 2 and last & 2:
+                append_button( 1 + escape.MOUSE_MULTIPLE_CLICK_FLAG*2 )
+            if b & 1 and last & 4:
+                append_button( 2 + escape.MOUSE_MULTIPLE_CLICK_FLAG*2 )
+
         self.last_bstate = next
         return l
-    
+
     def _getch_nodelay(self):
         return self._getch(0)
-    
-    
+
+
     def get_cols_rows(self):
         """Return the terminal dimensions (num columns, num rows)."""
-        buf = fcntl.ioctl(0, termios.TIOCGWINSZ, ' '*4)
-        y, x = struct.unpack('hh', buf)
+        y, x = 24, 80
+        try:
+            buf = fcntl.ioctl(self._term_output_file.fileno(),
+                              termios.TIOCGWINSZ, ' '*4)
+            y, x = struct.unpack('hh', buf)
+        except IOError:
+            # Term size could not be determined
+            pass
         self.maxrow = y
         return x, y
 
@@ -528,20 +663,22 @@ class Screen(BaseScreen, RealTerminal):
         """
         if self._setup_G1_done:
             return
-        
+
         while True:
             try:
-                self._term_output_file.write(escape.DESIGNATE_G1_SPECIAL)
-                self._term_output_file.flush()
+                self.write(escape.DESIGNATE_G1_SPECIAL)
+                self.flush()
                 break
             except IOError:
                 pass
         self._setup_G1_done = True
 
-    
-    def draw_screen(self, xxx_todo_changeme, r ):
+
+    def draw_screen(self, maxres, r ):
         """Paint screen with rendered canvas."""
-        (maxcol, maxrow) = xxx_todo_changeme
+
+        (maxcol, maxrow) = maxres
+
         assert self._started
 
         assert maxrow == r.rows()
@@ -551,13 +688,13 @@ class Screen(BaseScreen, RealTerminal):
             return
 
         self._setup_G1()
-        
-        if self._resized: 
+
+        if self._resized:
             # handle resize before trying to draw screen
             return
-        
+
         o = [escape.HIDE_CURSOR, self._attrspec_to_escape(AttrSpec('',''))]
-        
+
         def partial_display():
             # returns True if the screen is in partial display mode
             # ie. only some rows belong to the display
@@ -577,9 +714,9 @@ class Screen(BaseScreen, RealTerminal):
         def set_cursor_home():
             if not partial_display():
                 return escape.set_cursor_position(0, 0)
-            return (escape.CURSOR_HOME_COL + 
+            return (escape.CURSOR_HOME_COL +
                 escape.move_cursor_up(cy))
-        
+
         def set_cursor_row(y):
             if not partial_display():
                 return escape.set_cursor_position(0, y)
@@ -595,7 +732,7 @@ class Screen(BaseScreen, RealTerminal):
             return ('\b' + escape.CURSOR_HOME_COL +
                 escape.move_cursor_down(y - cy) +
                 escape.move_cursor_right(x))
-        
+
         def is_blank_row(row):
             if len(row) > 1:
                 return False
@@ -613,12 +750,16 @@ class Screen(BaseScreen, RealTerminal):
             return self._attrspec_to_escape(
                 AttrSpec('default','default'))
 
+        def using_standout_or_underline(a):
+            a = self._pal_attrspec.get(a, a)
+            return isinstance(a, AttrSpec) and (a.standout or a.underline)
+
         ins = None
         o.append(set_cursor_home())
         cy = 0
         for row in r.content():
             y += 1
-            if False and osb and osb[y] == row:
+            if osb and y < len(osb) and osb[y] == row:
                 # this row of the screen buffer matches what is
                 # currently displayed, so we can skip this line
                 sb.append( osb[y] )
@@ -641,12 +782,14 @@ class Screen(BaseScreen, RealTerminal):
             cy = y
 
             whitespace_at_end = False
-            if row and row[-1][2][-1:] == B(' '):
-                whitespace_at_end = True
+            if row:
                 a, cs, run = row[-1]
-                row = row[:-1] + [(a, cs, run.rstrip(B(' ')))]
-            elif y == maxrow-1 and maxcol>1:
-                row, back, ins = self._last_row(row)
+                if (run[-1:] == B(' ') and self.back_color_erase
+                        and not using_standout_or_underline(a)):
+                    whitespace_at_end = True
+                    row = row[:-1] + [(a, cs, run.rstrip(B(' ')))]
+                elif y == maxrow-1 and maxcol > 1:
+                    row, back, ins = self._last_row(row)
 
             first = True
             lasta = lastcs = None
@@ -681,7 +824,7 @@ class Screen(BaseScreen, RealTerminal):
                     icss = escape.IBMPC_ON
                 else:
                     icss = escape.SO
-                o += [    "\x08"*back, 
+                o += [    "\x08"*back,
                     ias, icss,
                     escape.INSERT_ON, inserttext,
                     escape.INSERT_OFF ]
@@ -703,9 +846,9 @@ class Screen(BaseScreen, RealTerminal):
         try:
             for l in o:
                 if isinstance(l, bytes) and PYTHON3:
-                    l = l.decode('utf-8')
-                self._term_output_file.write(l)
-            self._term_output_file.flush()
+                    l = l.decode('utf-8', 'replace')
+                self.write(l)
+            self.flush()
         except IOError as e:
             # ignore interrupted syscall
             if e.args[0] != 4:
@@ -729,21 +872,21 @@ class Screen(BaseScreen, RealTerminal):
         new_row = row[:-1]
         z_attr, z_cs, last_text = row[-1]
         last_cols = util.calc_width(last_text, 0, len(last_text))
-        last_offs, z_col = util.calc_text_pos(last_text, 0, 
+        last_offs, z_col = util.calc_text_pos(last_text, 0,
             len(last_text), last_cols-1)
         if last_offs == 0:
             z_text = last_text
             del new_row[-1]
             # we need another segment
             y_attr, y_cs, nlast_text = row[-2]
-            nlast_cols = util.calc_width(nlast_text, 0, 
+            nlast_cols = util.calc_width(nlast_text, 0,
                 len(nlast_text))
             z_col += nlast_cols
             nlast_offs, y_col = util.calc_text_pos(nlast_text, 0,
                 len(nlast_text), nlast_cols-1)
             y_text = nlast_text[nlast_offs:]
             if nlast_offs:
-                new_row.append((y_attr, y_cs, 
+                new_row.append((y_attr, y_cs,
                     nlast_text[:nlast_offs]))
         else:
             z_text = last_text[last_offs:]
@@ -756,12 +899,12 @@ class Screen(BaseScreen, RealTerminal):
             if nlast_offs:
                 new_row.append((y_attr, y_cs,
                     last_text[:nlast_offs]))
-        
+
         new_row.append((z_attr, z_cs, z_text))
         return new_row, z_col-y_col, (y_attr, y_cs, y_text)
 
-            
-    
+
+
     def clear(self):
         """
         Force the screen to be completely repainted on the next
@@ -770,7 +913,7 @@ class Screen(BaseScreen, RealTerminal):
         self.screen_buf = None
         self.setup_G1 = True
 
-        
+
     def _attrspec_to_escape(self, a):
         """
         Convert AttrSpec instance a to an escape sequence for the terminal
@@ -783,11 +926,16 @@ class Screen(BaseScreen, RealTerminal):
         >>> a2e(s.AttrSpec('#fea,underline', '#d0d'))
         '\\x1b[0;38;5;229;4;48;5;164m'
         """
+        if self.term == 'fbterm':
+            fg = escape.ESC + '[1;%d}' % (a.foreground_number,)
+            bg = escape.ESC + '[2;%d}' % (a.background_number,)
+            return fg + bg
+
         if a.foreground_high:
             fg = "38;5;%d" % a.foreground_number
         elif a.foreground_basic:
             if a.foreground_number > 7:
-                if self.bright_is_bold:
+                if self.fg_bright_is_bold:
                     fg = "1;%d" % (a.foreground_number - 8 + 30)
                 else:
                     fg = "%d" % (a.foreground_number - 8 + 90)
@@ -795,14 +943,18 @@ class Screen(BaseScreen, RealTerminal):
                 fg = "%d" % (a.foreground_number + 30)
         else:
             fg = "39"
-        st = ("1;" * a.bold + "4;" * a.underline +
-              "5;" * a.blink + "7;" * a.standout)
+        st = ("1;" * a.bold + "3;" * a.italics +
+              "4;" * a.underline + "5;" * a.blink +
+              "7;" * a.standout + "9;" * a.strikethrough)
         if a.background_high:
             bg = "48;5;%d" % a.background_number
         elif a.background_basic:
             if a.background_number > 7:
-                # this doesn't work on most terminals
-                bg = "%d" % (a.background_number - 8 + 100)
+                if self.bg_bright_is_blink:
+                    bg = "5;%d" % (a.background_number - 8 + 40)
+                else:
+                    # this doesn't work on most terminals
+                    bg = "%d" % (a.background_number - 8 + 100)
             else:
                 bg = "%d" % (a.background_number + 40)
         else:
@@ -815,7 +967,7 @@ class Screen(BaseScreen, RealTerminal):
         """
         colors -- number of colors terminal supports (1, 16, 88 or 256)
             or None to leave unchanged
-        bright_is_bold -- set to True if this terminal uses the bold 
+        bright_is_bold -- set to True if this terminal uses the bold
             setting to create bright colors (numbers 8-15), set to False
             if this Terminal can create bright colors without bold or
             None to leave unchanged
@@ -826,21 +978,21 @@ class Screen(BaseScreen, RealTerminal):
         if colors is None:
             colors = self.colors
         if bright_is_bold is None:
-            bright_is_bold = self.bright_is_bold
+            bright_is_bold = self.fg_bright_is_bold
         if has_underline is None:
             has_underline = self.has_underline
 
-        if colors == self.colors and bright_is_bold == self.bright_is_bold \
+        if colors == self.colors and bright_is_bold == self.fg_bright_is_bold \
             and has_underline == self.has_underline:
             return
 
         self.colors = colors
-        self.bright_is_bold = bright_is_bold
+        self.fg_bright_is_bold = bright_is_bold
         self.has_underline = has_underline
-            
+
         self.clear()
         self._pal_escape = {}
-        for p,v in list(self._palette.items()):
+        for p,v in self._palette.items():
             self._on_update_palette_entry(p, *v)
 
 
@@ -848,7 +1000,7 @@ class Screen(BaseScreen, RealTerminal):
     def reset_default_terminal_palette(self):
         """
         Attempt to set the terminal palette to default values as taken
-        from xterm.  Uses number of colors from current 
+        from xterm.  Uses number of colors from current
         set_terminal_properties() screen setting.
         """
         if self.colors == 1:
@@ -869,24 +1021,29 @@ class Screen(BaseScreen, RealTerminal):
         """
         entries - list of (index, red, green, blue) tuples.
 
-        Attempt to set part of the terminal pallette (this does not work
+        Attempt to set part of the terminal palette (this does not work
         on all terminals.)  The changes are sent as a single escape
         sequence so they should all take effect at the same time.
-        
+
         0 <= index < 256 (some terminals will only have 16 or 88 colors)
         0 <= red, green, blue < 256
         """
 
-        modify = ["%d;rgb:%02x/%02x/%02x" % (index, red, green, blue)
-            for index, red, green, blue in entries]
-        self._term_output_file.write("\x1b]4;"+";".join(modify)+"\x1b\\")
-        self._term_output_file.flush()
+        if self.term == 'fbterm':
+            modify = ["%d;%d;%d;%d" % (index, red, green, blue)
+                for index, red, green, blue in entries]
+            self.write("\x1b[3;"+";".join(modify)+"}")
+        else:
+            modify = ["%d;rgb:%02x/%02x/%02x" % (index, red, green, blue)
+                for index, red, green, blue in entries]
+            self.write("\x1b]4;"+";".join(modify)+"\x1b\\")
+        self.flush()
 
 
     # shortcut for creating an AttrSpec with this screen object's
     # number of colors
     AttrSpec = lambda self, fg, bg: AttrSpec(fg, bg, self.colors)
-    
+
 
 def _test():
     import doctest

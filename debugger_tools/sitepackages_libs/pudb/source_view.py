@@ -1,3 +1,31 @@
+from __future__ import absolute_import, division, print_function
+
+__copyright__ = """
+Copyright (C) 2009-2017 Andreas Kloeckner
+Copyright (C) 2014-2017 Aaron Meurer
+"""
+
+__license__ = """
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+"""
+
+
 import urwid
 
 
@@ -72,7 +100,7 @@ class SourceLine(urwid.FlowWidget):
         line_prefix = ""
         line_prefix_attr = []
 
-        if render_line_nr:
+        if render_line_nr and self.line_nr:
             line_prefix_attr = [("line number", len(self.line_nr))]
             line_prefix = self.line_nr
 
@@ -99,11 +127,11 @@ class SourceLine(urwid.FlowWidget):
                 # means: gobble up remainder of text and rest of line
                 # and fill with attribute
 
-                l = hscroll+maxcol
+                rowlen = hscroll+maxcol
                 remaining_text = text[i:]
                 encoded_seg_text, seg_cs = apply_target_encoding(
-                        remaining_text + l*" ")
-                encoded_attr.append((seg_attr, len(remaining_text)+l))
+                        remaining_text + rowlen*" ")
+                encoded_attr.append((seg_attr, len(remaining_text)+rowlen))
             else:
                 unencoded_seg_text = text[i:i+seg_len]
                 encoded_seg_text, seg_cs = apply_target_encoding(unencoded_seg_text)
@@ -149,14 +177,34 @@ def format_source(debugger_ui, lines, breakpoints):
         import pygments.token as t
 
         result = []
+        argument_parser = ArgumentParser(t)
 
-        ATTR_MAP = {
+        # NOTE: Tokens of the form t.Token.<name> are not native
+        #       Pygments token types; they are user defined token
+        #       types.
+        #
+        #       t.Token is a Pygments token creator object
+        #       (see http://pygments.org/docs/tokens/)
+        #
+        #       The user defined token types get assigned by
+        #       one of several translation operations at the
+        #       beginning of add_snippet().
+        #
+        ATTR_MAP = {  # noqa: N806
                 t.Token: "source",
+                t.Keyword.Namespace: "namespace",
+                t.Token.Argument: "argument",
+                t.Token.Dunder: "dunder",
+                t.Token.Keyword2: 'keyword2',
                 t.Keyword: "keyword",
                 t.Literal: "literal",
+                t.Name.Exception: "exception",
                 t.Name.Function: "name",
                 t.Name.Class: "name",
+                t.Name.Builtin: "builtin",
+                t.Name.Builtin.Pseudo: "pseudo",
                 t.Punctuation: "punctuation",
+                t.Operator: "operator",
                 t.String: "string",
                 # XXX: Single and Double don't actually work yet.
                 # See https://bitbucket.org/birkenfeld/pygments-main/issue/685
@@ -167,19 +215,58 @@ def format_source(debugger_ui, lines, breakpoints):
                 t.Comment: "comment",
                 }
 
+        # Token translation table. Maps token types and their
+        # associated strings to new token types.
+        ATTR_TRANSLATE = {  # noqa: N806
+                t.Keyword: {
+                    'class': t.Token.Keyword2,
+                    'def': t.Token.Keyword2,
+                    'exec': t.Token.Keyword2,
+                    'lambda': t.Token.Keyword2,
+                    'print': t.Token.Keyword2,
+                    },
+                t.Operator: {
+                    '.': t.Token,
+                    },
+                t.Name.Builtin.Pseudo: {
+                    'self': t.Token,
+                    },
+                t.Name.Builtin: {
+                    'object': t.Name.Class,
+                    },
+                }
+
         class UrwidFormatter(Formatter):
-            def __init__(subself, **options):
+            def __init__(subself, **options):  # noqa: N805
                 Formatter.__init__(subself, **options)
                 subself.current_line = ""
                 subself.current_attr = []
                 subself.lineno = 1
 
-            def format(subself, tokensource, outfile):
+            def format(subself, tokensource, outfile):  # noqa: N805
                 def add_snippet(ttype, s):
                     if not s:
                         return
 
-                    while not ttype in ATTR_MAP:
+                    # Find function arguments. When found, change their
+                    # ttype to t.Token.Argument
+                    new_ttype = argument_parser.parse_token(ttype, s)
+                    if new_ttype:
+                        ttype = new_ttype
+
+                    # Translate tokens
+                    if ttype in ATTR_TRANSLATE:
+                        if s in ATTR_TRANSLATE[ttype]:
+                            ttype = ATTR_TRANSLATE[ttype][s]
+
+                    # Translate dunder method tokens
+                    if ttype == (
+                            t.Name.Function
+                            and s.startswith('__') and s.endswith('__')
+                            ):
+                        ttype = t.Token.Dunder
+
+                    while ttype not in ATTR_MAP:
                         if ttype.parent is not None:
                             ttype = ttype.parent
                         else:
@@ -220,3 +307,53 @@ def format_source(debugger_ui, lines, breakpoints):
                 PythonLexer(stripnl=False), UrwidFormatter())
 
         return result
+
+
+class ParseState(object):
+    '''States for the ArgumentParser class'''
+    idle = 1
+    found_function = 2
+    found_open_paren = 3
+
+
+class ArgumentParser(object):
+    '''Parse source code tokens and identify function arguments.
+
+    This parser implements a state machine which accepts
+    Pygments tokens, delivered sequentially from the beginning
+    of a source file to its end.
+
+    parse_token() processes each token (and its associated string)
+    and returns None if that token does not require modification.
+    When it finds a token which represents a function
+    argument, it returns the correct token type for that
+    item (the caller should then replace the associated item's
+    token type with the returned type)
+    '''
+
+    def __init__(self, pygments_token):
+        self.t = pygments_token
+        self.state = ParseState.idle
+        self.paren_level = 0
+
+    def parse_token(self, token, s):
+        '''Parse token. Return None or replacement token type'''
+        if self.state == ParseState.idle:
+            if token is self.t.Name.Function:
+                self.state = ParseState.found_function
+                self.paren_level = 0
+        elif self.state == ParseState.found_function:
+            if token is self.t.Punctuation and s == '(':
+                self.state = ParseState.found_open_paren
+                self.paren_level = 1
+        else:
+            if ((token is self.t.Name) or
+                    (token is self.t.Name.Builtin.Pseudo and s == 'self')):
+                return self.t.Token.Argument
+            elif token is self.t.Punctuation and s == ')':
+                self.paren_level -= 1
+            elif token is self.t.Punctuation and s == '(':
+                self.paren_level += 1
+            if self.paren_level == 0:
+                self.state = ParseState.idle
+        return None

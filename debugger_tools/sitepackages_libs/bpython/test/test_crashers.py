@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 import fcntl
 import os
 import pty
@@ -5,7 +7,8 @@ import struct
 import sys
 import termios
 import textwrap
-import unittest
+
+from bpython.test import unittest, TEST_CONFIG
 
 try:
     from twisted.internet import reactor
@@ -13,13 +16,29 @@ try:
     from twisted.internet.protocol import ProcessProtocol
     from twisted.trial.unittest import TestCase as TrialTestCase
 except ImportError:
+    class TrialTestCase(object):
+        pass
     reactor = None
 
-TEST_CONFIG = os.path.join(os.path.dirname(__file__), "test.config")
+try:
+    import urwid
+    have_urwid = True
+except ImportError:
+    have_urwid = False
+
+try:
+    from nose.plugins.attrib import attr
+except ImportError:
+    def attr(*args, **kwargs):
+        def identity(func):
+            return func
+        return identity
+
 
 def set_win_size(fd, rows, columns):
     s = struct.pack('HHHH', rows, columns, 0, 0)
     fcntl.ioctl(fd, termios.TIOCSWINSZ, s)
+
 
 class CrashersTest(object):
     backend = "cli"
@@ -30,7 +49,7 @@ class CrashersTest(object):
         enter the given input. Uses a test config that disables the
         paste detection.
 
-        Retuns bpython's output.
+        Returns bpython's output.
         """
         result = Deferred()
 
@@ -47,9 +66,9 @@ class CrashersTest(object):
                 self.data += data
                 if self.delayed_call is not None:
                     self.delayed_call.cancel()
-                self.delayed_call = reactor.callLater(0.5, self.__next__)
+                self.delayed_call = reactor.callLater(0.5, self.next)
 
-            def __next__(self):
+            def next(self):
                 self.delayed_call = None
                 if self.state == self.SEND_INPUT:
                     index = self.data.find(">>> ")
@@ -70,13 +89,15 @@ class CrashersTest(object):
 
         (master, slave) = pty.openpty()
         set_win_size(slave, 25, 80)
-        reactor.spawnProcess(Protocol(), sys.executable,
-            (sys.executable, "-m", "bpython." + self.backend,
-             "--config",  TEST_CONFIG),
+        reactor.spawnProcess(
+            Protocol(), sys.executable,
+            (sys.executable, "-m", "bpython." + self.backend, "--config",
+             TEST_CONFIG),
             env=dict(TERM="vt100", LANG=os.environ.get("LANG", "")),
             usePTY=(master, slave, os.ttyname(slave)))
         return result
 
+    @attr(speed='slow')
     def test_issue108(self):
         input = textwrap.dedent(
             """\
@@ -87,6 +108,7 @@ class CrashersTest(object):
         deferred = self.run_bpython(input)
         return deferred.addCallback(self.check_no_traceback)
 
+    @attr(speed='slow')
     def test_issue133(self):
         input = textwrap.dedent(
             """\
@@ -97,15 +119,19 @@ class CrashersTest(object):
         return self.run_bpython(input).addCallback(self.check_no_traceback)
 
     def check_no_traceback(self, data):
-        tb = data[data.find("Traceback"):]
-        self.assertTrue("Traceback" not in data, tb)
+        self.assertNotIn("Traceback", data)
 
-if reactor is not None:
-    class CursesCrashersTest(TrialTestCase, CrashersTest):
-        backend = "cli"
 
-    class UrwidCrashersTest(TrialTestCase, CrashersTest):
-        backend = "urwid"
+@unittest.skipIf(reactor is None, "twisted is not available")
+class CursesCrashersTest(TrialTestCase, CrashersTest):
+    backend = "cli"
+
+
+@unittest.skipUnless(have_urwid, "urwid is required")
+@unittest.skipIf(reactor is None, "twisted is not available")
+class UrwidCrashersTest(TrialTestCase, CrashersTest):
+    backend = "urwid"
+
 
 if __name__ == "__main__":
     unittest.main()

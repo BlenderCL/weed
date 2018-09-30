@@ -20,6 +20,7 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
 
 from .display_common import BaseScreen
 
@@ -30,13 +31,7 @@ class LCDScreen(BaseScreen):
         has_underline=None):
         pass
 
-    def set_mouse_tracking(self):
-        pass
-
-    def start(self):
-        pass
-
-    def stop(self):
+    def set_mouse_tracking(self, enable=True):
         pass
 
     def set_input_timeouts(self, *args):
@@ -45,11 +40,7 @@ class LCDScreen(BaseScreen):
     def reset_default_terminal_palette(self, *args):
         pass
 
-    def run_wrapper(self,fn):
-        return fn()
-    
-    def draw_screen(self, xxx_todo_changeme, r ):
-        (cols, rows) = xxx_todo_changeme
+    def draw_screen(self, size, r ):
         pass
 
     def clear(self):
@@ -69,7 +60,7 @@ class CFLCDScreen(LCDScreen):
         'right_press', 'enter_press', 'exit_press',
         'up_release', 'down_release', 'left_release',
         'right_release', 'enter_release', 'exit_release',
-        'ul_press', 'ur_press', 'll_press', 'lr_press', 
+        'ul_press', 'ur_press', 'll_press', 'lr_press',
         'ul_release', 'ur_release', 'll_release', 'lr_release']
     CMD_PING = 0
     CMD_VERSION = 1
@@ -147,15 +138,15 @@ class CFLCDScreen(LCDScreen):
 
     def _send_packet(self, command, data):
         """
-        low-level packet sending.  
-        Following the protocol requires waiting for ack packet between 
+        low-level packet sending.
+        Following the protocol requires waiting for ack packet between
         sending each packet to the device.
         """
         buf = chr(command) + chr(len(data)) + data
         crc = self.get_crc(buf)
         buf = buf + chr(crc & 0xff) + chr(crc >> 8)
         self._device.write(buf)
-    
+
     def _read_packet(self):
         """
         low-level packet reading.
@@ -172,7 +163,7 @@ class CFLCDScreen(LCDScreen):
                 self._unprocessed = unprocessed
                 return command, data
             except self.MoreDataRequired:
-                return 
+                return
             except self.InvalidPacket:
                 # throw out a byte and try to parse again
                 self._unprocessed = self._unprocessed[1:]
@@ -207,9 +198,9 @@ class CFLCDScreen(LCDScreen):
 
 class KeyRepeatSimulator(object):
     """
-    Provide simulated repeat key events when given press and 
+    Provide simulated repeat key events when given press and
     release events.
-    
+
     If two or more keys are pressed disable repeating until all
     keys are released.
     """
@@ -237,7 +228,7 @@ class KeyRepeatSimulator(object):
 
     def next_event(self):
         """
-        Return (remaining, key) where remaining is the number of seconds 
+        Return (remaining, key) where remaining is the number of seconds
         (float) until the key repeat event should be sent, or None if no
         events are pending.
         """
@@ -261,7 +252,7 @@ class KeyRepeatSimulator(object):
 
 
 class CF635Screen(CFLCDScreen):
-    """
+    u"""
     Crystal Fontz 635 display
 
     20x4 character display + cursor
@@ -283,27 +274,27 @@ class CF635Screen(CFLCDScreen):
     #   both groups are intended to draw horizontal bars with pixel
     #   precision, use ▇*[▆▄▃▁]? for a thin bar or ▉*[▋▌▍▏]? for a thick bar
     CGROM = (
-        "①②③④⑤⑥⑦⑧①②③④⑤⑥⑦⑧"
-        "►◄⇑⇓«»↖↗↙↘▲▼↲^ˇ█"
-        " !\"#¤%&'()*+,-./"
-        "0123456789:;<=>?"
-        "¡ABCDEFGHIJKLMNO"
-        "PQRSTUVWXYZÄÖÑÜ§"
-        "¿abcdefghijklmno"
-        "pqrstuvwxyzäöñüà"
-        "⁰¹²³⁴⁵⁶⁷⁸⁹½¼±≥≤μ"
-        "♪♫⑴♥♦⑵⌜⌟“”()αɛδ∞"
-        "@£$¥èéùìòÇᴾØøʳÅå"
-        "⌂¢ΦτλΩπΨΣθΞ♈ÆæßÉ"
-        "ΓΛΠϒ_ÈÊêçğŞşİι~◊"
-        "▇▆▄▃▁ƒ▉▋▌▍▏⑶◽▪↑→"
-        "↓←ÁÍÓÚÝáíóúýÔôŮů"
-        "ČĔŘŠŽčĕřšž[\]{|}")
+        u"①②③④⑤⑥⑦⑧①②③④⑤⑥⑦⑧"
+        u"►◄⇑⇓«»↖↗↙↘▲▼↲^ˇ█"
+        u" !\"#¤%&'()*+,-./"
+        u"0123456789:;<=>?"
+        u"¡ABCDEFGHIJKLMNO"
+        u"PQRSTUVWXYZÄÖÑÜ§"
+        u"¿abcdefghijklmno"
+        u"pqrstuvwxyzäöñüà"
+        u"⁰¹²³⁴⁵⁶⁷⁸⁹½¼±≥≤μ"
+        u"♪♫⑴♥♦⑵⌜⌟“”()αɛδ∞"
+        u"@£$¥èéùìòÇᴾØøʳÅå"
+        u"⌂¢ΦτλΩπΨΣθΞ♈ÆæßÉ"
+        u"ΓΛΠϒ_ÈÊêçğŞşİι~◊"
+        u"▇▆▄▃▁ƒ▉▋▌▍▏⑶◽▪↑→"
+        u"↓←ÁÍÓÚÝáíóúýÔôŮů"
+        u"ČĔŘŠŽčĕřšž[\]{|}")
 
     cursor_style = CFLCDScreen.CURSOR_INVERTING_BLINKING_BLOCK
 
-    def __init__(self, device_path, baud=115200, 
-            repeat_delay=0.5, repeat_next=0.125, 
+    def __init__(self, device_path, baud=115200,
+            repeat_delay=0.5, repeat_next=0.125,
             key_map=['up', 'down', 'left', 'right', 'enter', 'esc']):
         """
         device_path -- eg. '/dev/ttyUSB0'
@@ -358,7 +349,7 @@ class CF635Screen(CFLCDScreen):
             if not packet:
                 break
             command, data = packet
-            
+
             if command == self.CMD_KEY_ACTIVITY and data:
                 d0 = ord(data[0])
                 if 1 <= d0 <= 12:
@@ -375,7 +366,7 @@ class CF635Screen(CFLCDScreen):
             elif command & 0xc0 == 0x40: # "ACK"
                 if command & 0x3f == self._last_command:
                     self._send_next_command()
-        
+
         next_repeat = self.key_repeat.next_event()
         if next_repeat:
             timeout, key = next_repeat
@@ -425,7 +416,7 @@ class CF635Screen(CFLCDScreen):
             sb.append(text)
             y += 1
 
-        if (self._previous_canvas and 
+        if (self._previous_canvas and
                 self._previous_canvas.cursor == canvas.cursor and
                 (not self._update_cursor or not canvas.cursor)):
             pass
@@ -490,6 +481,6 @@ class CF635Screen(CFLCDScreen):
         assert 0 <= led <= 3
         assert rg in (0, 1)
         assert 0 <= value <= 100
-        self.queue_command(self.CMD_GPO, chr(12 - 2 * led - rg) + 
+        self.queue_command(self.CMD_GPO, chr(12 - 2 * led - rg) +
             chr(value))
 

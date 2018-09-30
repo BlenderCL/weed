@@ -20,6 +20,8 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 from urwid.version import VERSION, __version__
 from urwid.widget import (FLOW, BOX, FIXED, LEFT, RIGHT, CENTER, TOP, MIDDLE,
     BOTTOM, SPACE, ANY, CLIP, PACK, GIVEN, RELATIVE, RELATIVE_100, WEIGHT,
@@ -53,8 +55,10 @@ from urwid.command_map import (CommandMap, command_map,
     CURSOR_PAGE_UP, CURSOR_PAGE_DOWN, CURSOR_MAX_LEFT, CURSOR_MAX_RIGHT,
     ACTIVATE)
 from urwid.main_loop import ExitMainLoop, MainLoop, SelectEventLoop
+
 try:
-    from urwid.main_loop import GLibEventLoop, TwistedEventLoop
+    from urwid.main_loop import (TwistedEventLoop, GLibEventLoop,
+                                TornadoEventLoop, AsyncioEventLoop)
 except ImportError:
     pass
 from urwid.text_layout import (TextLayout, StandardTextLayout, default_layout,
@@ -85,5 +89,5 @@ try:
     from urwid import raw_display
 except ImportError:
     pass # windows
-    
+
 

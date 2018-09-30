@@ -20,12 +20,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import absolute_import
+
 import os.path
 
-__version__ = '0.13.1'
+try:
+    from ._version import __version__ as version
+except ImportError:
+    version = 'unknown'
+
+__version__ = version
 package_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 def embed(locals_=None, args=['-i', '-q'], banner=None):
-    from bpython.cli import main
+    from .curtsies import main
     return main(args, locals_, banner)

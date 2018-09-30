@@ -20,17 +20,19 @@
 #
 # Urwid web site: http://excess.org/urwid/
 
+from __future__ import division, print_function
+
 import re
 
-from urwid.compat import bytes, B, ord2
+from urwid.compat import bytes, B, ord2, text_type
 
-SAFE_ASCII_RE = re.compile("^[ -~]*$")
+SAFE_ASCII_RE = re.compile(u"^[ -~]*$")
 SAFE_ASCII_BYTES_RE = re.compile(B("^[ -~]*$"))
 
 _byte_encoding = None
 
 # GENERATED DATA
-# generated from 
+# generated from
 # http://www.unicode.org/Public/4.0-Update/EastAsianWidth-4.0.0.txt
 
 widths = [
@@ -92,7 +94,7 @@ def decode_one( text, pos ):
     """
     assert isinstance(text, bytes), text
     b1 = ord2(text[pos])
-    if not b1 & 0x80: 
+    if not b1 & 0x80:
         return b1, pos+1
     error = ord("?"), pos+1
     lt = len(text)
@@ -189,7 +191,7 @@ def calc_text_pos(text, start_offs, end_offs, pref_col):
         while i < end_offs:
             o, n = decode(text, i)
             w = get_width(o)
-            if w+sc > pref_col: 
+            if w+sc > pref_col:
                 return i, sc
             i = n
             sc += w
@@ -240,7 +242,7 @@ def is_wide_char(text, offs):
 
     text may be unicode or a byte string in the target _byte_encoding
     """
-    if isinstance(text, str):
+    if isinstance(text, text_type):
         o = ord(text[offs])
         return get_width(o) == 2
     assert isinstance(text, bytes)
@@ -256,7 +258,7 @@ def move_prev_char(text, start_offs, end_offs):
     Return the position of the character before end_offs.
     """
     assert start_offs < end_offs
-    if isinstance(text, str):
+    if isinstance(text, text_type):
         return end_offs-1
     assert isinstance(text, bytes)
     if _byte_encoding == "utf8":
@@ -274,7 +276,7 @@ def move_next_char(text, start_offs, end_offs):
     Return the position of the character after start_offs.
     """
     assert start_offs < end_offs
-    if isinstance(text, str):
+    if isinstance(text, text_type):
         return start_offs+1
     assert isinstance(text, bytes)
     if _byte_encoding == "utf8":
@@ -297,7 +299,7 @@ def within_double_byte(text, line_start, pos):
     Return values:
     0 -- not within dbe char, or double_byte_encoding == False
     1 -- pos is on the 1st half of a dbe char
-    2 -- pos is on the 2nd half og a dbe char
+    2 -- pos is on the 2nd half of a dbe char
     """
     assert isinstance(text, bytes)
     v = ord2(text[pos])
@@ -350,7 +352,7 @@ def process_east_asian_width():
         if last is None:
             out.append((0, l))
             last = l
-        
+
         if last == l:
             out[-1] = (num, l)
         else:
@@ -361,7 +363,7 @@ def process_east_asian_width():
     for o in out[1:]:  # treat control characters same as ascii
         print("\t%r," % (o,))
     print("]")
-        
+
 if __name__ == "__main__":
     process_east_asian_width()
 
