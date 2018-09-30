@@ -300,4 +300,3 @@ register_signal = _signals.register
 connect_signal = _signals.connect
 disconnect_signal = _signals.disconnect
 disconnect_signal_by_key = _signals.disconnect_by_key
-

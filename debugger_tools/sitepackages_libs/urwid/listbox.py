@@ -31,7 +31,8 @@ from urwid.signals import connect_signal
 from urwid.monitored_list import MonitoredList, MonitoredFocusList
 from urwid.container import WidgetContainerMixin
 from urwid.command_map import (CURSOR_UP, CURSOR_DOWN,
-    CURSOR_PAGE_UP, CURSOR_PAGE_DOWN, CURSOR_MAX_LEFT, CURSOR_MAX_RIGHT)
+                               CURSOR_PAGE_UP, CURSOR_PAGE_DOWN,
+                               CURSOR_MAX_LEFT, CURSOR_MAX_RIGHT)
 
 class ListWalkerError(Exception):
     pass

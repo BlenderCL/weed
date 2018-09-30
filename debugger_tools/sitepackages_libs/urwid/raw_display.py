@@ -40,9 +40,11 @@ except ImportError:
 
 from urwid import util
 from urwid import escape
-from urwid.display_common import BaseScreen, RealTerminal, \
-    UPDATE_PALETTE_ENTRY, AttrSpec, UNPRINTABLE_TRANS_TABLE, \
-    INPUT_DESCRIPTORS_CHANGED
+from urwid.display_common import (BaseScreen, AttrSpec,
+                                  UPDATE_PALETTE_ENTRY,
+                                  UNPRINTABLE_TRANS_TABLE,
+                                  INPUT_DESCRIPTORS_CHANGED)
+from urwid.display_unix_common import RealTerminal
 from urwid import signals
 from urwid.compat import PYTHON3, bytes, B
 

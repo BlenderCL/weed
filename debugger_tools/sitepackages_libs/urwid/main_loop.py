@@ -37,6 +37,9 @@ try:
 except ImportError:
     pass # windows
 
+import sys
+WINDOWS = (sys.platform == "win32")
+
 from urwid.util import StoppingContext, is_mouse_event
 from urwid.compat import PYTHON3, reraise
 from urwid.command_map import command_map, REDRAW_SCREEN
@@ -110,8 +113,13 @@ class MainLoop(object):
         self.pop_ups = pop_ups # triggers property setting side-effect
 
         if not screen:
-            from urwid import raw_display
-            screen = raw_display.Screen()
+            if WINDOWS:
+                from urwid import colorama_display as display
+                #from urwid import curses_win32_display as display
+                #from urwid import curses_win32_colorama_display as display
+            else:
+                from urwid import raw_display as display
+            screen = display.Screen()
 
         if palette:
             screen.register_palette(palette)
@@ -135,6 +143,7 @@ class MainLoop(object):
             # signal handlers
             self.screen.signal_handler_setter = self.event_loop.set_signal_handler
 
+        self._input_timeout = None
         self._watch_pipes = {}
 
     def _set_widget(self, widget):
@@ -283,8 +292,11 @@ class MainLoop(object):
         and :meth:`stop` once it's finished.
         """
         try:
-            self._run()
-        except ExitMainLoop:
+            if self.screen.started:
+                self._run()
+            else:
+                self.screen.run_wrapper(self._run)
+        except (ExitMainLoop, KeyboardInterrupt):
             pass
 
     def _test_run(self):
@@ -387,6 +399,12 @@ class MainLoop(object):
             raise
         self.stop()
 
+        # tidy up
+        self.event_loop.remove_enter_idle(idle_handle)
+        reset_input_descriptors(True)
+        signals.disconnect_signal(self.screen, INPUT_DESCRIPTORS_CHANGED,
+            reset_input_descriptors)
+
     def _update(self, keys, raw):
         """
         >>> w = _refl("widget")
@@ -394,6 +412,7 @@ class MainLoop(object):
         >>> w.mouse_event_rval = True
         >>> scr = _refl("screen")
         >>> scr.get_cols_rows_rval = (15, 5)
+        >>> scr.get_input_nonblocking_rval = 1, ['y'], [121]
         >>> evl = _refl("event_loop")
         >>> ml = MainLoop(w, [], scr, event_loop=evl)
         >>> ml._input_timeout = "old timeout"
@@ -500,6 +519,8 @@ class MainLoop(object):
         something_handled = False
 
         for k in keys:
+            if k == 'exit mainloop':
+                raise ExitMainLoop()
             if k == 'window resize':
                 continue
             if is_mouse_event(k):

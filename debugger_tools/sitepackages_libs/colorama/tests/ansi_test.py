@@ -2,7 +2,7 @@
 import sys
 from unittest import TestCase, main
 
-from ..ansi import Back, Fore, Style
+from ..ansi import Fore, Back, Style
 from ..ansitowin32 import AnsiToWin32
 
 stdout_orig = sys.stdout
