@@ -43,7 +43,7 @@ def get_code(filepath):
     try:
         import bge
         if hasattr(bge, 'is_fake'):
-            print('# bge mula')
+            print('# bge fake')
             in_game = False
         else:
             print('# bge real')
@@ -55,20 +55,28 @@ def get_code(filepath):
         import bge
         script = bge.logic.getCurrentController().script
         if len(script.splitlines()) == 1:
-            print('# bge Module type Controller call')
+            print('# bge module type controller call')
             script = script[:script.find('.')] + '.py'
             return bpy.data.texts[script].as_string()
         else:
-            print('# bge Script type Controller call')
+            print('# bge script type controller call')
             return script
     else:
-        if hasattr(bpy, 'data') and hasattr(bpy.data, 'texts'):
-            print('# commonly [alt]-[p] regular blender script')
+        try:
+            print('# script open in collection bpy.data.texts')
             script = os.path.basename(filepath)
             return bpy.data.texts[script].as_string()
-        else:
-            print('# inside restricted, like register addon')
+        except:
+            print('# read script from disk')
             return open(filepath).read()
+
+        # if hasattr(bpy, 'data') and hasattr(bpy.data, 'texts'):
+        #     print('# commonly [alt]-[p] regular blender script')
+        #     script = os.path.basename(filepath)
+        #     return bpy.data.texts[script].as_string()
+        # else:
+        #     print('# inside restricted, like register addon')
+        #     return open(filepath).read()
 
 
 class PudbShortcuts(object):

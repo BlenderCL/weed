@@ -26,11 +26,10 @@ THE SOFTWARE.
 """
 
 
-THEMES = ["classic", "vim", "dark vim",
-          "midnight", "solarized", "agr-256",
-          "monokai", "monokai-256",
-          "weed", "weed win"
-        ]
+THEMES =   ['classic', 'vim', 'dark vim',
+            'midnight', 'solarized', 'agr-256',
+            'monokai', 'monokai-256',
+            'weed', 'weed win']
 
 from pudb.py3compat import execfile, raw_input
 import urwid

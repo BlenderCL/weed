@@ -58,8 +58,8 @@ class SearchBreakpoint(bpy.types.Operator):
         else:
             return bpy.ops.weed.search_breakpoint()
 
-# there are global site-packages lib for python or
-# there are user site-packages too...
+# there are global site-packages lib folder for python, and
+# there are user site-packages lib folder too...
 # in some Blender installs global site-packages may not have
 # permissions...
 # right now using user site-packages folder
@@ -83,7 +83,7 @@ def register():
             rmtree(path.join(site_package, lib), ignore_errors=True)
             copytree(path.join(libs, lib), path.join(site_package, lib))
         except:
-            print("Unexpected error:", sys.exc_info()[0])
+            print('Unexpected error:', sys.exc_info()[0])
             print('weed Blender IDE: fail to install ', lib,
                 ', debugger tools may not function properly')
     bpy.utils.register_class(InsertBreakpoint)
@@ -99,8 +99,8 @@ def unregister():
             rmtree(path.join(site_package, lib))
             #copytree(path.join(libs, lib), path.join(site_package, lib))
         except:
-            print("Unexpected error:", sys.exc_info()[0])
+            print('Unexpected error:', sys.exc_info()[0])
             print('weed Blender IDE:', lib, 'fail to uninstall',
-                ', debugger tools may leave python modules')
+                ', debugger tools could have left python modules')
     bpy.utils.unregister_class(SearchBreakpoint)
     bpy.utils.unregister_class(InsertBreakpoint)

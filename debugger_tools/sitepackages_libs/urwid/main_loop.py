@@ -399,12 +399,6 @@ class MainLoop(object):
             raise
         self.stop()
 
-        # tidy up
-        self.event_loop.remove_enter_idle(idle_handle)
-        reset_input_descriptors(True)
-        signals.disconnect_signal(self.screen, INPUT_DESCRIPTORS_CHANGED,
-            reset_input_descriptors)
-
     def _update(self, keys, raw):
         """
         >>> w = _refl("widget")

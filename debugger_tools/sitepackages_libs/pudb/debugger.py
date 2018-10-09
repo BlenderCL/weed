@@ -514,11 +514,11 @@ class ThreadsafeScreenMixin(object):
             pass
 
 
-class ThreadsafeRawScreen(ThreadsafeScreenMixin, RawScreen):
+class ThreadsafeRawScreen(ThreadsafeScreenMixin, Screen):
     pass
 
 
-class ThreadsafeFixedSizeRawScreen(ThreadsafeScreenMixin, RawScreen):
+class ThreadsafeFixedSizeRawScreen(ThreadsafeScreenMixin, Screen):
     def __init__(self, **kwargs):
         self._term_size = kwargs.pop("term_size", None)
         super(ThreadsafeFixedSizeRawScreen, self).__init__(**kwargs)
@@ -531,7 +531,7 @@ class ThreadsafeFixedSizeRawScreen(ThreadsafeScreenMixin, RawScreen):
 
 
 if curses is not None:
-    class ThreadsafeCursesScreen(ThreadsafeScreenMixin, RawScreen):
+    class ThreadsafeCursesScreen(ThreadsafeScreenMixin, Screen):
         pass
 
 # }}}
@@ -1915,7 +1915,7 @@ class DebuggerUI(FrameVarInfoKeeper):
 
         if (want_curses_display
                 and not (stdin is not None or stdout is not None)
-                and CursesScreen is not None):
+                and curses is not None):
             self.screen = ThreadsafeCursesScreen()
         else:
             screen_kwargs = {}
@@ -1954,7 +1954,10 @@ class DebuggerUI(FrameVarInfoKeeper):
             else:
                 color_support = curses.tigetnum('colors')
 
-                if color_support == 256 and isinstance(self.screen, RawScreen):
+                #if color_support == 256 and isinstance(self.screen, Screen):
+                if (color_support == 256 and
+                    hasattr(self.screen,
+                            'set_terminal_properties')):
                     self.screen.set_terminal_properties(256)
 
         self.setup_palette(self.screen)

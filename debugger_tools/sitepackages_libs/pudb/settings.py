@@ -38,9 +38,26 @@ _home = os.environ.get('HOME', None)
 xdg_data_home = os.environ.get('XDG_DATA_HOME',
             os.path.join(_home, '.local', 'share') if _home else None)
 
+CONF_SECTION = "pudb"
+CONF_FILE_NAME = "pudb.cfg"
 
-XDG_CONFIG_HOME = os.environ.get('XDG_CONFIG_HOME',
-                                 os.path.join(_home, '.config') if _home else None)
+# If we gonna use pudb inside blender, it's better to keep
+# pudb config file in the same folder of the pudb library...
+LOCALLY_CONFIG = os.path.isfile(os.path.join(os.path.dirname(__file__),
+                                            CONF_FILE_NAME))
+
+if LOCALLY_CONFIG:
+    XDG_CONF_RESOURCE = ""
+    XDG_CONFIG_HOME = os.path.dirname(__file__)
+    SAVED_BREAKPOINTS_FILE_NAME = 'saved-breakpoints'
+    BREAKPOINTS_FILE_NAME = 'breakpoints'
+else:
+    XDG_CONF_RESOURCE = "pudb"
+    XDG_CONFIG_HOME = os.environ.get('XDG_CONFIG_HOME',
+                                    os.path.join(_home, '.config')
+                                    if _home else None)
+    SAVED_BREAKPOINTS_FILE_NAME = "saved-breakpoints-%d.%d" % sys.version_info[:2]
+    BREAKPOINTS_FILE_NAME = "breakpoints-%d.%d" % sys.version_info[:2]
 
 if XDG_CONFIG_HOME:
     XDG_CONFIG_DIRS = [XDG_CONFIG_HOME]
@@ -61,15 +78,6 @@ def get_save_config_path(*resource):
     return path
 
 # end LGPL violation
-
-
-CONF_SECTION = "pudb"
-XDG_CONF_RESOURCE = "pudb"
-CONF_FILE_NAME = "pudb.cfg"
-
-SAVED_BREAKPOINTS_FILE_NAME = "saved-breakpoints-%d.%d" % sys.version_info[:2]
-BREAKPOINTS_FILE_NAME = "breakpoints-%d.%d" % sys.version_info[:2]
-
 
 def load_config():
     from os.path import join, isdir
@@ -248,7 +256,9 @@ def edit_config(ui, conf_dict):
 
     shell_info = urwid.Text("This is the shell that will be "
             "used when you hit '!'.\n")
-    shells = ["internal", "classic", "ipython", "bpython", "ptpython", "ptipython"]
+    shells = ["internal", "classic",
+              "ipython", "bpython",
+              "ptpython", "ptipython"]
     known_shell = conf_dict["shell"] in shells
     shell_edit = urwid.Edit(edit_text=conf_dict["custom_shell"])
     shell_edit_list_item = urwid.AttrMap(shell_edit, "value")

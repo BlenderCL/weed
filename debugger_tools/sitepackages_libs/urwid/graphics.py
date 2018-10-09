@@ -101,6 +101,7 @@ class LineBox(WidgetDecoration, WidgetWrap):
 
     def __init__(self, original_widget, title="",
                  title_align="center", title_attr=None,
+                 #tlcorner=b'\xe2\x94\x8c', tline=u'─', lline=u'│',
                  tlcorner=u'┌', tline=u'─', lline=u'│',
                  trcorner=u'┐', blcorner=u'└', rline=u'│',
                  bline=u'─', brcorner=u'┘'):
