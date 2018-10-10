@@ -36,6 +36,7 @@ import sys
 # http://stackoverflow.com/questions/13392038/python-making-a-class-variable-static-even-when-a-module-is-imported-in-differe
 
 from weed.text_editor_tools import (
+    code_tree,
     code_editor,
     icons_get,
     api_navigator,
@@ -74,22 +75,21 @@ from weed import ui
 bl_info = {
     "name": "Weed Blender IDE",
     "author": "Cristian Hasbun",
-    "version": (0, 3, 1),
+    "version": (2018, 10, 1),
     "blender": (2, 74),
     "location": "Text Editor | Interactive Console | Terminal Console",
     "description": "WEED Enhances Empowered Developers !, Debug Blender inside Blender",
     "warning": "",
+    #"warning": "If you are in the butchery do not expect to be free of bugs...",
     "wiki_url": "http://www.blender.cl/weed_IDE",
     "tracker_url": "",
     "category": "Development",
 }
 
-
-def _call_globals(attr_name):
-    for m in globals().values():
-        if hasattr(m, attr_name):
-            getattr(m, attr_name)()
-
+#def _call_globals(attr_name):
+#    for m in globals().values():
+#        if hasattr(m, attr_name):
+#            getattr(m, attr_name)()
 
 def _flush_modules(pkg_name):
     pkg_name = pkg_name.lower()
@@ -101,27 +101,28 @@ def _flush_modules(pkg_name):
 def register():
     # replaced for explicit calls
     #_call_globals("register")
-    code_editor.register()
+    code_tree.register()
     icons_get.register()
     api_navigator.register()
     find_replace.register()
+    code_editor.register()
     console.register()
     pudb_wrapper.register()
     prefs.register()
     ui.register()
 
-
 def unregister():
     # DON'T WORK, Order dependant
     #_call_globals("unregister")
-    code_editor.unregister()
-    icons_get.unregister()
-    api_navigator.unregister()
-    find_replace.unregister()
-    console.unregister()
-    pudb_wrapper.unregister()
-    prefs.unregister()
     ui.unregister()
+    prefs.unregister()
+    pudb_wrapper.unregister()
+    console.unregister()
+    code_editor.unregister()
+    find_replace.unregister()
+    api_navigator.unregister()
+    icons_get.unregister()
+    code_tree.unregister()
     
     _flush_modules("weed")  # reload weed
 

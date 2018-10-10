@@ -34,15 +34,6 @@ import time
 import string
 import threading
 
-############
-# DEBUGGER #
-############ 
-#import bpy
-#import os.path
-#import pudb
-#script = os.path.basename(__file__)
-#_MODULE_SOURCE_CODE = bpy.data.texts[script].as_string()
-
 
 # regex module
 import re
@@ -696,9 +687,10 @@ class CodeEditorStart(bpy.types.Operator):
             if self.in_tab and self.opacity and event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
                 #pu.db
                 if self.in_tab == context.space_data.text.name:
-                    context.window_manager.popup_menu(code_tree_popup,
-                                                      title='Code Tree',
-                                                      icon='OOPS')
+                    return bpy.ops.weed.view_code_tree()
+                    #context.window_manager.popup_menu(code_tree_popup,
+                    #                                  title='Code Tree',
+                    #                                  icon='OOPS')
                 else:
                     context.space_data.text = bpy.data.texts[self.in_tab]
                     bpy.types.Text.code_tree = {'imports':[], 'class_def':[]}
@@ -803,7 +795,6 @@ class CodeEditorStart(bpy.types.Operator):
             context.window_manager.code_editors = '&'.join(editors)
         
         # user controllable in addon preferneces
-        #pu.db
         addon_prefs = context.user_preferences.addons['weed'].preferences
         self.bg_opacity = addon_prefs.opacity
         self.tabs = addon_prefs.show_tabs
@@ -888,82 +879,17 @@ class CodeEditorEnd(bpy.types.Operator):
         return {'FINISHED'}
 
 
-#class CodeTreeImports(Menu):
-#    bl_label = "Module Imports"
-#
-#    def draw(self, context):
-#        layout = self.layout
-#    
-#class CodeTreeFunctions(Menu):
-#    bl_label = "defs and classes"
-#
-#    def draw(self, context):
-#        layout = self.layout
+# REGISTER
+#############
 
-
-#bpy.context.window_manager.popup_menu(code_tree_popup, title="Code Tree", icon='INFO')
-def code_tree_popup(self, context):
-    icons = { 'import' : 'LAYER_ACTIVE',
-               'class' : 'OBJECT_DATA',
-                 'def' : 'SCRIPTPLUGINS' }
-    layout = self.layout
-    layout.operator_context = 'EXEC_DEFAULT'
-    col = layout.column(align=True)
-    tot_imports = len(bpy.types.Text.code_tree['imports'])
-    for i, (idx, indnt, (keyword, name, args)) in enumerate(
-                                    bpy.types.Text.code_tree['imports']):
-        #row = row if i%2 else layout.row(align=True)
-        prop = col.operator('text.jump',
-                            text = name,
-                            icon = icons[keyword],
-                            emboss = True)
-        prop.line = idx + 1
-
-    for idx, indnt, (keyword, name, args) in bpy.types.Text.code_tree['class_def']:
-        #if not indnt:
-        #    col.separator()
-        prop = col.operator('text.jump',
-                            text = '·   '*indnt + name,
-                            icon = icons[keyword] if not indnt else 'NONE',
-                            emboss = True)
-        prop.line = idx + 1
-        prev_indnt = indnt
-    
-
-class ViewCodeTree(bpy.types.Operator):
-    bl_idname = 'weed.view_code_tree'
-    bl_label = 'View Code Tree'
-    bl_description = 'Show code tree in a popup'
-    bl_options = {'REGISTER', 'INTERNAL'}
-    
-    def execute(self, context):
-        context.window_manager.popup_menu(code_tree_popup,
-                                          title='View Code Tree',
-                                          icon='OOPS')
-        return {'FINISHED'} 
-    
-
-# =====================================================
-#                        REGISTER
-# =====================================================
-
-    
 def register():
     #bpy.utils.register_module('code_editor')
     bpy.utils.register_class(CodeEditorStart)
     bpy.utils.register_class(CodeEditorEnd)
-    bpy.utils.register_class(ViewCodeTree)
     
     bpy.types.WindowManager.code_editors = bpy.props.StringProperty(default="")
 
 def unregister():
     #bpy.utils.unregister_module('code_editor')
-    bpy.utils.unregister_class(ViewCodeTree)
     bpy.utils.unregister_class(CodeEditorEnd)
     bpy.utils.unregister_class(CodeEditorStart)
-
-
-#if __name__ == "__main__":
-#    register()
-#    #unregister()
-

@@ -35,20 +35,12 @@ bl_info = {
 """
 
 import bpy
-#############
-## DEBUGGER #
-############# 
-##import bpy
-#import os.path
-#import pudb
-#script = os.path.basename(__file__)
-#_MODULE_SOURCE_CODE = bpy.data.texts[script].as_string()
 
 
 def create_icon_list():
     rna_prop = bpy.types.UILayout.bl_rna.functions['prop']
     icons = rna_prop.parameters['icon'].enum_items.keys()
-    icons.remove('NONE')
+    #icons.remove('NONE')
     return icons
 
 
@@ -60,8 +52,8 @@ class WM_OT_icon_info(bpy.types.Operator):
     icon = bpy.props.StringProperty()
 
     def invoke(self, context, event):
-        bpy.data.window_managers['WinMan'].clipboard = "'%s'" % self.icon
-        self.report({'INFO'}, "'%s' copied" % self.icon)
+        bpy.data.window_managers['WinMan'].clipboard = "%s" % self.icon
+        self.report({'INFO'}, "%s copied" % self.icon)
         return {'FINISHED'}
     
     
@@ -101,14 +93,11 @@ class WEED_OT_IconsDialog(bpy.types.Operator):
 
 
 def register():
-
     bpy.utils.register_class(WM_OT_icon_info)
     bpy.utils.register_class(WEED_OT_IconsDialog)
-    #pu.db
     #bpy.types.TEXT_HT_header_weed_menu.append(icons_menu_entry)
 
 def unregister():
-
     bpy.utils.unregister_class(WM_OT_icon_info)
     bpy.utils.unregister_class(WEED_OT_IconsDialog)
     #bpy.types.TEXT_HT_header_weed_menu.remove(icons_menu_entry)
@@ -117,4 +106,3 @@ def unregister():
 ###############
 # Corregir luego con una version que no tenga boton ok
 ################
-
