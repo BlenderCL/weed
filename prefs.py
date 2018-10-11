@@ -15,16 +15,15 @@
 
 
 import bpy
-from weed.text_editor_tools import (
-    find_replace
-)
+#from weed.text_editor_tools import (
+#    find_replace
+#)
 
-
-def register_find_replace(self, context):
-    if self.find_replace_pref:
-        find_replace.register()
-    else:
-        find_replace.unregister()
+#def register_find_replace(self, context):
+#    if self.find_replace_pref:
+#        find_replace.register()
+#    else:
+#        find_replace.unregister()
 
 class SubmoduleGroup(bpy.types.PropertyGroup):
 
@@ -116,19 +115,36 @@ class WeedPreferences(bpy.types.AddonPreferences):
         min = 0, max = 1024, default = 80)
 
     #Register Unregister module Find Replace
-    find_replace_pref = bpy.props.BoolProperty(update=register_find_replace,
+    find_replace_pref = bpy.props.BoolProperty(#update=register_find_replace,
         name = "Find Replace fix",
         description = "popup version of find replace",
         default = True
     )
 
+#### incorporar preferences del code autocomplete
+# class AddonPreferences(bpy.types.AddonPreferences):
+#     bl_idname = __name__
+
+    line_amount = bpy.props.IntProperty(name = "Lines", default = 8,  
+                    min = 1, max = 20,
+                    description = "Amount of lines shown in the context box")
+    show_dot_files = bpy.props.BoolProperty(name = ' Show hidden files',
+                    default = False,
+                    description = 'Show hidden files on addon files panel')
+    show_dot_addons = bpy.props.BoolProperty(name = 'Show dot Addons',
+                    default = False,
+                    description = 'Show hidden addons on addon files panel')
+    user_site_packages = bpy.props.BoolProperty(name = 'Browse User Site Packages',
+                    default = False,
+                    description = 'Browse User Site Packages on addon files panel')
+
 
     def draw(self, context):
         layout = self.layout
 
-        #~ layout.label(
-        #~ text="Here you can enable or disable specific tools, "
-        #~ "in case they interfere with others or are just plain annoying")
+        # layout.label(text = "Here you can enable or disable " 
+        #                     "specific tools, in case they interfere "
+        #                     "with others or are just plain annoying")
 
         split = layout.split(percentage=0.3)
 
@@ -173,13 +189,23 @@ class WeedPreferences(bpy.types.AddonPreferences):
         row = box.row(align=True)
         row.prop(self, "block_trans")
         row.prop(self, "indent_trans")
+#     def draw(self, context):
+#         layout = self.layout
+#         row = layout.row(align = False)
+#         row.prop(self, 'show_dot_files')
+#         row.prop(self, 'show_dot_addons')
+#         row.prop(self, 'line_amount')
 
 
-def register():
-    bpy.utils.register_class(SubmoduleGroup)
-    bpy.utils.register_class(WeedPreferences)
+
+# registro automatico con register_module
+# register y unregister comentados
+
+# def register():
+#     bpy.utils.register_class(SubmoduleGroup)
+#     bpy.utils.register_class(WeedPreferences)
 
 
-def unregister():
-    bpy.utils.unregister_class(WeedPreferences)
-    bpy.utils.unregister_class(SubmoduleGroup)
+# def unregister():
+#     bpy.utils.unregister_class(WeedPreferences)
+#     bpy.utils.unregister_class(SubmoduleGroup)

@@ -157,7 +157,9 @@ def bge_menu(self, context):
     layout.separator()
 """
 
-    
+# registro automatico con register_module
+# register y unregister comentados
+"""    
 def register():
     bpy.utils.register_class(AttachBgeConsole)
     bpy.utils.register_class(DettachBgeConsole)
@@ -169,3 +171,4 @@ def unregister():
     bpy.utils.unregister_class(RemoveBgeConsole)
     bpy.utils.unregister_class(DettachBgeConsole)
     bpy.utils.unregister_class(AttachBgeConsole)
+"""

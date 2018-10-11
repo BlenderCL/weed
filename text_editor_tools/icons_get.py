@@ -18,21 +18,20 @@
 
 # <pep8 compliant>
 
-"""
-bl_info = {
-    "name": "Icons",
-    "author": "Crouch, N.tox, PKHG, Campbell Barton, Dany Lebel",
-    "version": (1, 5, 2),
-    "blender": (2, 57, 0),
-    "location": "Text Editor > Properties or " "Console > Console Menu",
-    "warning": "",
-    "description": "Click an icon to display its name and "
-                   "copy it to the clipboard",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/"
-                "Py/Scripts/System/Display_All_Icons",
-    "category": "Development",
-}
-"""
+# bl_info = {
+#     "name": "Icons",
+#     "author": "Crouch, N.tox, PKHG, Campbell Barton, Dany Lebel",
+#     "version": (1, 5, 2),
+#     "blender": (2, 57, 0),
+#     "location": "Text Editor > Properties or " "Console > Console Menu",
+#     "warning": "",
+#     "description": "Click an icon to display its name and "
+#                    "copy it to the clipboard",
+#     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/"
+#                 "Py/Scripts/System/Display_All_Icons",
+#     "category": "Development",
+# }
+
 
 import bpy
 
@@ -92,15 +91,15 @@ class WEED_OT_IconsDialog(bpy.types.Operator):
 
 
 
-def register():
-    bpy.utils.register_class(WM_OT_icon_info)
-    bpy.utils.register_class(WEED_OT_IconsDialog)
-    #bpy.types.TEXT_HT_header_weed_menu.append(icons_menu_entry)
+# def register():
+#     bpy.utils.register_class(WM_OT_icon_info)
+#     bpy.utils.register_class(WEED_OT_IconsDialog)
+#     #bpy.types.TEXT_HT_header_weed_menu.append(icons_menu_entry)
 
-def unregister():
-    bpy.utils.unregister_class(WM_OT_icon_info)
-    bpy.utils.unregister_class(WEED_OT_IconsDialog)
-    #bpy.types.TEXT_HT_header_weed_menu.remove(icons_menu_entry)
+# def unregister():
+#     bpy.utils.unregister_class(WM_OT_icon_info)
+#     bpy.utils.unregister_class(WEED_OT_IconsDialog)
+#     #bpy.types.TEXT_HT_header_weed_menu.remove(icons_menu_entry)
 
 
 ###############

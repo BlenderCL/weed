@@ -64,40 +64,41 @@ class PopupFindReplace(bpy.types.Operator):
         return context.window_manager.invoke_props_popup(self, event)
 
 
-def register_keymaps():
-    kc = bpy.context.window_manager.keyconfigs
-    if kc.addon:
-        km = kc.addon.keymaps.new(name='Text', space_type='TEXT_EDITOR')
-        km.keymap_items.new('weed.popup_find_replace', 'F', 'PRESS', ctrl=True)
-        # km.keymap_items.new('weed.popup_find_replace', 'H', 'PRESS', ctrl=True)
-        dkm = kc.default.keymaps['Text Generic']
-        dkm.keymap_items['text.start_find'].active = False
-        dkm.keymap_items['text.replace'].active = False
+# def register_keymaps():
+#     kc = bpy.context.window_manager.keyconfigs
+#     if kc.addon:
+#         km = kc.addon.keymaps.new(name='Text', space_type='TEXT_EDITOR')
+#         km.keymap_items.new('weed.popup_find_replace',
+#                             'F', 'PRESS', ctrl=True, shift=True)
+#         # km.keymap_items.new('weed.popup_find_replace', 'H', 'PRESS', ctrl=True)
+#         # dkm = kc.default.keymaps['Text Generic']
+#         # dkm.keymap_items['text.start_find'].active = False
+#         # dkm.keymap_items['text.replace'].active = False
 
 
-def unregister_keymaps():
-    kc = bpy.context.window_manager.keyconfigs
-    if kc.addon:
-        km = kc.addon.keymaps['Text']
-        kmi = km.keymap_items['weed.popup_find_replace']
-        km.keymap_items.remove(kmi)
-        # kmi = km.keymap_items['weed.popup_replace']
-        # km.keymap_items.remove(kmi)
-        dkm = kc.default.keymaps['Text Generic']
-        dkm.keymap_items['text.start_find'].active = True
-        dkm.keymap_items['text.replace'].active = True
+# def unregister_keymaps():
+#     kc = bpy.context.window_manager.keyconfigs
+#     if kc.addon:
+#         km = kc.addon.keymaps['Text']
+#         kmi = km.keymap_items['weed.popup_find_replace']
+#         km.keymap_items.remove(kmi)
+#         # kmi = km.keymap_items['weed.popup_replace']
+#         # km.keymap_items.remove(kmi)
+#         # dkm = kc.default.keymaps['Text Generic']
+#         # dkm.keymap_items['text.start_find'].active = True
+#         # dkm.keymap_items['text.replace'].active = True
 
 
-def register():
-    bpy.utils.register_class(PopupFindReplace)
-    register_keymaps()
+# def register():
+#     bpy.utils.register_class(PopupFindReplace)
+#     register_keymaps()
 
 
-def unregister():
-    bpy.utils.unregister_class(PopupFindReplace)
-    unregister_keymaps()
+# def unregister():
+#     bpy.utils.unregister_class(PopupFindReplace)
+#     unregister_keymaps()
 
 
-if __name__ == '__main__':
-    # unregister()
-    register()
+# if __name__ == '__main__':
+#     # unregister()
+#     register()

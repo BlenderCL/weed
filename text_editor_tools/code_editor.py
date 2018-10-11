@@ -15,17 +15,16 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-"""
-bl_info = {
-    "name": "Code Editor",
-    "location": "Text Editor > Righ Click Menu",
-    "version": (0,1,0),
-    "blender": (2,7,2),
-    "description": "Better editor for coding",
-    "author": "Jerryno, updated by Cristian Hasbun",
-    "category": "Development",
-}
-"""
+
+# bl_info = {
+#     "name": "Code Editor",
+#     "location": "Text Editor > Righ Click Menu",
+#     "version": (0,1,0),
+#     "blender": (2,7,2),
+#     "description": "Better editor for coding",
+#     "author": "Jerryno, updated by Cristian Hasbun",
+#     "category": "Development",
+# }
 
 import bpy
 import bgl
@@ -882,14 +881,14 @@ class CodeEditorEnd(bpy.types.Operator):
 # REGISTER
 #############
 
-def register():
-    #bpy.utils.register_module('code_editor')
-    bpy.utils.register_class(CodeEditorStart)
-    bpy.utils.register_class(CodeEditorEnd)
-    
-    bpy.types.WindowManager.code_editors = bpy.props.StringProperty(default="")
+# def register():
+#     #bpy.utils.register_module('code_editor')
+#     bpy.utils.register_class(CodeEditorStart)
+#     bpy.utils.register_class(CodeEditorEnd)
 
-def unregister():
-    #bpy.utils.unregister_module('code_editor')
-    bpy.utils.unregister_class(CodeEditorEnd)
-    bpy.utils.unregister_class(CodeEditorStart)
+#     bpy.types.WindowManager.code_editors = bpy.props.StringProperty(default="")
+
+# def unregister():
+#     #bpy.utils.unregister_module('code_editor')
+#     bpy.utils.unregister_class(CodeEditorEnd)
+#     bpy.utils.unregister_class(CodeEditorStart)

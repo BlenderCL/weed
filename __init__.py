@@ -11,7 +11,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software Foundation,
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-"""
+'''
 Weed Blender IDE
        Weed Enhance Empowered Developers
 
@@ -24,72 +24,53 @@ runtime with GL code.
 Weed's mission its give a consistent environment for development. With
 this objetive this addon packs a set of development
 ************ REESCRIBIR *************
-"""
+'''
 
-#import bpy
-import sys
+'''
+Copyright (C) 2014 Jacques Lucke
+mail@jlucke.com
 
-# import weed's modules
+Created by Jacques Lucke
 
-# NOTE: avoid local imports whenever possible!
-# Thanks to Christopher Crouzet for let me know about this.
-# http://stackoverflow.com/questions/13392038/python-making-a-class-variable-static-even-when-a-module-is-imported-in-differe
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-from weed.text_editor_tools import (
-    code_tree,
-    code_editor,
-    icons_get,
-    api_navigator,
-    find_replace,
-    )
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-from weed.bge_console import (
-    console,
-    )
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+'''
 
-from weed.debugger_tools import (
-    pudb_wrapper,
-    )
-
-from weed import prefs
-
-from weed import ui
-
-
-
-
-
-#~ from amaranth.modeling import symmetry_tools
-#~ 
-#~ from amaranth.scene import (
-    #~ refresh,
-    #~ save_reload,
-    #~ current_blend,
-    #~ stats,
-    #~ goto_library,
-    #~ debug,
-    #~ material_remove_unassigned,
-    #~ )
-
-# register the addon + modules found in globals()
 bl_info = {
     "name": "Weed Blender IDE",
     "author": "Cristian Hasbun",
     "version": (2018, 10, 1),
     "blender": (2, 74),
     "location": "Text Editor | Interactive Console | Terminal Console",
-    "description": "WEED Enhances Empowered Developers !, Debug Blender inside Blender",
+    "description": "WEED Enhances Empowered Developers!  *recursive acronym",
     "warning": "",
-    #"warning": "If you are in the butchery do not expect to be free of bugs...",
+    #"warning": "like in the butchery, not expect to be free of bugs...",
     "wiki_url": "http://www.blender.cl/weed_IDE",
     "tracker_url": "",
     "category": "Development",
 }
+   
+import bpy
+import sys
+from os import path, listdir
+import site
+from . addon_development_manager import get_addons_list
+from . quick_operators import register_menus, unregister_menus
 
-#def _call_globals(attr_name):
-#    for m in globals().values():
-#        if hasattr(m, attr_name):
-#            getattr(m, attr_name)()
+# load and reload submodules
+##################################    
+from .developer_utils import setup_addon_modules
+modules = setup_addon_modules(__path__, __name__, "bpy" in locals())
 
 def _flush_modules(pkg_name):
     pkg_name = pkg_name.lower()
@@ -97,33 +78,115 @@ def _flush_modules(pkg_name):
         if k.lower().startswith(pkg_name):
             del sys.modules[k]
 
+# register
+##################################
+addon_keymaps = []
+def register_keymaps():
+    global addon_keymaps
+    wm = bpy.context.window_manager
+    km = wm.keyconfigs.addon.keymaps.new(name='Text',
+                                         space_type='TEXT_EDITOR')
+    kmi = km.keymap_items.new('weed.popup_find_replace',
+                              'F', 'PRESS', ctrl=True, shift=True)
+    kmi = km.keymap_items.new('weed.select_whole_string',
+                              type='Y', value='PRESS', ctrl=True)
+    kmi = km.keymap_items.new('weed.switch_lines',
+                              type='R', value='PRESS', ctrl=True)
+    kmi = km.keymap_items.new('wm.call_menu',
+                              type='SPACE', value='PRESS', ctrl=True)
+    kmi.properties.name = 'weed.insert_template_menu'
+    kmi = km.keymap_items.new('wm.call_menu',
+                              type='TAB', value='PRESS', ctrl=True)
+    kmi.properties.name = 'weed.select_text_block'
+    addon_keymaps.append(km)
+
+    
+def unregister_keymaps():
+    wm = bpy.context.window_manager
+    for km in addon_keymaps:
+        for kmi in km.keymap_items:
+            km.keymap_items.remove(kmi)
+        wm.keyconfigs.addon.keymaps.remove(km)
+    addon_keymaps.clear()
+ 
+# there are global site-packages lib folder for python, and
+# there are user site-packages lib folder too...
+# in some Blender installs global site-packages may not have
+# permissions...
+# right now using user site-packages folder
+# (folder has permission, but it's a folder outside blender,
+# in the user folder)
+
+# user site package
+site_package = site.getusersitepackages()
+
+# global site package
+#for site_package in site.getsitepackages():
+#    if path.basename(site_package) == 'site-packages':
+#        break
 
 def register():
-    # replaced for explicit calls
-    #_call_globals("register")
-    code_tree.register()
-    icons_get.register()
-    api_navigator.register()
-    find_replace.register()
-    code_editor.register()
-    console.register()
-    pudb_wrapper.register()
-    prefs.register()
-    ui.register()
+    # before register module...
+
+    # de pudb_wrapper, instalar librerias low level
+    #############################################################
+    # register with the proper site_package folder (*md5sum tal vez?)
+    # definir mecanismo, no reinstalar estas librerias cada vez...
+    libs = path.join(path.dirname(__file__),
+                     'debugger_tools',
+                     'sitepackages_libs')
+    for lib in listdir(libs):
+        #print(lib)
+        try:
+            rmtree(path.join(site_package, lib), ignore_errors=True)
+            copytree(path.join(libs, lib), path.join(site_package, lib))
+        except:
+            print('Unexpected error:', sys.exc_info()[0])
+            print('weed Blender IDE: fail to install ', lib,
+                ', debugger tools may not function properly')
+
+    # register module...
+    bpy.utils.register_module(__name__)
+
+    # after register module...
+    bpy.types.WindowManager.code_editors = bpy.props.StringProperty(default="")
+    register_keymaps()
+    register_menus()
+    bpy.types.Scene.addon_development = bpy.props.EnumProperty(
+        items=get_addons_list,
+        name="Addon Development")
+    
+    for module in modules:
+        print("{} submodule registered.")
+    print("enable weed with {} modules registered.".format(len(modules)))
+    # print(modules)
+
 
 def unregister():
-    # DON'T WORK, Order dependant
-    #_call_globals("unregister")
-    ui.unregister()
-    prefs.unregister()
-    pudb_wrapper.unregister()
-    console.unregister()
-    code_editor.unregister()
-    find_replace.unregister()
-    api_navigator.unregister()
-    icons_get.unregister()
-    code_tree.unregister()
+    # before module...
+    # continue with the proper site_package folder 
+    libs = path.join(path.dirname(__file__),
+                     'debugger_tools',
+                     'sitepackages_libs')
+    for lib in listdir(libs):
+        #print(lib)
+        try:
+            rmtree(path.join(site_package, lib))
+            #copytree(path.join(libs, lib), path.join(site_package, lib))
+        except:
+            print('Unexpected error:', sys.exc_info()[0])
+            print('weed Blender IDE:', lib, 'fail to uninstall,',
+                  'debugger tools could have left garbage python modules')
+
+    # call module...
+    bpy.utils.unregister_module(__name__)
     
-    _flush_modules("weed")  # reload weed
+    # after module
+    unregister_keymaps()
+    unregister_menus()
+    # _flush_modules("weed")  # reload weed
 
-
+    # remember try to clean this objects
+    # del bpy.types.WindowManager.code_editors
+    # del bpy.types.Scene.addon_development
+    print("weed unregistered")

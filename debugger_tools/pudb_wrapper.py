@@ -4,6 +4,9 @@ from shutil import copytree, rmtree
 from site import getsitepackages, getusersitepackages
 import sys
 
+# hacer un decorador para todo el proceso de lanzar
+# el breakpoint. ## TODO ##
+
 breakpoint = '''
 {0}###  W E E D  ########################################################
 {0}import pudb  #########################################################
@@ -58,6 +61,7 @@ class SearchBreakpoint(bpy.types.Operator):
         else:
             return bpy.ops.weed.search_breakpoint()
 
+"""
 # there are global site-packages lib folder for python, and
 # there are user site-packages lib folder too...
 # in some Blender installs global site-packages may not have
@@ -74,8 +78,14 @@ site_package = getusersitepackages()
 #    if path.basename(site_package) == 'site-packages':
 #        break
 
+
+# registro automatico con register_module
+# register y unregister comentados
+    
 def register():
     # register with the proper site_package folder 
+    # revisar algun mecanismo para no reinstalar estas librerias
+    # cada vez...
     libs = path.join(path.dirname(__file__), 'sitepackages_libs')
     for lib in listdir(libs):
         #print(lib)
@@ -104,3 +114,7 @@ def unregister():
                 ', debugger tools could have left python modules')
     bpy.utils.unregister_class(SearchBreakpoint)
     bpy.utils.unregister_class(InsertBreakpoint)
+
+# registro automatico con register_module
+# register y unregister comentados
+"""    

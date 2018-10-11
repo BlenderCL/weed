@@ -19,18 +19,18 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-bl_info = {
-    "name": "API Navigator",
-    "author": "Dany Lebel (Axon_D)",
-    "version": (1, 0, 2),
-    "blender": (2, 57, 0),
-    "location": "Text Editor > Properties > API Navigator Panel",
-    "description": "Allows exploration of the python api via the user interface",
-    "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
-                "Scripts/Text_Editor/API_Navigator",
-    "category": "Development",
-}
+# bl_info = {
+#     "name": "API Navigator",
+#     "author": "Dany Lebel (Axon_D)",
+#     "version": (1, 0, 2),
+#     "blender": (2, 57, 0),
+#     "location": "Text Editor > Properties > API Navigator Panel",
+#     "description": "Allows exploration of the python api via the user interface",
+#     "warning": "",
+#     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
+#                 "Scripts/Text_Editor/API_Navigator",
+#     "category": "Development",
+# }
 
 """
     You can browse through the tree structure of the api. Each child object appears in a list
@@ -291,7 +291,7 @@ def api_update(context):
 
 class Update(ApiNavigator, bpy.types.Operator):
     """Update the tree structure"""
-    bl_idname = "api_navigator.update"
+    bl_idname = "weed.api_navigator_update"
     bl_label = "API Navigator Update"
 
     def execute(self, context):
@@ -301,7 +301,7 @@ class Update(ApiNavigator, bpy.types.Operator):
 
 class BackToBpy(ApiNavigator, bpy.types.Operator):
     """go back to module bpy"""
-    bl_idname = "api_navigator.back_to_bpy"
+    bl_idname = "weed.api_navigator_back_to_bpy"
     bl_label = "Back to bpy"
 
     def execute(self, context):
@@ -319,7 +319,7 @@ class BackToBpy(ApiNavigator, bpy.types.Operator):
 
 class Down(ApiNavigator, bpy.types.Operator):
     """go to this Module"""
-    bl_idname = "api_navigator.down"
+    bl_idname = "weed.api_navigator_down"
     bl_label = "API Navigator Down"
     pointed_module = bpy.props.StringProperty(name='Current Module', default='')
 
@@ -339,7 +339,7 @@ class Down(ApiNavigator, bpy.types.Operator):
 
 class Parent(ApiNavigator, bpy.types.Operator):
     """go to Parent Module"""
-    bl_idname = "api_navigator.parent"
+    bl_idname = "weed.api_navigator_parent"
     bl_label = "API Navigator Parent"
 
     def execute(self, context):
@@ -356,7 +356,7 @@ class Parent(ApiNavigator, bpy.types.Operator):
 
 class Subscript(ApiNavigator, bpy.types.Operator):
     """Subscript to this Item"""
-    bl_idname = "api_navigator.subscript"
+    bl_idname = "weed.api_navigator_subscript"
     bl_label = "API Navigator Subscript"
     subscription = bpy.props.StringProperty(name='', default='')
 
@@ -370,7 +370,7 @@ class Subscript(ApiNavigator, bpy.types.Operator):
 
 class ClearFilter(ApiNavigator, bpy.types.Operator):
     """Clear the filter"""
-    bl_idname = 'api_navigator.clear_filter'
+    bl_idname = 'weed.api_navigator_clear_filter'
     bl_label = 'API Nav clear filter'
 
     def execute(self, context):
@@ -383,14 +383,14 @@ class ClearFilter(ApiNavigator, bpy.types.Operator):
 
 class SelectModule(ApiNavigator, bpy.types.Menu):
     """Pick a sub-module"""
-    bl_idname = 'api_navigator.select_module_menu'
+    bl_idname = 'weed.api_navigator_select_module_menu'
     bl_label = 'Select Module for API'
     bl_options = {'REGISTER', 'UNDO'}
 
     menu_buttons = {
-        0 : "col.operator('api_navigator.subscript', text=str(obj)[:30],\
+        0 : "col.operator('weed.api_navigator_subscript', text=str(obj)[:30],\
              emboss=True).subscription = '\"' + obj + '\"'",
-        1 : "col.operator('api_navigator.subscript', text=str(obj)[:30],\
+        1 : "col.operator('weed.api_navigator_subscript', text=str(obj)[:30],\
              emboss=True).subscription = str(i)",
         8 : "col.label(obj[:30])"
     }
@@ -413,7 +413,7 @@ class SelectModule(ApiNavigator, bpy.types.Menu):
                 col = split.column(align=True)
                 menu_cols += 1
             exec(self.menu_buttons.get(md.level,
-                 "col.operator('api_navigator.down', text=obj[:30],\
+                 "col.operator('weed.api_navigator_down', text=obj[:30],\
                   emboss=True).pointed_module = obj"))
             count += 1
 
@@ -456,9 +456,9 @@ class PopupApiNavigator(ApiNavigator, bpy.types.Operator):
         split = box.split(percentage=0.7)
         split.prop(prefs, 'anp_path', text='', icon='OOPS')
         row = split.row(align=True)
-        row.operator('api_navigator.parent',
+        row.operator('weed.api_navigator_parent',
                        text='parent', icon='FILE_PARENT')
-        row.operator('api_navigator.back_to_bpy',
+        row.operator('weed.api_navigator_back_to_bpy',
                        text='back to bpy', icon='BACK')
 
         split = box.split(percentage=0.85)
@@ -466,12 +466,12 @@ class PopupApiNavigator(ApiNavigator, bpy.types.Operator):
         for module in prefs.submodules:
             if tree_level[module.level].__len__():
                 row.context_pointer_set("module", module)
-                row.menu('api_navigator.select_module_menu',
+                row.menu('weed.api_navigator_select_module_menu',
                          text=module.name,
                          icon=module.icon)
         row = split.row(align=True)
         row.prop(prefs, 'anp_filter', text='')
-        row.operator('api_navigator.clear_filter', text='', icon='PANEL_CLOSE')
+        row.operator('weed.api_navigator_clear_filter', text='', icon='PANEL_CLOSE')
 
         col = layout.column(align=True)
         try:
@@ -491,27 +491,29 @@ class PopupApiNavigator(ApiNavigator, bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=700)
 
 
-def register():
-    bpy.utils.register_class(Update)
-    bpy.utils.register_class(BackToBpy)
-    bpy.utils.register_class(Down)
-    bpy.utils.register_class(Parent)
-    bpy.utils.register_class(Subscript)
-    bpy.utils.register_class(ClearFilter)
-    bpy.utils.register_class(SelectModule)
-    bpy.utils.register_class(PopupApiNavigator)
+# registro automatico de modulos.
+
+# def register():
+#     bpy.utils.register_class(Update)
+#     bpy.utils.register_class(BackToBpy)
+#     bpy.utils.register_class(Down)
+#     bpy.utils.register_class(Parent)
+#     bpy.utils.register_class(Subscript)
+#     bpy.utils.register_class(ClearFilter)
+#     bpy.utils.register_class(SelectModule)
+#     bpy.utils.register_class(PopupApiNavigator)
 
 
-def unregister():
-    bpy.utils.unregister_class(PopupApiNavigator)
-    bpy.utils.unregister_class(SelectModule)
-    bpy.utils.unregister_class(ClearFilter)
-    bpy.utils.unregister_class(Subscript)
-    bpy.utils.unregister_class(Parent)
-    bpy.utils.unregister_class(Down)
-    bpy.utils.unregister_class(BackToBpy)
-    bpy.utils.unregister_class(Update)
+# def unregister():
+#     bpy.utils.unregister_class(PopupApiNavigator)
+#     bpy.utils.unregister_class(SelectModule)
+#     bpy.utils.unregister_class(ClearFilter)
+#     bpy.utils.unregister_class(Subscript)
+#     bpy.utils.unregister_class(Parent)
+#     bpy.utils.unregister_class(Down)
+#     bpy.utils.unregister_class(BackToBpy)
+#     bpy.utils.unregister_class(Update)
 
 
-if __name__ == '__main__':
-    register()
+# if __name__ == '__main__':
+#     register()

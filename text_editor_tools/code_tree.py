@@ -44,8 +44,8 @@ class WEED_OT_ViewCodeTree(bpy.types.Operator):
 # REGISTER
 #############
 
-def register():
-    bpy.utils.register_class(WEED_OT_ViewCodeTree)
+# def register():
+#     bpy.utils.register_class(WEED_OT_ViewCodeTree)
 
-def unregister():
-    bpy.utils.unregister_class(WEED_OT_ViewCodeTree)
+# def unregister():
+#     bpy.utils.unregister_class(WEED_OT_ViewCodeTree)

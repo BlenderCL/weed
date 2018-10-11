@@ -1,16 +1,109 @@
-"""
-bl_info = {
-    'name': 'Custom Menu',
-    'author': 'Cristian Hasbun',
-    'version': (0, 1),
-    'blender': (2, 7, 1),
-    'location': 'Text Editor > Header > Monkey',
-    'description': 'Pack of tools for development...',
-    'warning': 'It's very first beta! The addon is in progress!',
-    'category': 'Development'}
-"""
-########## PUAJJJJJ
 import bpy
+from . modal_handler import ModalHandler
+from . text_editor_utils import *
+from . documentation import get_documentation
+
+running = False
+def start():
+    global running
+    running = True
+def stop():
+    global running
+    running = False
+
+
+class IsRunningAutoCompletion(bpy.types.Operator):
+    bl_idname = "weed.is_running"
+    bl_label = "is running"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+    
+    def execute(self, context):
+        global running
+        if running:
+            return { "FINISHED" }
+        else:
+            return { "CANCELLED" }
+
+
+class StartAutoCompletion(bpy.types.Operator):
+    bl_idname = "weed.start_auto_completion"
+    bl_label = "Start"
+    
+    @classmethod
+    def poll(cls, context):
+        return not running
+    
+    def modal(self, context, event):
+        if not running or event.type == "F8":
+            self.modal_handler.free()
+            return { "FINISHED" }
+    
+        block_event = False
+        if active_text_block_exists():
+            context.area.tag_redraw()
+            block_event = self.modal_handler.update(event)
+            
+        if not block_event:
+            return { "PASS_THROUGH" }
+        return { "RUNNING_MODAL" }
+
+    def invoke(self, context, event):
+        get_documentation().build_if_necessary()
+        self.modal_handler = ModalHandler()
+        context.window_manager.modal_handler_add(self)
+        start()
+        return { "RUNNING_MODAL" }
+
+
+class RebuildDocumentation(bpy.types.Operator):
+    bl_idname = "weed.rebuild_documentation"
+    bl_label = "Reload API"
+    
+    @classmethod
+    def poll(cls, context):
+        return get_documentation().is_build
+    
+    def execute(self, context):
+        get_documentation().build()
+        return { "FINISHED" }
+
+
+class StopAutoCompletion(bpy.types.Operator):
+    bl_idname = "weed.stop_auto_completion"
+    bl_label = "Stop"
+    
+    @classmethod
+    def poll(cls, context):
+        return running
+    
+    def execute(self, context):
+        stop()
+        return { "FINISHED" }   
+
+
+class CodeAutocompleteMenu(bpy.types.Menu):
+    bl_label = 'Code Autocomplete Menu'
+    bl_idname = 'autocomplete_MT_main_menu'
+    bl_options = {'REGISTER'}
+
+    def draw(self, context):
+        #global running
+        #prefs = bpy.context.user_preferences.addons['weed'].preferences
+        #layout = self.layout
+
+        #if prefs.show_code_editor:
+        #    layout.label(text='Text Editor Tools', icon='SYNTAX_ON')
+
+        layout = self.layout
+        if running: 
+            layout.operator("weed.stop_auto_completion", icon = "PANEL_CLOSE")
+        else: layout.operator("weed.start_auto_completion", icon = "LIBRARY_DATA_DIRECT")
+        if get_documentation().is_build:
+            layout.operator("weed.rebuild_documentation", icon='FILE_REFRESH')
+        layout.operator("weed.correct_whitespaces", icon='ALIGN')
 
 
 class WEED_MT_MainMenu(bpy.types.Menu):
@@ -39,15 +132,15 @@ class WEED_MT_MainMenu(bpy.types.Menu):
                                 icon = 'SYNTAX_ON')
 
         # RuntimeError: Calling operator
-        # "bpy.ops.code_autocomplete.is_running" error,
+        # "bpy.ops.weed.is_running" error,
         # can't modify blend data in this state (drawing/rendering)
 
-        # if bpy.ops.code_autocomplete.is_running() == { 'FINISHED' }:
-        #     layout.operator("code_autocomplete.stop_auto_completion",
+        # if bpy.ops.weed.is_running() == { 'FINISHED' }:
+        #     layout.operator("weed.stop_auto_completion",
         #                     text = 'Stop Auto Complete',
         #                     icon = "PANEL_CLOSE")
         # else:
-        #     layout.operator("code_autocomplete.start_auto_completion",
+        #     layout.operator("weed.start_auto_completion",
         #                     text = 'Start Auto Complete',
         #                     icon = "LIBRARY_DATA_DIRECT")
         if prefs.show_bge_console:
@@ -99,50 +192,3 @@ class WEED_MT_MainMenu(bpy.types.Menu):
 
         ## call another menu
         #layout.operator('wm.call_menu', text='Unwrap').name = 'VIEW3D_MT_uv_map'
-
-
-def weed_menu(self, context):
-    layout = self.layout
-    layout.menu('WEED_MT_main_menu', text=' Weed', icon='FORCE_SMOKEFLOW')
-
-
-def rmb_weed_context(self, context):
-    layout = self.layout
-    layout.operator_context = 'INVOKE_DEFAULT'
-    #layout.menu('WEED_MT_main_menu', text='Weed Blender IDE', icon='FORCE_SMOKEFLOW')
-    #layout.separator()
-    layout.separator()
-    layout.operator('weed.icons_dialog',
-                    text='Insert Icon ID',
-                    icon='PASTEDOWN')
-    layout.operator('weed.popup_api_navigator',
-                    text='Popup Api Navigator',
-                    icon='OOPS')
-    if str(context.area) in context.window_manager.code_editors:
-        layout.operator("weed.view_code_tree", text='View Code Tree', icon='OOPS')
-    else:
-        layout.label(text='View Code Tree', icon='OOPS')
-
-
-
-def register():
-    bpy.utils.register_class(WEED_MT_MainMenu)
-    bpy.types.TEXT_MT_toolbox.append(rmb_weed_context)
-    bpy.types.TEXT_MT_toolbox.prepend(weed_menu)
-    bpy.types.TEXT_MT_view.prepend(weed_menu)
-
-def unregister():
-    bpy.types.TEXT_MT_view.remove(weed_menu)
-    bpy.types.TEXT_MT_toolbox.remove(weed_menu)
-    bpy.types.TEXT_MT_toolbox.remove(rmb_weed_context)
-    bpy.utils.unregister_class(WEED_MT_MainMenu)
-
-#bpy.ops.code_autocomplete.start_auto_completion()
-#bpy.ops.code_autocomplete.correct_whitespaces()
-
-#if __name__ == '__main__':
-    #register()
-    #unregister()
-    # The menu can also be called from scripts
-    #bpy.ops.wm.call_menu(name=CustomMenu.bl_idname)
-    #bpy.ops.wm.call_menu(name='OBJECT_MT_custom_menu')
