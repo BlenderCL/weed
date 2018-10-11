@@ -1,7 +1,7 @@
 # encoding: utf-8
 
 from itertools import islice
-from six.moves import range
+from .six.moves import range
 import collections
 import inspect
 import os

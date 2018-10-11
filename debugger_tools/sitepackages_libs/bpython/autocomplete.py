@@ -33,8 +33,8 @@ import logging
 import os
 import re
 import rlcompleter
-from six.moves import range, builtins
-from six import string_types, iteritems
+from .six.moves import range, builtins
+from .six import string_types, iteritems
 
 from . import inspection
 from . import importcompletion

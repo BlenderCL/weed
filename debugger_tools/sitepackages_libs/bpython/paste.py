@@ -25,7 +25,7 @@
 from __future__ import absolute_import
 
 from locale import getpreferredencoding
-from six.moves.urllib_parse import quote as urlquote, urljoin, urlparse
+from .six.moves.urllib_parse import quote as urlquote, urljoin, urlparse
 from string import Template
 import errno
 import requests

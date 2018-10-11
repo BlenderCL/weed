@@ -58,7 +58,7 @@ if platform.system() != 'Windows':
 import unicodedata
 import errno
 
-from six.moves import range
+from .six.moves import range
 
 # These are used for syntax highlighting
 from pygments import format

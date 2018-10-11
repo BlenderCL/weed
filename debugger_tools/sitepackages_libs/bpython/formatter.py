@@ -31,7 +31,7 @@ from __future__ import absolute_import
 from pygments.formatter import Formatter
 from pygments.token import Keyword, Name, Comment, String, Error, \
     Number, Operator, Token, Whitespace, Literal, Punctuation
-from six import iteritems
+from .six import iteritems
 
 """These format strings are pretty ugly.
 \x01 represents a colour marker, which

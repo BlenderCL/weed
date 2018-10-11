@@ -62,8 +62,9 @@ bl_info = {
    
 import bpy
 import sys
-from os import path, listdir
-import site
+from os import path, listdir, access, W_OK
+from shutil import copytree, rmtree
+from site import getsitepackages, getusersitepackages
 from . addon_development_manager import get_addons_list
 from . quick_operators import register_menus, unregister_menus
 
@@ -113,17 +114,18 @@ def unregister_keymaps():
 # there are user site-packages lib folder too...
 # in some Blender installs global site-packages may not have
 # permissions...
-# right now using user site-packages folder
-# (folder has permission, but it's a folder outside blender,
-# in the user folder)
 
-# user site package
-site_package = site.getusersitepackages()
+# try with global site package
+# a folder inside blender (but maybe without permission)
+for site_package in getsitepackages():
+   if path.basename(site_package) == 'site-packages':
+       break
+print('global site package folder, {}'.format(site_package))
+# test for write access. if fails it gets user site package
+if not access(site_package, W_OK):
+    site_package = getusersitepackages()
+    print('user site package folder override, {}'.format(site_package))
 
-# global site package
-#for site_package in site.getsitepackages():
-#    if path.basename(site_package) == 'site-packages':
-#        break
 
 def register():
     # before register module...
@@ -157,7 +159,7 @@ def register():
         name="Addon Development")
     
     for module in modules:
-        print("{} submodule registered.")
+        print("{} submodule registered.".format(module.__name__))
     print("enable weed with {} modules registered.".format(len(modules)))
     # print(modules)
 

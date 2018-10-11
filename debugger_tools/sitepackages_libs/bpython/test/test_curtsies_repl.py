@@ -8,7 +8,7 @@ import tempfile
 import io
 from functools import partial
 from contextlib import contextmanager
-from six.moves import StringIO
+from .six.moves import StringIO
 
 from bpython.curtsiesfrontend import repl as curtsiesrepl
 from bpython.curtsiesfrontend import interpreter

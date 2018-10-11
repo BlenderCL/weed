@@ -12,7 +12,7 @@ except ImportError:
 
 from bpython.translations import init
 from bpython._py3compat import py3
-from six.moves import builtins
+from .six.moves import builtins
 import os
 
 

@@ -9,7 +9,7 @@ based on http://www.bigsmoke.us/readline/shortcuts"""
 from bpython.lazyre import LazyReCompile
 
 import inspect
-from six import iteritems
+from .six import iteritems
 from bpython._py3compat import py3
 
 INDENT = 4

@@ -32,8 +32,8 @@ from __future__ import absolute_import
 
 import ast
 import inspect
-from six import string_types
-from six.moves import builtins
+from .six import string_types
+from .six.moves import builtins
 import sys
 import types
 

@@ -40,7 +40,7 @@ import textwrap
 import time
 import traceback
 from itertools import takewhile
-from six import itervalues
+from .six import itervalues
 from types import ModuleType
 
 from pygments.token import Token
@@ -53,7 +53,7 @@ from .config import getpreferredencoding
 from .formatter import Parenthesis
 from .history import History
 from .lazyre import LazyReCompile
-from .paste import PasteHelper, PastePinnwand, PasteFailed
+#from .paste import PasteHelper, PastePinnwand, PasteFailed
 from .patch_linecache import filename_for_console_input
 from .translations import _, ngettext
 from . import simpleeval
@@ -464,13 +464,13 @@ class Repl(object):
 
         self.completers = autocomplete.get_default_completer(
             config.autocomplete_mode)
-        if self.config.pastebin_helper:
-            self.paster = PasteHelper(self.config.pastebin_helper)
-        else:
-            self.paster = PastePinnwand(self.config.pastebin_url,
-                                        self.config.pastebin_expiry,
-                                        self.config.pastebin_show_url,
-                                        self.config.pastebin_removal_url)
+        # if self.config.pastebin_helper:
+        #     self.paster = PasteHelper(self.config.pastebin_helper)
+        # else:
+        #     self.paster = PastePinnwand(self.config.pastebin_url,
+        #                                 self.config.pastebin_expiry,
+        #                                 self.config.pastebin_show_url,
+        #                                 self.config.pastebin_removal_url)
 
     @property
     def ps1(self):
@@ -887,11 +887,12 @@ class Repl(object):
             return self.prev_pastebin_url
 
         self.interact.notify(_('Posting data to pastebin...'))
-        try:
-            paste_url, removal_url = self.paster.paste(s)
-        except PasteFailed as e:
-            self.interact.notify(_('Upload failed: %s') % e)
-            return
+        # try:
+        #     paste_url, removal_url = self.paster.paste(s)
+        # except PasteFailed as e:
+        #     self.interact.notify(_('Upload failed: %s') % e)
+        #     return
+        return
 
         self.prev_pastebin_content = s
         self.prev_pastebin_url = paste_url

@@ -42,8 +42,8 @@ import time
 import locale
 import signal
 from optparse import Option
-from six.moves import range
-from six import iteritems, string_types
+from .six.moves import range
+from .six import iteritems, string_types
 
 from pygments.token import Token
 

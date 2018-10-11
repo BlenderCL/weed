@@ -33,7 +33,7 @@ import os
 import sys
 import warnings
 from warnings import catch_warnings
-from six.moves import filter
+from .six.moves import filter
 
 if py3:
     import importlib.machinery
