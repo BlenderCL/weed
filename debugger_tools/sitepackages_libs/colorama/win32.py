@@ -1,5 +1,11 @@
 # Copyright Jonathan Hartley 2013. BSD 3-Clause license, see LICENSE file.
 
+#constantes
+# input / output handles 
+STDIN  = -10 #STDIN  = c_ulong(-10)
+STDOUT = -11 #STDOUT = c_ulong(-11)
+STDERR = -12 #STDERR = c_ulong(-12)
+
 try:
     import ctypes
     from ctypes import LibraryLoader
@@ -12,7 +18,6 @@ except (AttributeError, ImportError):
 else:
     #from ctypes import byref, Structure, c_char, POINTER
     from .win32_util import *
-
 
     # ctypes wrapper to GetStdHandle 
     #                   ============

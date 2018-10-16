@@ -1,19 +1,28 @@
 __doc__ = '''
-╔═════════════╗ based on:
-║ BGE Console ║     Ideasman42 BGE Console for blender 2.49, python 2.x
 ╔══════════════════════════════╦═══════════════════════════════════════════════╗
-║ ░▒▓█ BGE Console REBORN █▓▒░ ║ Upgraded and improved for:                    ║
-╠══════════════════════════════╝     Blender 2.71 and Python 3.4.0             ║
-║ Namespace extended with:                                                     ║
-║    own : owner object      sce : current scene     cont : current controller ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-      ║ Left/Right : Cursor   ║  [OS] X : []  ║  [OS] Q  : @  ║     
-      ║    Up/Down : History  ║  [OS] C : {}  ║  [OS] '  : \  ║     
-      ║      [TAB] : Autocom. ║  [OS] V : <>  ║  [OS] Z  : *  ║     
-      ╚═══════════════════════╩═══════════════╩═══════════════╝
+║ ░▒▓█ BGE Console REBORN █▓▒░ ║   Upgraded and improved for:    Blender 2.7x  ║
+╠═════════════════════════════╦╝─────────────────────────────────── Python 3.x ║
+║                             ║      [up]/[down] : History                     ║
+║  sce = current scene        ║    [CTRL][space] : special chars.              ║
+║ cont = current controller   ║            [TAB] : Indent/Autocomplete         ║
+╚═════════════════════════════╩════════════════════════════════════════════════╝
+                 based on: Ideasman42 BGE Console for blender 2.49, python 2.x  
 '''
 
+"""
+▀ ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏
+ 
+ ▐ ░ ▒ ▓ ▔ ▕ ▖ ▗ ▘ ▙ ▚ ▛ ▜ ▝ ▞ ▟
+│ ┤ ╡ ╢ ╖ ╕ ╣ ║ ╗ ╝ ╜ ╛ ┐
+└ ┴ ┬ ├ ─ ┼ ╞ ╟ ╚ ╔ ╩ ╦ ╠ ═
+╨ ╤ ╥ ╙ ╘ ╒ ╓ ╫ ╪ ┘ ┌ ╧	╬	
+
+
+
+"""
+
 from bge import logic, render, events
+from datetime import datetime
 import sys
 import bgl
 import blf
@@ -22,8 +31,9 @@ SCROLLBACK = 28
 WRAP = 80
 # Both prompts must be the same length
 PROMPT = '>>> '
-PROMPT_MULTI = '  | '
+PROMPT_MULTI = '|   '
 
+MESSGS_COLOR = (1.0, 1.0, 0.0)      # Amarillo
 PROMPT_COLOR = (1.0, 1.0, 1.0)      # Blanco
 OUTPUT_COLOR = (0.0, 1.0, 0.0)      # Verde
 ERRORS_COLOR = (1.0, 0.0, 0.0)      # Rojo
@@ -232,9 +242,12 @@ class BgeConsole:
 
     def execute(self, hold=[]):
         
-        self.AddScrollback(*self.GetTextCommandline()) #row_color='PROMPT'
+        cmdline = self.GetTextCommandline()
+        self.AddScrollback(*cmdline) #row_color='PROMPT'
         
-        print(self.GetTextCommandline()[0][4:])
+        if len(cmdline[0]) > 4 and cmdline[0][:5] == '>>> #':
+            print(Fore.YELLOW, end='')
+        print(cmdline[0][4:] + Fore.RESET)
         
         stdout_redir = fileRedirect(False)
         stderr_redir = fileRedirect(True)
@@ -256,7 +269,9 @@ class BgeConsole:
             stdout_redir.close()
         if stderr_redir.read():
             self.AddScrollback(stderr_redir.read(), row_color=ERRORS_COLOR)
-            print(Fore.RED + '"""   ERROR !\n' + stderr_redir.read() + '"""' + Fore.RESET)
+            print(Fore.RED + '# ERROR !\n# ', end='')
+            print(stderr_redir.read().rstrip().replace('\n','\n# '))
+            print(Fore.RESET)
             stderr_redir.close()
 
         # Avoid double ups, add the new one at the front
@@ -412,8 +427,8 @@ class BgeConsole:
                 
                 if autocomp_members:
                     _box = word_wrap('  '.join(autocomp_members))
-                    self.AddScrollback('╔'+'═'*78 +'╗'+ '\n║ ' + _box, (1.0, 1.0, 0.0)) #row_color=PROMPT_COLOR
-                    self.AddScrollback('╚'+'═'*78 +'╝', (1.0, 1.0, 0.0)) #row_color=PROMPT_COLOR
+                    self.AddScrollback('╔'+'═'*78 +'╗'+ '\n║ ' + _box, MESSGS_COLOR) #row_color=PROMPT_COLOR
+                    self.AddScrollback('╚'+'═'*78 +'╝', MESSGS_COLOR) #row_color=PROMPT_COLOR
             
             del val
             
@@ -552,7 +567,12 @@ def main(cont):
 
         elif 181 in list(zip(*sens.events))[0]: #magia
             bcon = logic.__console__ = BgeConsole(cont)
-            bcon.AddScrollback(__doc__, (1.0, 1.0, 0.0))
+            bcon.AddScrollback('\n'*10)
+            bcon.AddScrollback(__doc__, MESSGS_COLOR)
+            now = datetime.now()
+            print(Fore.YELLOW + "# BGE Console started")
+            print(now.strftime("# session of %Y %m %d, %A at %H:%M"))
+            print("# On file %s\n" % __file__[:-10] + Fore.RESET)
 
         try:
             # Draw the text!
