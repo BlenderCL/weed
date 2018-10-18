@@ -12,6 +12,7 @@ def setup_addon_modules(path, package_name, reload):
     """
     # Import from a static curated list
     #    than the function get_submodule_names
+    # used before
     
     #def get_submodule_names(path = path[0], root = ""):
     #    module_names = []

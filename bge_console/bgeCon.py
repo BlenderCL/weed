@@ -9,18 +9,6 @@ __doc__ = '''
                  based on: Ideasman42 BGE Console for blender 2.49, python 2.x  
 '''
 
-"""
-▀ ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏
- 
- ▐ ░ ▒ ▓ ▔ ▕ ▖ ▗ ▘ ▙ ▚ ▛ ▜ ▝ ▞ ▟
-│ ┤ ╡ ╢ ╖ ╕ ╣ ║ ╗ ╝ ╜ ╛ ┐
-└ ┴ ┬ ├ ─ ┼ ╞ ╟ ╚ ╔ ╩ ╦ ╠ ═
-╨ ╤ ╥ ╙ ╘ ╒ ╓ ╫ ╪ ┘ ┌ ╧	╬	
-
-
-
-"""
-
 from bge import logic, render, events
 from datetime import datetime
 import sys
@@ -28,6 +16,7 @@ import bgl
 import blf
 
 SCROLLBACK = 28
+BUFFER = 150
 WRAP = 80
 # Both prompts must be the same length
 PROMPT = '>>> '
@@ -123,10 +112,20 @@ class BgeConsole:
         self.history = ['']
         self.is_multiline = False
         self.key_repeat = events.MIDDLEMOUSE
-        
+        # PREFERENCE HERE... Fix non american keyboard
+        # let the preference property have the maketrans strings...
         self.my_keyboard = str.maketrans('@^&*()"<>', '"&/()=?;:')
-
-
+        self.popup_lines = 0
+        self.doing_autocomplete = False
+        self.special_char_request = False
+        self.special_char_map = {
+            events.ONEKEY   : '()',   events.SIXKEY   : '@&',
+            events.TWOKEY   : '[]',   events.SEVENKEY : ';:',
+            events.THREEKEY : '{}',   events.EIGHTKEY : '+*',
+            events.FOURKEY  : '<>',   events.NINEKEY  : '-/',
+            events.FIVEKEY  : '\\\''
+            }
+            
 
     def PrevChar(self): 
         if self.cur > 0:
@@ -146,12 +145,17 @@ class BgeConsole:
         if self.cur > len(edt):
             self.cur = len(edt)
         self.curRight()
+        #if self.doing_autocomplete:
+        #    self.autocomp()
 
     def FillScrollback(self):
+        #self.scrollback = self.scrollback[:-self.popup_lines]
         sb = self.scrollback
+        #self.popup_lines = 0
         while len(sb) < SCROLLBACK:
-            sb.append(('', PROMPT_COLOR))
-        while len(sb) > SCROLLBACK:
+            #sb.append(('', PROMPT_COLOR))
+            sb.insert(0, ('', PROMPT_COLOR))
+        while len(sb) > BUFFER:
             sb.pop(0)
 
     def AddScrollback(self, data, row_color=PROMPT_COLOR):
@@ -163,6 +167,12 @@ class BgeConsole:
                 line = line[WRAP:]
             sb.append((line, row_color))
         self.FillScrollback()
+
+    def removePopup(self):
+        if self.popup_lines:
+            self.scrollback = self.scrollback[:-self.popup_lines]
+            self.popup_lines = 0
+
 
     def curLeft(self, hold=[]):
         if 'ctrl' in hold:
@@ -187,6 +197,9 @@ class BgeConsole:
         elif self.cur > 0:
             self.edit_text = edt[:self.cur-1] + edt[self.cur:]
             self.curLeft()
+
+        if self.doing_autocomplete:
+            self.autocomp()
     
     def curDelete(self, hold=[]):
         edt = self.edit_text
@@ -241,7 +254,9 @@ class BgeConsole:
         #print(hs)
 
     def execute(self, hold=[]):
-        
+        self.doing_autocomplete = False
+        if self.popup_lines:
+            self.removePopup()
         cmdline = self.GetTextCommandline()
         self.AddScrollback(*cmdline) #row_color='PROMPT'
         
@@ -296,7 +311,10 @@ class BgeConsole:
     ## magicKey
 
     def magicKey(self, hold=[]):
-        if (self.is_multiline and
+        if self.doing_autocomplete:
+            self.removePopup()
+            self.doing_autocomplete = False
+        elif (self.is_multiline and
             self.edit_text[:self.cur].lstrip() is ''):
             # multiline with chars left to the cursor
             # are spaces. Do indents            
@@ -312,13 +330,12 @@ class BgeConsole:
             self.autocomp()
 
 
-
-
     def autocomp(self, hold=[]):
 
         def word_wrap(string, width=78):
             #string = '║ ' + string
             newstring = ''
+            self.popup_lines += 1
             while len(string) > width:
                 # find position of nearest whitespace char to the left of "width"
                 marker = width - 2
@@ -328,6 +345,7 @@ class BgeConsole:
                 # remove line from original string and add it to the new string
                 newline = string[0:marker] + ' '*(width-marker-1) + '║\n║ '
                 newstring = newstring + newline
+                self.popup_lines += 1
                 string = string[marker + 1:]
 
             return newstring + string + ' '*(width-len(string)-1) + '║'            
@@ -368,6 +386,11 @@ class BgeConsole:
         
         #######################
         ## autocomp
+        self.doing_autocomplete = True
+        self.special_char_request = False
+        if self.popup_lines:
+            self.removePopup()
+        
         TEMP_NAME = '___tempname___'
         
         cur_orig = self.cur
@@ -421,15 +444,19 @@ class BgeConsole:
                 autocomp_prefix_ret, autocomp_members = do_autocomp(autocomp_prefix, autocomp_members)
                 
                 self.cur = cur_orig
+                #self.doing_autocomplete = False
                 for v in autocomp_prefix_ret:
                     self.curInsertChar(v)
                 cur_orig = self.cur
+                #self.doing_autocomplete = True
                 
                 if autocomp_members:
                     _box = word_wrap('  '.join(autocomp_members))
                     self.AddScrollback('╔'+'═'*78 +'╗'+ '\n║ ' + _box, MESSGS_COLOR) #row_color=PROMPT_COLOR
                     self.AddScrollback('╚'+'═'*78 +'╝', MESSGS_COLOR) #row_color=PROMPT_COLOR
-            
+                    self.popup_lines +=2
+                else:
+                    self.doing_autocomplete = False
             del val
             
         else:
@@ -447,8 +474,12 @@ class BgeConsole:
             cur_orig = self.cur
             
             if autocomp_members:
-                self.AddScrollback(', '.join(autocomp_members))
-        
+                _box = word_wrap('  '.join(autocomp_members))
+                self.AddScrollback('╔'+'═'*78 +'╗'+ '\n║ ' + _box, MESSGS_COLOR) #row_color=PROMPT_COLOR
+                self.AddScrollback('╚'+'═'*78 +'╝', MESSGS_COLOR) #row_color=PROMPT_COLOR
+                self.popup_lines +=2
+            else:
+                self.doing_autocomplete = False
         self.cur = cur_orig
     
 
@@ -483,24 +514,33 @@ class BgeConsole:
             #181 : lambda holded:self.curInsertChar(':'),
             }
 
-        oskey_opts = {
-            events.QKEY     : '@',
-            events.QUOTEKEY : '\\',
-            events.XKEY     : '[]',
-            events.CKEY     : '{}',
-            events.VKEY     : '<>',
-            events.ZKEY     : '*',
-            }
-
 
         def process_key(holded):
-            if 'oskey' in holded and key in oskey_opts:
-                self.curInsertChar(oskey_opts[key])
-            #elif key not in modifiers:    
+            if self.special_char_request:
+                self.removePopup()
+                self.special_char_request = False
+                #if 'ctrl' in holded and key == events.SPACEKEY:
+                if key in self.special_char_map:
+                    self.curInsertChar(self.special_char_map[key])
+
+            elif 'ctrl' in holded and key == events.SPACEKEY:
+                self.removePopup()
+                self.AddScrollback('╔'+'═'*78 +'╗', MESSGS_COLOR)
+                self.AddScrollback('║ 1 ()    2 []     3 {}     4 <>'
+                                   '     5 \\\'     6 @&     7 ;:   '
+                                   '  8 +*     9 -/  ║', MESSGS_COLOR)
+                self.AddScrollback('╚'+'═'*78 +'╝', MESSGS_COLOR)
+                self.special_char_request = True
+                self.doing_autocomplete = False
+                self.popup_lines +=3
+
             else:
                 self.curInsertChar(
                     events.EventToCharacter(key, 'shft' in holded)
                     .translate(self.my_keyboard))
+                if self.doing_autocomplete:
+                    self.autocomp()
+
 
                     
         # check modifiers in key events
@@ -531,7 +571,7 @@ class BgeConsole:
 
 
     def GetTextCommandline(self):
-        self.FillScrollback()
+        #self.FillScrollback()
         prefix = PROMPT_MULTI if self.is_multiline else PROMPT
         #self.edit_text = edt[:self.cur] + ch + edt[self.cur:]
         #if blink:
@@ -567,7 +607,7 @@ def main(cont):
 
         elif 181 in list(zip(*sens.events))[0]: #magia
             bcon = logic.__console__ = BgeConsole(cont)
-            bcon.AddScrollback('\n'*10)
+            #bcon.AddScrollback('\n'*10)
             bcon.AddScrollback(__doc__, MESSGS_COLOR)
             now = datetime.now()
             print(Fore.YELLOW + "# BGE Console started")
@@ -576,7 +616,7 @@ def main(cont):
 
         try:
             # Draw the text!
-            for i, line in enumerate(bcon.scrollback):
+            for i, line in enumerate(bcon.scrollback[-SCROLLBACK:]):
                 logic.rows[28 - i]['text'] = line[0]
                 logic.rows[28 - i]['color'] = line[1]
             logic.rows[0]['text'] = bcon.GetTextCommandline()[0]
