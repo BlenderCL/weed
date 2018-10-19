@@ -14,7 +14,7 @@ import tempfile
 import threading
 import time
 import unicodedata
-from .six.moves import range
+from .. six.moves import range
 
 from pygments import format
 from bpython._py3compat import PythonLexer

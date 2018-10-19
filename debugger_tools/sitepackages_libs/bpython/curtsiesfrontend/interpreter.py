@@ -1,7 +1,7 @@
 # encoding: utf-8
 
 import sys
-from .six import iteritems, text_type
+from .. six import iteritems, text_type
 
 from pygments.token import Generic, Token, Keyword, Name, Comment, String
 from pygments.token import Error, Literal, Number, Operator, Punctuation
