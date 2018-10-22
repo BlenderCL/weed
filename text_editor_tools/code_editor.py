@@ -753,7 +753,8 @@ class CodeEditorStart(bpy.types.Operator):
                 return {'RUNNING_MODAL'}
             
             # end by button and code editor cleanup
-            if str(context.area) not in context.window_manager.code_editors:
+            code_editors = context.window_manager.code_editors
+            if str(context.area) not in code_editors.keys():
                 del self.thread
                 #bpy.utils.unregister_class(CodeEditorPanel)
                 bpy.types.SpaceTextEditor.draw_handler_remove(self._handle, 'WINDOW')
@@ -761,9 +762,8 @@ class CodeEditorStart(bpy.types.Operator):
         
         # end by F8 for reloading addons
         if event.type == 'F8':
-            editors = context.window_manager.code_editors.split('&')
-            editors.remove(str(context.area))
-            context.window_manager.code_editors = '&'.join(editors)
+            editors = context.window_manager.code_editors
+            editors.remove(editors.find(str(context.area)))
             del self.thread
             #bpy.utils.unregister_class(CodeEditorPanel)
             bpy.types.SpaceTextEditor.draw_handler_remove(self._handle, 'WINDOW')
@@ -784,14 +784,10 @@ class CodeEditorStart(bpy.types.Operator):
         args = (self, context)
         self._handle = bpy.types.SpaceTextEditor.draw_handler_add(draw_callback_px, args, 'WINDOW', 'POST_PIXEL')
         context.window_manager.modal_handler_add(self)
-        
+
         # register operator in winman prop
-        if not context.window_manager.code_editors: 
-            context.window_manager.code_editors = str(context.area)
-        else:
-            editors = context.window_manager.code_editors.split('&')
-            editors.append(str(context.area))
-            context.window_manager.code_editors = '&'.join(editors)
+        code_editors = context.window_manager.code_editors
+        code_editors.add().code_editor = str(context.area)
         
         # user controllable in addon preferneces
         addon_prefs = context.user_preferences.addons['weed'].preferences
@@ -870,13 +866,11 @@ class CodeEditorEnd(bpy.types.Operator):
     bl_label = ""
     
     def execute(self, context):
-        if str(context.area) in context.window_manager.code_editors:
-            editors = context.window_manager.code_editors.split('&')
-            editors.remove(str(context.area))
-            context.window_manager.code_editors = '&'.join(editors)
-            del bpy.types.Text.code_tree
+        editors = context.window_manager.code_editors
+        editors.remove(editors.find(str(context.area)))
+        ## REVISAR AQUI
+        #del bpy.types.Text.code_tree
         return {'FINISHED'}
-
 
 # REGISTER
 #############

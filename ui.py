@@ -122,7 +122,8 @@ class WEED_MT_MainMenu(bpy.types.Menu):
 
         if prefs.show_code_editor:
             #layout.label(text='Text Editor Tools', icon='SYNTAX_ON')
-            if str(context.area) in context.window_manager.code_editors:
+            code_editors = context.window_manager.code_editors
+            if str(context.area) in code_editors.keys():
                 layout.operator('weed.code_editor_end',
                                 text = 'Exit Code Editor',
                                 icon = 'PANEL_CLOSE')

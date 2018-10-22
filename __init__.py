@@ -127,6 +127,10 @@ if not access(site_package, W_OK):
     print('user site package folder override, {}'.format(site_package))
 
 
+class CodeEditorsGroup(bpy.types.PropertyGroup):
+    code_editor = bpy.props.StringProperty(name='code editor', default='')
+
+
 def register():
     # before register module...
 
@@ -148,10 +152,11 @@ def register():
                 ', debugger tools may not function properly')
 
     # register module...
+    bpy.utils.register_class(CodeEditorsGroup)
     bpy.utils.register_module(__name__)
-
+    
     # after register module...
-    bpy.types.WindowManager.code_editors = bpy.props.StringProperty(default="")
+    bpy.types.WindowManager.code_editors = bpy.props.CollectionProperty(type=CodeEditorsGroup)
     register_keymaps()
     register_menus()
     bpy.types.Scene.addon_development = bpy.props.EnumProperty(

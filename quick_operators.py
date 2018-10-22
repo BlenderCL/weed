@@ -179,7 +179,8 @@ def rmb_weed_context(self, context):
     layout.operator('weed.popup_api_navigator',
                     text='Popup Api Navigator',
                     icon='OOPS')
-    if str(context.area) in context.window_manager.code_editors:
+    code_editors = context.window_manager.code_editors
+    if str(context.area) in code_editors.keys():
         layout.operator("weed.view_code_tree", text='View Code Tree', icon='OOPS')
     else:
         layout.label(text='View Code Tree', icon='OOPS')
