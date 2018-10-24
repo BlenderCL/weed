@@ -60,50 +60,7 @@ def correct_file_name(name, is_directory = False):
 addons_path = bpy.utils.user_resource("SCRIPTS", "addons") 
 directory_visibility = defaultdict(bool)
 
-class AddonDeveloperPanel(bpy.types.Panel):
-    bl_idname = "addon_developer_panel"
-    bl_label = "Addon Development"
-    bl_space_type = "TEXT_EDITOR"
-    bl_region_type = "UI"
-    
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row(align = False)
-        #row.prop(get_addon_preferences(), 'show_dot_addons',
-                 #text='', icon='FILE_HIDDEN', emboss=True)
-        box = row.box()
-        row = box.row(align = True)
-        row.prop(context.scene, 'addon_development', text='', emboss=False)
-        row.operator("weed.open_addon_menu",
-                     icon = "COLLAPSEMENU",
-                     text = "", emboss=False)
-    
-        if not current_addon_exists():
-            if not is_addon_name_valid():
-                layout.operator("weed.make_addon_name_valid",
-                                icon = "ERROR", text = "Correct Addon Name")
-            else:
-                row = layout.row()
-                row.scale_y = 1.2
-                row.operator_menu_enum("weed.new_addon",
-                                       "new_addon_type", icon = "NEW",
-                                       text = "New Addon")
-        else:
-            row = layout.row()
-            row.scale_y = 1.5
-            row.operator("weed.run_addon",
-                         icon = "PLAY",
-                         text = "Run")
-            row.operator("weed.unregister_addon",
-                         icon = "GO_LEFT",
-                         text = "UnReg")
-            row.operator("weed.export_addon",
-                            icon = "EXPORT",
-                            text = "Zip")
-        layout.operator("weed.restart_blender",
-                        icon = "BLENDER")
-        
-        
+       
 class AddonFilesPanel(bpy.types.Panel):
     bl_idname = "addon_files_panel"
     bl_label = "Addon Files"
@@ -116,31 +73,52 @@ class AddonFilesPanel(bpy.types.Panel):
     
     def draw(self, context):
         layout = self.layout
-        layout.alignment = "LEFT"
-        addon_path = get_current_addon_path()
-        
-        row = layout.row(align=False)
-        row.prop(get_addon_preferences(), 'show_dot_files',
-                   text = '', icon = 'FILE_HIDDEN')
-        row.prop(get_addon_preferences(), 'user_site_packages',
-                   text = '', icon = 'RECOVER_AUTO')
-        row.operator("weed.save_files",
-                       text = 'Save all {} files'.format(get_addon_name()[:15]),
-                       icon = 'SAVE_COPY')
+        #row = layout.row(align = False)
+        #row.prop(get_addon_preferences(), 'show_dot_addons',
+                 #text='', icon='FILE_HIDDEN', emboss=True)
         box = layout.box()
-        if not get_addon_preferences().user_site_packages:
-            if isfile(addon_path):
-                directory, file_name = split(addon_path)
-                self.draw_element(box, directory + sep, file_name)
+        col = box.column(align=True)
+        row = col.row(align=True)
+        row.prop(context.scene, 'addon_development', text='')
+        row.operator("weed.open_addon_menu",
+                     icon = "COLLAPSEMENU",
+                     text = "")
+        if not current_addon_exists():
+            row = col.row()
+            if not is_addon_name_valid():
+                row.operator("weed.make_addon_name_valid",
+                                icon = "ERROR", text = "Correct Addon Name")
             else:
-                self.draw_directory(box, addon_path)
+                #row.scale_y = 1.2
+                row.operator_menu_enum("weed.new_addon",
+                                       "new_addon_type", icon = "NEW",
+                                       text = "New Addon")
         else:
-            import site, os
-            box.label('User:')
-            self.draw_directory(box, site.getusersitepackages() + sep)
-            box.label('Global:')
-            for site in site.getsitepackages():
-                self.draw_directory(box, site + sep)
+            #layout.alignment = "LEFT"
+            addon_path = get_current_addon_path()
+            
+            row = col.row(align=True)
+            row.prop(get_addon_preferences(), 'show_dot_files',
+                    text = '', icon = 'FILE_HIDDEN')
+            row.prop(get_addon_preferences(), 'user_site_packages',
+                    text = '', icon = 'RECOVER_AUTO')
+            row.operator("weed.save_files",
+                       text = 'Save all {} files'.format(get_addon_name()[:15]),
+                        icon = 'SAVE_COPY')
+            #box = layout.box()
+            if not get_addon_preferences().user_site_packages:
+                if isfile(addon_path):
+                    directory, file_name = split(addon_path)
+                    self.draw_element(box, directory + sep, file_name)
+                else:
+                    self.draw_directory(box, addon_path)
+            else:
+                import site, os
+                box.label('User:')
+                self.draw_directory(box, site.getusersitepackages() + sep)
+                box.label('Global:')
+                for site in site.getsitepackages():
+                    self.draw_directory(box, site + sep)
             
     def draw_directory(self, layout, directory):
         if not self.is_directory_visible(directory):
@@ -722,21 +700,33 @@ class AddonMenuOpener(bpy.types.Operator):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
         layout.prop(get_addon_preferences(), 'show_dot_addons',
-                 text='Show hidden files')
-        op = layout.operator_menu_enum("weed.new_addon",
-                               "new_addon_type", icon = "NEWFOLDER",
-                               text = "Create New Addon")
-        #op.directory = dirProps.directory
-        op = layout.operator("weed.rename_addon",
+                 text='Show hidden addons')
+        # RECUERDA, para enviar argumentos...
+        # op = layout.operator("weed.renam...
+        # op.directory = dirProps.directory
+        layout.operator_menu_enum("weed.new_addon", "new_addon_type", 
+                                    icon = "NEWFOLDER",
+                                    text = "Create New Addon")
+        layout.operator("weed.rename_addon",
                             icon = "GHOST", #"PLUS",
                             text = "Rename Addon")
-        #op.directory = dirProps.directory
-        op = layout.operator("weed.delete_addon", # delete_addon
-                               icon = "CANCEL",
-                               text = "Delete Addon")
-        #op.directory = dirProps.directory
+        layout.operator("weed.delete_addon", # delete_addon
+                            icon = "CANCEL",
+                            text = "Delete Addon")
+        layout.separator()
+        layout.operator("weed.run_addon",
+                            icon = "PLAY",
+                            text = "Run")
+        layout.operator("weed.unregister_addon",
+                            icon = "GO_LEFT",
+                            text = "UnReg")
+        layout.operator("weed.export_addon",
+                            icon = "EXPORT",
+                            text = "Zip")
+        layout.operator("weed.restart_blender",
+                            icon = "BLENDER")
 
-            
+
 class DirMenuOpener(bpy.types.Operator):
     bl_idname = "weed.open_dir_menu"
     bl_label = "Open Folder Menu"
