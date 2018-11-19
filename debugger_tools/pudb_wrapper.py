@@ -23,10 +23,13 @@ class InsertBreakpoint(bpy.types.Operator):
     bl_options = {'REGISTER', 'INTERNAL'}
 
     def execute(self, context):
-        line = context.space_data.text.current_line.body
-        indent = line[:len(line) - len(line.lstrip())]
-        bpy.ops.text.move(type = 'LINE_BEGIN')
-        bpy.ops.text.insert(text = breakpoint.format(indent))
+        try:
+            line = context.space_data.text.current_line.body
+            indent = line[:len(line) - len(line.lstrip())]
+            bpy.ops.text.move(type = 'LINE_BEGIN')
+            bpy.ops.text.insert(text = breakpoint.format(indent))
+        except AttributeError:
+            self.report({'INFO'}, 'It seems that there is no any open text')
         return {'FINISHED'}
 
 class SearchBreakpoint(bpy.types.Operator):
@@ -43,23 +46,27 @@ class SearchBreakpoint(bpy.types.Operator):
         sd.find_text = '###  W E E D'
         sd.use_find_all = True
         #bpy.ops.text.jump(line=1)
-        bpy.ops.text.find()
-        brk_end = sd.text.lines[sd.text.current_line_index + 4].body.rstrip()
-        if (sd.text.current_character != sd.text.select_end_character and
-            'Breakpoint' in brk_end):
-            #bpy.ops.text.find_set_selected()
-            bpy.ops.text.move(type='LINE_BEGIN')
-            bpy.ops.text.move_select(type = 'NEXT_LINE')
-            bpy.ops.text.move_select(type = 'NEXT_LINE')
-            bpy.ops.text.move_select(type = 'NEXT_LINE')
-            bpy.ops.text.move_select(type = 'NEXT_LINE')
-            ##bpy.ops.text.move_select(type = 'LINE_END')
-            bpy.ops.text.move_select(type = 'NEXT_LINE')
-            #bpy.ops.text.cut()
-            #bpy.context.window_manager.clipboard = ''
+        try:
+            bpy.ops.text.find()
+            brk_end = sd.text.lines[sd.text.current_line_index + 4].body.rstrip()
+            if (sd.text.current_character != sd.text.select_end_character and
+                        'Breakpoint' in brk_end):
+                #bpy.ops.text.find_set_selected()
+                bpy.ops.text.move(type='LINE_BEGIN')
+                bpy.ops.text.move_select(type = 'NEXT_LINE')
+                bpy.ops.text.move_select(type = 'NEXT_LINE')
+                bpy.ops.text.move_select(type = 'NEXT_LINE')
+                bpy.ops.text.move_select(type = 'NEXT_LINE')
+                ##bpy.ops.text.move_select(type = 'LINE_END')
+                bpy.ops.text.move_select(type = 'NEXT_LINE')
+                #bpy.ops.text.cut()
+                #bpy.context.window_manager.clipboard = ''
+        except RuntimeError:
+            self.report({'INFO'}, 'It seems that there is no any open text')
+        except IndexError:
+            self.report({'INFO'}, 'It seems that is an empty text')
+        finally:
             return {'FINISHED'}
-        else:
-            return bpy.ops.weed.search_breakpoint()
 
 """
 # there are global site-packages lib folder for python, and

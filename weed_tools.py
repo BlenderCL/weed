@@ -61,23 +61,80 @@ addons_path = bpy.utils.user_resource("SCRIPTS", "addons")
 directory_visibility = defaultdict(bool)
 
        
-class AddonFilesPanel(bpy.types.Panel):
-    bl_idname = "addon_files_panel"
-    bl_label = "Addon Files"
+class WeedToolsPanel(bpy.types.Panel):
+    bl_idname = "weed.tools_panel"
+    bl_label = "Weed Tools"
     bl_space_type = "TEXT_EDITOR"
     bl_region_type = "UI"
     
     @classmethod
     def poll(cls, context):
         return current_addon_exists()
-    
+
+
     def draw(self, context):
+        wm = context.window_manager
         layout = self.layout
+        layout.prop(wm, 'weed_active_toolbox', expand=False)
+        box = layout.box()
+        draw_toolbox = getattr(self, wm.weed_active_toolbox)
+        draw_toolbox(context, box)
+
+
+    def draw_debugger_box(self, context, layout):
+        layout.label('debugger box') 
+        layout.operator('weed.insert_breakpoint',
+                        text = 'Insert pudb Breakpoint here',
+                        icon = 'RECOVER_AUTO')
+        layout.operator('weed.search_breakpoint',
+                        text = 'Search pudb Breakpoint',
+                        icon = 'VIEWZOOM')
+
+
+    def draw_code_tree_box(self, context, layout):
+        code_editors = context.window_manager.code_editors
+        if str(context.area) not in code_editors.keys():
+            layout.label(text='Start code editor', icon='INFO')
+            layout.label(text='to activate Code Tree view')
+            return {'FINISHED'}
+
+        icons = { 'import' : 'LAYER_ACTIVE',
+                    'class' : 'OBJECT_DATA',
+                    'def' : 'SCRIPTPLUGINS' }
+        #layout.operator_context = 'EXEC_DEFAULT'
+        col = layout.column(align=True)
+        col.alignment = 'LEFT'
+        tot_imports = len(bpy.types.Text.code_tree['imports'])
+        for i, (idx, indnt, (keyword, name, args)) in enumerate(
+                                        bpy.types.Text.code_tree['imports']):
+            #row = row if i%2 else layout.row(align=True)
+            row = col.row(align=True)
+            row.alignment = 'LEFT'
+            prop = row.operator('text.jump',
+                                text = name,
+                                icon = icons[keyword],
+                                emboss = False)
+            prop.line = idx + 1
+
+        for idx, indnt, (keyword, name, args) in bpy.types.Text.code_tree['class_def']:
+            #if not indnt:
+            #    col.separator()
+            row = col.row(align=True)
+            row.alignment = 'LEFT'
+            prop = row.operator('text.jump',
+                                text = '·   '*indnt + name,
+                                icon = icons[keyword] if not indnt else 'NONE',
+                                emboss = False)
+            prop.line = idx + 1
+            prev_indnt = indnt
+
+
+    def draw_develop_box(self, context, layout):
+        #layout = self.layout
         #row = layout.row(align = False)
         #row.prop(get_addon_preferences(), 'show_dot_addons',
                  #text='', icon='FILE_HIDDEN', emboss=True)
-        box = layout.box()
-        col = box.column(align=True)
+        col = layout.column(align=True)
         row = col.row(align=True)
         row.prop(context.scene, 'addon_development', text='')
         row.operator("weed.open_addon_menu",
@@ -109,16 +166,16 @@ class AddonFilesPanel(bpy.types.Panel):
             if not get_addon_preferences().user_site_packages:
                 if isfile(addon_path):
                     directory, file_name = split(addon_path)
-                    self.draw_element(box, directory + sep, file_name)
+                    self.draw_element(layout, directory + sep, file_name)
                 else:
-                    self.draw_directory(box, addon_path)
+                    self.draw_directory(layout, addon_path)
             else:
                 import site, os
-                box.label('User:')
-                self.draw_directory(box, site.getusersitepackages() + sep)
-                box.label('Global:')
+                layout.label('User:')
+                self.draw_directory(layout, site.getusersitepackages() + sep)
+                layout.label('Global:')
                 for site in site.getsitepackages():
-                    self.draw_directory(box, site + sep)
+                    self.draw_directory(layout, site + sep)
             
     def draw_directory(self, layout, directory):
         if not self.is_directory_visible(directory):

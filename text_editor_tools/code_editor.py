@@ -684,7 +684,6 @@ class CodeEditorStart(bpy.types.Operator):
                 self.drag = False
             
             if self.in_tab and self.opacity and event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
-                #pu.db
                 if self.in_tab == context.space_data.text.name:
                     return bpy.ops.weed.view_code_tree()
                     #context.window_manager.popup_menu(code_tree_popup,
@@ -787,7 +786,7 @@ class CodeEditorStart(bpy.types.Operator):
 
         # register operator in winman prop
         code_editors = context.window_manager.code_editors
-        code_editors.add().code_editor = str(context.area)
+        code_editors.add().name = str(context.area)
         
         # user controllable in addon preferneces
         addon_prefs = context.user_preferences.addons['weed'].preferences

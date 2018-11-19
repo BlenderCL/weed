@@ -15,6 +15,7 @@
 
 
 import bpy
+from bpy.props import *
 #from weed.text_editor_tools import (
 #    find_replace
 #)
@@ -27,95 +28,102 @@ import bpy
 
 class SubmoduleGroup(bpy.types.PropertyGroup):
 
-    level = bpy.props.IntProperty()
-    name = bpy.props.StringProperty()
-    icon = bpy.props.StringProperty()
+    level = IntProperty()
+    name = StringProperty()
+    icon = StringProperty()
 
 
 class WeedPreferences(bpy.types.AddonPreferences):
     bl_idname = "weed"
 
     # api_nav_props
-    anp_path = bpy.props.StringProperty(name='path',
+    anp_path = StringProperty(name='path',
                           description='Enter bpy.ops.api_navigator to see the documentation',
                           default='bpy')
-    anp_old_path = bpy.props.StringProperty(name='old_path', default='')
-    anp_filter = bpy.props.StringProperty(name='filter',
+    anp_old_path = StringProperty(name='old_path', default='')
+    anp_filter = StringProperty(name='filter',
                             description='Filter the resulting modules', default='')
-    anp_reduce_to = bpy.props.IntProperty(name='Reduce to ',
+    anp_reduce_to = IntProperty(name='Reduce to ',
                             description='Display a maximum number of x entries by pages',
                             default=10, min=1)
-    anp_pages = bpy.props.IntProperty(name='Pages',
+    anp_pages = IntProperty(name='Pages',
                         description='Display a Page', default=0, min=0)
 
-    submodules = bpy.props.CollectionProperty(type=SubmoduleGroup)
+    submodules = CollectionProperty(type=SubmoduleGroup)
+
+    # weed_active_toolbox = EnumProperty(
+    #     name = 'panel',
+    #     default = 'draw_develop_box',
+    #     items = [('draw_develop_box', 'Addon develop', '', 'SCRIPT', 0),
+    #              ('draw_code_tree_box', 'Code tree', '', 'OOPS', 1),
+    #              ('draw_debugger_box', 'Debugger tools', '', 'RECOVER_AUTO', 2)])
 
     # Features show in Menu
-    show_bge_console = bpy.props.BoolProperty(
+    show_bge_console = BoolProperty(
         name = "Show Bge Console Menu",
         description = "Show Bge Console Menu on Main Weed Menu",
         default = True)
-    show_code_editor = bpy.props.BoolProperty(
+    show_code_editor = BoolProperty(
         name = "Show Code Editor Menu",
         description = "Show Code Editor Menu on Main Weed Menu",
         default = True)
-    show_icons_get = bpy.props.BoolProperty(
+    show_icons_get = BoolProperty(
         name = "Show icons get Menu",
         description = "Show icons get Menu on Main Weed Menu",
         default = True)
 
     # Code Editor Preferences
-    opacity = bpy.props.FloatProperty(
+    opacity = FloatProperty(
         name = "Panel Background transparency",
         description = "0 - fully opaque, 1 - fully transparent",
         min = 0.0, max = 1.0, default = 0.2)
     
-    show_tabs = bpy.props.BoolProperty(
+    show_tabs = BoolProperty(
         name = "Show Tabs in Panel when multiple text blocks",
         description = "Show opened textblock in tabs next to minimap",
         default = True)
     
-    minimap_width = bpy.props.IntProperty(
+    minimap_width = IntProperty(
         name = "Minimap panel width",
         description = "Minimap base width in px",
         min = 25, max = 400, default = 100)
     
-    window_min_width = bpy.props.IntProperty(
+    window_min_width = IntProperty(
         name = "Hide Panel when area width less than",
         description = "Set 0 to deactivate side panel hiding, set huge to disable panel",
         min = 0, max = 4096, default = 600)
     
-    symbol_width = bpy.props.FloatProperty(
+    symbol_width = FloatProperty(
         name = "Minimap character width",
         description = "Minimap character width in px",
         min = 1.0, max = 10.0, default = 1.5)
     
-    line_height = bpy.props.IntProperty(
+    line_height = IntProperty(
         name = "Minimap line spacing",
         description = "Minimap line spacign in px",
         min = 2, max = 10, default = 4)
     
-    block_trans = bpy.props.FloatProperty(
+    block_trans = FloatProperty(
         name = "Code block markings transparency",
         description = "0 - fully opaque, 1 - fully transparent",
         min = 0.0, max = 1.0, default = 0.6)
     
-    indent_trans = bpy.props.FloatProperty(
+    indent_trans = FloatProperty(
         name = "Indentation markings transparency",
         description = "0 - fully opaque, 1 - fully transparent",
         min = 0.0, max = 1.0, default = 0.9)
     
-    show_margin = bpy.props.BoolProperty(
+    show_margin = BoolProperty(
         name = "Activate global Text Margin marker",
         default = True)
     
-    margin_column = bpy.props.IntProperty(
+    margin_column = IntProperty(
         name = "Margin Column",
         description = "Column number to show marker at",
         min = 0, max = 1024, default = 80)
 
     #Register Unregister module Find Replace
-    find_replace_pref = bpy.props.BoolProperty(#update=register_find_replace,
+    find_replace_pref = BoolProperty(#update=register_find_replace,
         name = "Find Replace fix",
         description = "popup version of find replace",
         default = True
@@ -125,16 +133,16 @@ class WeedPreferences(bpy.types.AddonPreferences):
 # class AddonPreferences(bpy.types.AddonPreferences):
 #     bl_idname = __name__
 
-    line_amount = bpy.props.IntProperty(name = "Lines", default = 8,  
+    line_amount = IntProperty(name = "Lines", default = 8,  
                     min = 1, max = 20,
                     description = "Amount of lines shown in the context box")
-    show_dot_files = bpy.props.BoolProperty(name = ' Show hidden files',
+    show_dot_files = BoolProperty(name = ' Show hidden files',
                     default = False,
                     description = 'Show hidden files on addon files panel')
-    show_dot_addons = bpy.props.BoolProperty(name = 'Show dot Addons',
+    show_dot_addons = BoolProperty(name = 'Show dot Addons',
                     default = False,
                     description = 'Show hidden addons on addon files panel')
-    user_site_packages = bpy.props.BoolProperty(name = 'Browse User Site Packages',
+    user_site_packages = BoolProperty(name = 'Browse User Site Packages',
                     default = False,
                     description = 'Browse User Site Packages on addon files panel')
 

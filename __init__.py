@@ -65,8 +65,9 @@ import sys
 from os import path, listdir, access, W_OK
 from shutil import copytree, rmtree
 from site import getsitepackages, getusersitepackages
-from . addon_development_manager import get_addons_list
+from . weed_tools import get_addons_list
 from . quick_operators import register_menus, unregister_menus
+from . checksumdir import dirhash
 
 # load and reload submodules
 ##################################    
@@ -128,35 +129,64 @@ if not access(site_package, W_OK):
 
 
 class CodeEditorsGroup(bpy.types.PropertyGroup):
-    code_editor = bpy.props.StringProperty(name='code editor', default='')
+    code_editor = bpy.props.StringProperty(name='code editor',
+                                           default='')
 
 
 def register():
     # before register module...
-
-    # de pudb_wrapper, instalar librerias low level
+    # of pudb_wrapper, install python low level libraries
     #############################################################
     # register with the proper site_package folder (*md5sum tal vez?)
     # definir mecanismo, no reinstalar estas librerias cada vez...
-    libs = path.join(path.dirname(__file__),
-                     'debugger_tools',
-                     'sitepackages_libs')
-    for lib in listdir(libs):
-        #print(lib)
-        try:
+    md5_hashes = {
+            'bpython'  : 'f71aa32d8a395e53c5629bcc1bde4763',
+            'colorama' : 'af625c7cb8315d11e8c72027ea082295',
+            'pudb'     : '2da49e650733873dc51b0e9aadfceb39',
+            'pygments' : '86f122fc42f24ea825a03de8fe012d86',
+            'urwid'    : '243d975bcaad214cef0ce6c11d1e601e'
+            }
+    src_libs_path = path.join(path.dirname(__file__),
+                        'debugger_tools',
+                        'sitepackages_libs')
+    trgt_libs_list = listdir(site_package)
+    for lib in sorted(md5_hashes.keys()):
+        if not lib in trgt_libs_list:
+            print(lib, "module is not present, will be installed")
+            copytree(path.join(src_libs_path, lib),
+                     path.join(site_package, lib))
+        elif md5_hashes[lib] != dirhash(path.join(site_package, lib), 'md5',
+                                excluded_extensions=['pyc', 'gitignore'],
+                                excluded_files=['pudb.cfg',
+                                                'saved_breakpoints'
+                                ]):
+            print(lib, "module is outdated, will be replaced")
+            md5_hash = dirhash(path.join(site_package, lib), 'md5',
+                                excluded_extensions=['pyc', 'gitignore'],
+                                excluded_files=['pudb.cfg',
+                                                'saved_breakpoints'
+                                ])
+            print('md5 hash was', md5_hash)
             rmtree(path.join(site_package, lib), ignore_errors=True)
-            copytree(path.join(libs, lib), path.join(site_package, lib))
-        except:
-            print('Unexpected error:', sys.exc_info()[0])
-            print('weed Blender IDE: fail to install ', lib,
-                ', debugger tools may not function properly')
+            copytree(path.join(src_libs_path, lib),
+                     path.join(site_package, lib))
+        else:
+            print(lib, "module it's already installed")
 
     # register module...
     bpy.utils.register_class(CodeEditorsGroup)
     bpy.utils.register_module(__name__)
     
     # after register module...
-    bpy.types.WindowManager.code_editors = bpy.props.CollectionProperty(type=CodeEditorsGroup)
+
+    bpy.types.WindowManager.code_editors = bpy.props.CollectionProperty(
+                                                        type=CodeEditorsGroup)
+    bpy.types.WindowManager.weed_active_toolbox = bpy.props.EnumProperty(
+            name = 'panel',
+            default = 'draw_develop_box',
+            items = [('draw_develop_box', 'Addon develop', '', 'SCRIPT', 0),
+                     ('draw_code_tree_box', 'Code tree', '', 'OOPS', 1),
+                     ('draw_debugger_box', 'Debugger tools', '', 'RECOVER_AUTO', 2)])
     register_keymaps()
     register_menus()
     bpy.types.Scene.addon_development = bpy.props.EnumProperty(
@@ -172,18 +202,18 @@ def register():
 def unregister():
     # before module...
     # continue with the proper site_package folder 
-    libs = path.join(path.dirname(__file__),
-                     'debugger_tools',
-                     'sitepackages_libs')
-    for lib in listdir(libs):
-        #print(lib)
-        try:
-            rmtree(path.join(site_package, lib))
-            #copytree(path.join(libs, lib), path.join(site_package, lib))
-        except:
-            print('Unexpected error:', sys.exc_info()[0])
-            print('weed Blender IDE:', lib, 'fail to uninstall,',
-                  'debugger tools could have left garbage python modules')
+    # libs = path.join(path.dirname(__file__),
+    #                  'debugger_tools',
+    #                  'sitepackages_libs')
+    # for lib in listdir(libs):
+    #     #print(lib)
+    #     try:
+    #         rmtree(path.join(site_package, lib))
+    #         #copytree(path.join(libs, lib), path.join(site_package, lib))
+    #     except:
+    #         print('Unexpected error:', sys.exc_info()[0])
+    #         print('weed Blender IDE:', lib, 'fail to uninstall,',
+    #               'debugger tools could have left garbage python modules')
 
     # call module...
     bpy.utils.unregister_module(__name__)

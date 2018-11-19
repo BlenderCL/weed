@@ -37,36 +37,37 @@ def setup_addon_modules(path, package_name, reload):
     
     # names = get_submodule_names()
     names = [
-        #'bge_console.bgeCon',                      # disabled
-        #'developer_utils',                         # disabled
-        #'graphics',                                # disabled
-        #'modal_handler',                           # disabled
-        #'name_utils',                              # disabled
-        #'operators.api_context_operators',         # disabled
-        #'operators.assign_or_compare_operators',   # disabled
-        #'operators.bpy_ops_operators',             # disabled
-        #'operators.dynamic_snippets_operators',    # disabled
-        #'operators.extend_word_operators',         # disabled
-        #'operators.operator_hub',                  # disabled
-        #'operators.parameter_operators',           # disabled
-        #'operators.suggestions_from_before',       # disabled
-        #'text_block',                              # disabled
-        #'text_editor_utils',                       # disabled
-        #'text_operators',                          # disabled
-        'addon_development_manager',                # ok
-        'bge_console.console',                      # ok
-        'debugger_tools.pudb_wrapper',              # ok
-        'documentation',                            # ok
-        'expression_utils',                         # ok
-        'insert_templates_via_ui',                  # ok
-        'prefs',                                    # ok
-        'quick_operators',                          # ok
-        'text_editor_tools.api_navigator',          # ok
-        'text_editor_tools.code_editor',            # ok
-        'text_editor_tools.code_tree',              # ok
-        'text_editor_tools.find_replace',           # ok
-        'text_editor_tools.icons_get',              # ok
-        'ui'                                        # ok
+        #'bge_console.bgeCon',                      # no need to register
+        #'checksumdir',                             # no need to register
+        #'developer_utils',                         # no need to register
+        #'graphics',                                # no need to register
+        #'modal_handler',                           # no need to register
+        #'name_utils',                              # no need to register
+        #'operators.api_context_operators',         # no need to register
+        #'operators.assign_or_compare_operators',   # no need to register
+        #'operators.bpy_ops_operators',             # no need to register
+        #'operators.dynamic_snippets_operators',    # no need to register
+        #'operators.extend_word_operators',         # no need to register
+        #'operators.operator_hub',                  # no need to register
+        #'operators.parameter_operators',           # no need to register
+        #'operators.suggestions_from_before',       # no need to register
+        #'text_block',                              # no need to register
+        #'text_editor_utils',                       # no need to register
+        #'text_operators',                          # no need to register
+        'bge_console.console',                      # register this module
+        'debugger_tools.pudb_wrapper',              # register this module
+        'documentation',                            # register this module
+        'expression_utils',                         # register this module
+        'insert_templates_via_ui',                  # register this module
+        'prefs',                                    # register this module
+        'quick_operators',                          # register this module
+        'text_editor_tools.api_navigator',          # register this module
+        'text_editor_tools.code_editor',            # register this module
+        'text_editor_tools.code_tree',              # register this module
+        'text_editor_tools.find_replace',           # register this module
+        'text_editor_tools.icons_get',              # register this module
+        'ui',                                       # register this module
+        'weed_tools'                                # register this module
     ]
     modules = import_submodules(names)        
     if reload: 
