@@ -399,20 +399,17 @@ class SelectModule(ApiNavigator, bpy.types.Menu):
         global tree_level, current_module, module_type, return_report
         prefs = bpy.context.user_preferences.addons['weed'].preferences
         layout = self.layout
-        filter = prefs.anp_filter
-        md = context.module
-        len = tree_level[md.level].__len__()
+        text_filter = prefs.anp_filter
         split = layout.split()
         count = 0
         menu_cols = 0
-        for i in range(len):
-            obj = tree_level[md.level][i]
-            if filter and filter.lower() not in obj.lower():
+        for i, obj in enumerate(tree_level[context.module.level]):
+            if text_filter and text_filter.lower() not in str(obj).lower():
                 continue
             if count % 20 == 0 and menu_cols < 4:
                 col = split.column(align=True)
                 menu_cols += 1
-            exec(self.menu_buttons.get(md.level,
+            exec(self.menu_buttons.get(context.module.level,
                  "col.operator('weed.api_navigator_down', text=obj[:30],\
                   emboss=True).pointed_module = obj"))
             count += 1

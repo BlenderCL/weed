@@ -43,6 +43,17 @@ def create_icon_list():
     return icons
 
 
+class ClearFilter(bpy.types.Operator):
+    """Clear the filter"""
+    bl_idname = 'weed.icons_get_clear_filter'
+    bl_label = 'Icons get clear filter'
+
+    def execute(self, context):
+        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs.icg_filter = ''
+        return {'FINISHED'}
+
+
 class WM_OT_icon_info(bpy.types.Operator):
     bl_idname = 'wm.icon_info'
     bl_label = 'Icon Info'
@@ -60,19 +71,31 @@ class WEED_OT_IconsDialog(bpy.types.Operator):
     bl_idname = 'weed.icons_dialog'
     bl_label = 'Icons Info'
     bl_description = 'show icons'
-    bl_options = {'REGISTER', 'INTERNAL'}
-
+    bl_options = {'REGISTER', 'UNDO'}
+    
     def __init__(self):
         self.amount = 42
         self.icon_list = create_icon_list()
+        self.last_text_filter = ''    
 
     def draw(self, context):
+        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        text_filter = prefs.icg_filter
         layout = self.layout
         # render the icons
+        #search
+        row = layout.row(align=True)
+        row.label('refine icon list with text filter:')
+        row.alignment = 'RIGHT'
+        row.prop(prefs, 'icg_filter', text='')
+        row.operator('weed.icons_get_clear_filter', text='', icon='PANEL_CLOSE')
+
         col = layout.column(align = True)
         for i, icon in enumerate(self.icon_list):
             if i % self.amount == 0:
                 row = col.row(align = True)
+            if text_filter and text_filter.lower() not in str(obj).lower():
+                continue
             row.operator('wm.icon_info',
                          text = ' ',
                          icon = icon,

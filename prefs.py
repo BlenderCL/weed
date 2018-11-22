@@ -43,6 +43,10 @@ class WeedPreferences(bpy.types.AddonPreferences):
     anp_old_path = StringProperty(name='old_path', default='')
     anp_filter = StringProperty(name='filter',
                             description='Filter the resulting modules', default='')
+    icg_filter = StringProperty(name='filter',
+                            description='Filter the resulting modules', default='')
+    icg_old_filter = StringProperty(name='filter',
+                            description='Filter the resulting modules', default='')
     anp_reduce_to = IntProperty(name='Reduce to ',
                             description='Display a maximum number of x entries by pages',
                             default=10, min=1)
