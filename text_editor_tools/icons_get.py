@@ -35,10 +35,10 @@
 
 import bpy
 
-
-def create_icon_list():
+def create_icon_list(text_filter):
     rna_prop = bpy.types.UILayout.bl_rna.functions['prop']
-    icons = rna_prop.parameters['icon'].enum_items.keys()
+    icons = [icon for icon in rna_prop.parameters['icon'].enum_items.keys()
+             if text_filter.upper() in icon]
     #icons.remove('NONE')
     return icons
 
@@ -74,43 +74,60 @@ class WEED_OT_IconsDialog(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
     
     def __init__(self):
-        self.amount = 42
-        self.icon_list = create_icon_list()
-        self.last_text_filter = ''    
+        # self.icon_list = create_icon_list()
+        self.icon_list = [] 
+        # self.num_cols = int(1.6*sqrt(self.icon_list.__len__()))
+        self.num_cols = 40
+
+    def check(self, context):
+        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        if prefs.icg_filter != prefs.icg_old_filter:
+            prefs.icg_old_filter = prefs.icg_filter 
+            return True
+        else:
+            return False
 
     def draw(self, context):
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
-        text_filter = prefs.icg_filter
-        layout = self.layout
+        # text_filter = prefs.icg_filter       # prefs.icg_old_filter
         # render the icons
-        #search
+        # search
+        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        layout = self.layout
         row = layout.row(align=True)
-        row.label('refine icon list with text filter:')
         row.alignment = 'RIGHT'
+        row.label('filter icon by name:')
         row.prop(prefs, 'icg_filter', text='')
+        #row.operator('weed.icons_get_clear_filter', text='', icon='FILTER')
         row.operator('weed.icons_get_clear_filter', text='', icon='PANEL_CLOSE')
-
+        
         col = layout.column(align = True)
+        self.icon_list = create_icon_list(prefs.icg_filter)
+        #self.num_cols = int(1.6*sqrt(self.icon_list.__len__()))
+
         for i, icon in enumerate(self.icon_list):
-            if i % self.amount == 0:
+            if i % self.num_cols == 0:
                 row = col.row(align = True)
-            if text_filter and text_filter.lower() not in str(obj).lower():
-                continue
             row.operator('wm.icon_info',
                          text = ' ',
                          icon = icon,
                          emboss = False).icon = icon
-        for i in range(self.amount - len(self.icon_list) \
-        % self.amount):
-            row.label('')
+        if self.num_cols:
+            for i in range(self.num_cols - len(self.icon_list) % self.num_cols):
+                row.label('')
+        else:
+            row = col.row(align = True)
+            row.label('no matches...')
     
     def execute(self, context):
         #print('testing...')
-        bpy.ops.text.paste()
+        try:
+            bpy.ops.text.paste()
+        except RuntimeError:
+            self.report({'WARNING'}, 'no text open to paste into')
         return {'FINISHED'} 
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=840)
+        return context.window_manager.invoke_props_dialog(self, width=770)
 
 
 

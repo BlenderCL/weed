@@ -38,20 +38,21 @@ class WeedPreferences(bpy.types.AddonPreferences):
 
     # api_nav_props
     anp_path = StringProperty(name='path',
-                          description='Enter bpy.ops.api_navigator to see the documentation',
-                          default='bpy')
+            description='Enter bpy.ops.api_navigator to see the documentation',
+            default='bpy')
     anp_old_path = StringProperty(name='old_path', default='')
     anp_filter = StringProperty(name='filter',
-                            description='Filter the resulting modules', default='')
+            description='Filter the resulting modules', default='')
     icg_filter = StringProperty(name='filter',
-                            description='Filter the resulting modules', default='')
+            description='Filter the resulting modules', default='')
+    # 'n' value just for trigger
     icg_old_filter = StringProperty(name='filter',
-                            description='Filter the resulting modules', default='')
+            description='Filter the resulting modules', default='n')
     anp_reduce_to = IntProperty(name='Reduce to ',
-                            description='Display a maximum number of x entries by pages',
-                            default=10, min=1)
+            description='Display a maximum number of x entries by pages',
+            default=10, min=1)
     anp_pages = IntProperty(name='Pages',
-                        description='Display a Page', default=0, min=0)
+            description='Display a Page', default=0, min=0)
 
     submodules = CollectionProperty(type=SubmoduleGroup)
 
