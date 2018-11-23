@@ -45,9 +45,9 @@ class WeedPreferences(bpy.types.AddonPreferences):
             description='Filter the resulting modules', default='')
     icg_filter = StringProperty(name='filter',
             description='Filter the resulting modules', default='')
-    # 'n' value just for trigger
     icg_old_filter = StringProperty(name='filter',
             description='Filter the resulting modules', default='n')
+            # 'n' value just for trigger at first time
     anp_reduce_to = IntProperty(name='Reduce to ',
             description='Display a maximum number of x entries by pages',
             default=10, min=1)
