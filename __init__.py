@@ -68,6 +68,8 @@ from site import getsitepackages, getusersitepackages
 from . weed_tools import get_addons_list
 from . quick_operators import register_menus, unregister_menus
 from . checksumdir import dirhash
+import builtins
+from linecache import cache
 
 # load and reload submodules
 ##################################    
@@ -133,6 +135,85 @@ class CodeEditorsGroup(bpy.types.PropertyGroup):
                                            default='')
 
 
+class BreakpointShortcut(object):
+    @property
+    def here(self):
+        #"#""Print the local variables in the caller's frame."#""
+        import inspect
+        frame = inspect.currentframe()
+        try:
+            caller_file = frame.f_back.f_locals['__file__']
+        except:
+            caller_file = '# no code'
+            print('fail to get __file__')
+        finally:
+            del frame
+        # def get_code(filepath):
+        # import bpy, os.path
+        try:
+            import bge
+            if hasattr(bge, 'is_fake'):
+                print('# bge fake')
+                in_game = False
+            else:
+                print('# bge real')
+                in_game = True
+        except ImportError:
+            print('# bge not present')
+            in_game = False
+        if in_game:
+            import bge
+            script = bge.logic.getCurrentController().script
+            if len(script.splitlines()) == 1:
+                print('# bge module type controller call')
+                script = script[:script.find('.')] + '.py'
+                dbg_code = bpy.data.texts[script].as_string()
+            else:
+                print('# bge script type controller call')
+                dbg_code = script
+        else:
+            try:
+                print('# script open in collection bpy.data.texts')
+                script = path.basename(caller_file)
+                dbg_code = bpy.data.texts[script].as_string()
+            except:
+                print('# read script from disk')
+                try:
+                    dbg_code = open(caller_file).read()
+                except:
+                    dbg_code = '# no code passed yet!..'
+            # if hasattr(bpy, 'data') and hasattr(bpy.data, 'texts'):
+            #     print('# commonly [alt]-[p] regular blender script')
+            #     script = os.path.basename(caller_file)
+            #     return bpy.data.texts[script].as_string()
+            # else:
+            #     print('# inside restricted, like register addon')
+            #     return open(caller_file).read()
+        cache[caller_file[:256]] = (len(dbg_code), 0,
+                                    dbg_code,
+                                    caller_file[:256])
+        # import sys
+        dbg = _get_debugger()
+        from pudb import set_interrupt_handler
+        import threading
+        if isinstance(threading.current_thread(), threading._MainThread):
+            set_interrupt_handler()
+        dbg.set_trace(sys._getframe().f_back)
+
+
+CURRENT_DEBUGGER = []
+
+def _get_debugger(**kwargs):
+    if not CURRENT_DEBUGGER:
+        from pudb.debugger import Debugger
+        dbg = Debugger(**kwargs)
+
+        CURRENT_DEBUGGER.append(dbg)
+        return dbg
+    else:
+        return CURRENT_DEBUGGER[0]
+
+
 def register():
     # before register module...
     # of pudb_wrapper, install python low level libraries
@@ -152,7 +233,7 @@ def register():
     trgt_libs_list = listdir(site_package)
     for lib in sorted(md5_hashes.keys()):
         if not lib in trgt_libs_list:
-            print(lib, "module is not present, will be installed")
+            print(lib, 'module is not present, will be installed')
             copytree(path.join(src_libs_path, lib),
                      path.join(site_package, lib))
         elif md5_hashes[lib] != dirhash(path.join(site_package, lib), 'md5',
@@ -160,7 +241,7 @@ def register():
                                 excluded_files=['pudb.cfg',
                                                 'saved_breakpoints'
                                 ]):
-            print(lib, "module is outdated, will be replaced")
+            print(lib, 'module maybe is outdated, will be replaced')
             md5_hash = dirhash(path.join(site_package, lib), 'md5',
                                 excluded_extensions=['pyc', 'gitignore'],
                                 excluded_files=['pudb.cfg',
@@ -193,10 +274,20 @@ def register():
         items=get_addons_list,
         name="Addon Development")
     
+    # Weed Blender IDE only use python3, it's default from blender 2.5x +
+    # if PY3:
+    #     import builtins
+    #     builtins.__dict__["breakpoint"] = BreakpointShortcut()
+    # else:
+    #     import __builtin__
+    #     __builtin__.__dict__["breakpoint"] = BreakpointShortcut()
+    builtins.__dict__["breakpoint"] = BreakpointShortcut()
+
     for module in modules:
         print("{} submodule registered.".format(module.__name__))
     print("enable weed with {} modules registered.".format(len(modules)))
     # print(modules)
+
 
 
 def unregister():

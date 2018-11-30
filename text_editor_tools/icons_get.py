@@ -104,20 +104,20 @@ class WEED_OT_IconsDialog(bpy.types.Operator):
         self.icon_list = create_icon_list(prefs.icg_filter)
         #self.num_cols = int(1.6*sqrt(self.icon_list.__len__()))
 
-        for i, icon in enumerate(self.icon_list):
-            if i % self.num_cols == 0:
-                row = col.row(align = True)
-            row.operator('wm.icon_info',
-                         text = ' ',
-                         icon = icon,
-                         emboss = False).icon = icon
-        if self.num_cols:
-            for i in range(self.num_cols - len(self.icon_list) % self.num_cols):
-                row.label('')
-        else:
+        if not len(self.icon_list):
             row = col.row(align = True)
             row.label('no matches...')
-    
+        else:
+            for i, icon in enumerate(self.icon_list):
+                    if i % self.num_cols == 0:
+                        row = col.row(align = True)
+                    row.operator('wm.icon_info',
+                                text = ' ',
+                                icon = icon,
+                                emboss = False).icon = icon
+            for i in range(self.num_cols - len(self.icon_list) % self.num_cols):
+                row.label('')
+        
     def execute(self, context):
         #print('testing...')
         try:

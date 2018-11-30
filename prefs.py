@@ -151,6 +151,12 @@ class WeedPreferences(bpy.types.AddonPreferences):
                     default = False,
                     description = 'Browse User Site Packages on addon files panel')
 
+# debugger preferences
+    replace_low_level_libs = BoolProperty(name = 'replace low level libs',
+                    default = True,
+                    description = 'replace low level libs at init')
+
+
 
     def draw(self, context):
         layout = self.layout
