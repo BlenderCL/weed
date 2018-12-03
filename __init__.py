@@ -153,31 +153,31 @@ class BreakpointShortcut(object):
         try:
             import bge
             if hasattr(bge, 'is_fake'):
-                print('# bge fake')
+                #print('# bge fake')
                 in_game = False
             else:
-                print('# bge real')
+                #print('# bge real')
                 in_game = True
         except ImportError:
-            print('# bge not present')
+            #print('# bge not present')
             in_game = False
         if in_game:
             import bge
             script = bge.logic.getCurrentController().script
             if len(script.splitlines()) == 1:
-                print('# bge module type controller call')
+                #print('# bge module type controller call')
                 script = script[:script.find('.')] + '.py'
                 dbg_code = bpy.data.texts[script].as_string()
             else:
-                print('# bge script type controller call')
+                #print('# bge script type controller call')
                 dbg_code = script
         else:
             try:
-                print('# script open in collection bpy.data.texts')
+                #print('# script open in collection bpy.data.texts')
                 script = path.basename(caller_file)
                 dbg_code = bpy.data.texts[script].as_string()
             except:
-                print('# read script from disk')
+                #print('# read script from disk')
                 try:
                     dbg_code = open(caller_file).read()
                 except:

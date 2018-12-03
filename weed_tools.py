@@ -84,10 +84,10 @@ class WeedToolsPanel(bpy.types.Panel):
     def draw_debugger_box(self, context, layout):
         layout.label('debugger box') 
         layout.operator('weed.insert_breakpoint',
-                        text = 'Insert pudb Breakpoint here',
+                        text = 'add breakpoint',
                         icon = 'RECOVER_AUTO')
         layout.operator('weed.search_breakpoint',
-                        text = 'Search pudb Breakpoint',
+                        text = 'find breakpoint',
                         icon = 'VIEWZOOM')
 
 
