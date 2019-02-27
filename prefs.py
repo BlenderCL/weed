@@ -53,6 +53,7 @@ class WeedPreferences(bpy.types.AddonPreferences):
             default=10, min=1)
     anp_pages = IntProperty(name='Pages',
             description='Display a Page', default=0, min=0)
+    coed_last_text = StringProperty(name='last_text', default='')
 
     submodules = CollectionProperty(type=SubmoduleGroup)
 

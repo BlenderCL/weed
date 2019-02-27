@@ -386,53 +386,60 @@ def draw_callback_px(self, context):
     ch = round(dpi_r * round(2 + 1.3 * (fs - 2) + ((fs % 10) == 0))) # char height
     
     # panel background box
-    self.tab_width = round(dpi_r * 25) if (self.tabs and len(bpy.data.texts) > 1) else 0
+    #self.tab_width = round(dpi_r * 25) if (self.tabs and len(bpy.data.texts) > 1) else 0
     bgl.glColor4f(self.background.r, self.background.g, self.background.b, (1-self.bg_opacity)*self.opacity)
     bgl.glBegin(bgl.GL_QUADS)
-    bgl.glVertex2i(self.left_edge-self.tab_width, self.height)
+    #bgl.glVertex2i(self.left_edge-self.tab_width, self.height)
+    bgl.glVertex2i(self.left_edge, self.height)
     bgl.glVertex2i(self.right_edge, self.height)
     bgl.glVertex2i(self.right_edge, 0)
-    bgl.glVertex2i(self.left_edge-self.tab_width, 0)
+    #bgl.glVertex2i(self.left_edge-self.tab_width, 0)
+    bgl.glVertex2i(self.left_edge, 0)
     bgl.glEnd()
     
+    # space = context.space_data
+    # if space.text:
+    #     lines = len(space.text.lines)
+    #     lines_digits = len(str(lines)) if space.show_line_numbers else 0
 
-    # line numbers background
+    #### AQUI Y AHORA
+    #line numbers background
     space = context.space_data
     if space.text:
         lines = len(space.text.lines)
         lines_digits = len(str(lines)) if space.show_line_numbers else 0
         self.line_bar_width = int(dpi_r*5)+cw*(lines_digits)
-        #~ bgl.glColor4f(self.background.r, self.background.g, self.background.b, 1)
-        #~ bgl.glBegin(bgl.GL_QUADS)
-        #~ bgl.glVertex2i(0, self.height)
-        #~ bgl.glVertex2i(self.line_bar_width, self.height)
-        #~ bgl.glVertex2i(self.line_bar_width, 0)
-        #~ bgl.glVertex2i(0, 0)
-        #~ bgl.glEnd()
-        #~ # shadow
-        #~ bgl.glLineWidth(1.0 * dpi_r)
-        #~ for id, intensity in enumerate([0.2,0.1,0.07,0.05,0.03,0.02,0.01]):
-            #~ bgl.glColor4f(0.0, 0.0, 0.0, intensity)
-            #~ bgl.glBegin(bgl.GL_LINE_STRIP)
-            #~ bgl.glVertex2i(self.line_bar_width+id, 0)
-            #~ bgl.glVertex2i(self.line_bar_width+id, self.height)
-            #~ bgl.glEnd()
+        bgl.glColor4f(1, 0, 0, 0.3)
+        for id in range(space.top, min(space.top+space.visible_lines+1, lines+1)):
+            if id in [2, 1, 4, 8, 24, 55]:
+                bgl.glBegin(bgl.GL_QUADS)
+                bgl.glVertex2i(0, self.height-ch*(id-space.top)+3)
+                bgl.glVertex2i(self.line_bar_width, self.height-ch*(id-space.top)+3)
+                bgl.glVertex2i(self.line_bar_width, self.height-ch*(id-1-space.top)+3)
+                bgl.glVertex2i(0, self.height-ch*(id-1-space.top)+3)
+                bgl.glEnd()
+                # blf.position(font_id,
+                #              2+int(0.5*cw*(len(str(lines))-len(str(id)))),
+                #              self.height-ch*(id-space.top)+3, 0)
+                # blf.draw(font_id, u'▓▓')
     
     # minimap shadow
     for id, intensity in enumerate([0.2,0.1,0.07,0.05,0.03,0.02,0.01]):
         bgl.glColor4f(0.0, 0.0, 0.0, intensity*self.opacity)
         bgl.glBegin(bgl.GL_LINE_STRIP)
-        bgl.glVertex2i(self.left_edge-id-self.tab_width, 0)
-        bgl.glVertex2i(self.left_edge-id-self.tab_width, self.height)
+        #bgl.glVertex2i(self.left_edge-id-self.tab_width, 0)
+        #bgl.glVertex2i(self.left_edge-id-self.tab_width, self.height)
+        bgl.glVertex2i(self.left_edge-id, 0)
+        bgl.glVertex2i(self.left_edge-id, self.height)
         bgl.glEnd()
         
     # divider
-    if self.tab_width:
-        bgl.glColor4f(0.0, 0.0, 0.0, 0.2*self.opacity)
-        bgl.glBegin(bgl.GL_LINE_STRIP)
-        bgl.glVertex2i(self.left_edge, 0)
-        bgl.glVertex2i(self.left_edge, self.height)
-        bgl.glEnd()
+    # if self.tab_width:
+    #     bgl.glColor4f(0.0, 0.0, 0.0, 0.2*self.opacity)
+    #     bgl.glBegin(bgl.GL_LINE_STRIP)
+    #     bgl.glVertex2i(self.left_edge, 0)
+    #     bgl.glVertex2i(self.left_edge, self.height)
+    #     bgl.glEnd()
     
     # if there is text in window
     if space.text and self.opacity:
@@ -511,34 +518,34 @@ def draw_callback_px(self, context):
                     bgl.glEnd()
     
     # tab dividers
-    if self.tab_width and self.opacity:
-        self.tab_height = min(200, int(self.height/len(bpy.data.texts)))
-        y_loc = self.height-5
-        for text in bpy.data.texts:
-            # tab selection
-            if text.name == self.in_tab:
-                bgl.glColor4f(1.0, 1.0, 1.0, 0.05*self.opacity)
-                bgl.glBegin(bgl.GL_QUADS)
-                bgl.glVertex2i(self.left_edge-self.tab_width, y_loc)
-                bgl.glVertex2i(self.left_edge, y_loc)
-                bgl.glVertex2i(self.left_edge, y_loc-self.tab_height)
-                bgl.glVertex2i(self.left_edge-self.tab_width, y_loc-self.tab_height)
-                bgl.glEnd()
-            # tab active
-            if context.space_data.text and text.name == context.space_data.text.name:
-                bgl.glColor4f(1.0, 1.0, 1.0, 0.05*self.opacity)
-                bgl.glBegin(bgl.GL_QUADS)
-                bgl.glVertex2i(self.left_edge-self.tab_width, y_loc)
-                bgl.glVertex2i(self.left_edge, y_loc)
-                bgl.glVertex2i(self.left_edge, y_loc-self.tab_height)
-                bgl.glVertex2i(self.left_edge-self.tab_width, y_loc-self.tab_height)
-                bgl.glEnd()
-            bgl.glColor4f(0.0, 0.0, 0.0, 0.2*self.opacity)
-            y_loc -= self.tab_height
-            bgl.glBegin(bgl.GL_LINE_STRIP)
-            bgl.glVertex2i(self.left_edge-self.tab_width, y_loc)
-            bgl.glVertex2i(self.left_edge, y_loc)
-            bgl.glEnd()
+    # if self.tab_width and self.opacity:
+    #     self.tab_height = min(200, int(self.height/len(bpy.data.texts)))
+    #     y_loc = self.height-5
+    #     for text in bpy.data.texts:
+    #         # tab selection
+    #         if text.name == self.in_tab:
+    #             bgl.glColor4f(1.0, 1.0, 1.0, 0.05*self.opacity)
+    #             bgl.glBegin(bgl.GL_QUADS)
+    #             bgl.glVertex2i(self.left_edge-self.tab_width, y_loc)
+    #             bgl.glVertex2i(self.left_edge, y_loc)
+    #             bgl.glVertex2i(self.left_edge, y_loc-self.tab_height)
+    #             bgl.glVertex2i(self.left_edge-self.tab_width, y_loc-self.tab_height)
+    #             bgl.glEnd()
+    #         # tab active
+    #         if context.space_data.text and text.name == context.space_data.text.name:
+    #             bgl.glColor4f(1.0, 1.0, 1.0, 0.05*self.opacity)
+    #             bgl.glBegin(bgl.GL_QUADS)
+    #             bgl.glVertex2i(self.left_edge-self.tab_width, y_loc)
+    #             bgl.glVertex2i(self.left_edge, y_loc)
+    #             bgl.glVertex2i(self.left_edge, y_loc-self.tab_height)
+    #             bgl.glVertex2i(self.left_edge-self.tab_width, y_loc-self.tab_height)
+    #             bgl.glEnd()
+    #         bgl.glColor4f(0.0, 0.0, 0.0, 0.2*self.opacity)
+    #         y_loc -= self.tab_height
+    #         bgl.glBegin(bgl.GL_LINE_STRIP)
+    #         bgl.glVertex2i(self.left_edge-self.tab_width, y_loc)
+    #         bgl.glVertex2i(self.left_edge, y_loc)
+    #         bgl.glEnd()
     
     # draw fps
 #    bgl.glColor4f(1, 1, 1, 0.2)
@@ -546,49 +553,40 @@ def draw_callback_px(self, context):
 #    blf.position(font_id, self.left_edge-50, 5, 0)
 #    blf.draw(font_id, str(round(1/(time.clock() - start),3)))
     
-    #~ # draw line numbers
-    #~ if space.text:
-        #~ bgl.glColor4f(self.segments[0]['col'][0],
-                      #~ self.segments[0]['col'][1],
-                      #~ self.segments[0]['col'][2],
-                      #~ 0.5)
-        #~ for id in range(space.top, min(space.top+space.visible_lines+1, lines+1)):
-            #~ if self.in_line_bar and self.segments[-2]['elements'][id-1]:
-                #~ bgl.glColor4f(self.segments[-2]['col'][0],
-                              #~ self.segments[-2]['col'][1],
-                              #~ self.segments[-2]['col'][2],
-                              #~ 1)
-                #~ blf.position(font_id, 2+int(0.5*cw*(len(str(lines))-1)), self.height-ch*(id-space.top)+3, 0)
-                #~ #blf.draw(font_id, '→')
-                #~ blf.draw(font_id, '↓')
-                #~ bgl.glColor4f(self.segments[0]['col'][0],
-                      #~ self.segments[0]['col'][1],
-                      #~ self.segments[0]['col'][2],
-                      #~ 0.5)
-            #~ else:
-                #~ blf.position(font_id, 2+int(0.5*cw*(len(str(lines))-len(str(id)))), self.height-ch*(id-space.top)+3, 0)
-                #~ blf.draw(font_id, str(id))
+    # # draw line numbers
+    # if space.text:
+    #     bgl.glColor4f(1,
+    #                   0,
+    #                   0,
+    #                   0.5)
+    #     # bgl.glColor4f(self.segments[0]['col'][0],
+    #     #               self.segments[0]['col'][1],
+    #     #               self.segments[0]['col'][2],
+    #     #               0.5)
+    #     for id in range(space.top, min(space.top+space.visible_lines+1, lines+1)):
+    #         blf.position(font_id, 2+int(0.5*cw*(len(str(lines))-len(str(id)))), self.height-ch*(id-space.top)+3, 0)
+    #         blf.draw(font_id, u'▓▓')
     
     # draw file names
-    if self.tab_width:
-        blf.enable(font_id, blf.ROTATION)
-        blf.rotation(font_id, 1.570796)
-        y_loc = self.height
-        for text in bpy.data.texts:
-            text_max_length = max(2,int((self.tab_height - 40)/cw))
-            name = text.name[:text_max_length]
-            if text_max_length < len(text.name):
-                name += '...'
-            bgl.glColor4f(self.segments[0]['col'][0],
-                          self.segments[0]['col'][1],
-                          self.segments[0]['col'][2],
-                          (0.7 if text.name == self.in_tab else 0.4)*self.opacity)
-            blf.position(font_id,
-                         self.left_edge-round((self.tab_width-ch)/2.0)-5,
-                         round(y_loc-(self.tab_height/2)-cw*len(name)/2),
-                         0)
-            blf.draw(font_id, name)
-            y_loc -= self.tab_height
+    # if self.tab_width:
+    #     blf.enable(font_id, blf.ROTATION)
+    #     blf.rotation(font_id, 1.570796)
+    #     y_loc = self.height
+    #     for text in bpy.data.texts:
+    #         text_max_length = max(2,int((self.tab_height - 40)/cw))
+    #         name = text.name[:text_max_length]
+    #         if text_max_length < len(text.name):
+    #             name += '...'
+    #         bgl.glColor4f(self.segments[0]['col'][0],
+    #                       self.segments[0]['col'][1],
+    #                       self.segments[0]['col'][2],
+    #                       (0.7 if text.name == self.in_tab else 0.4)*self.opacity)
+    #         blf.position(font_id,
+    #                      self.left_edge-round((self.tab_width-ch)/2.0)-5,
+    #                      round(y_loc-(self.tab_height/2)-cw*len(name)/2),
+    #                      0)
+    #         blf.draw(font_id, name)
+    #         y_loc -= self.tab_height
     
     # restore opengl defaults
     bgl.glColor4f(0, 0, 0, 1)
@@ -611,7 +609,7 @@ class CodeEditorStart(bpy.types.Operator):
         self.indent_width = bpy.context.space_data.tab_width 
         bpy.context.space_data.show_line_numbers = True
         bpy.context.space_data.show_syntax_highlight = True
-        bpy.context.space_data.show_line_highlight = True
+        #bpy.context.space_data.show_line_highlight = True
         bpy.context.space_data.show_margin = True
 
     # minimap scrolling
@@ -630,6 +628,7 @@ class CodeEditorStart(bpy.types.Operator):
     
     def modal(self, context, event):
         # function only if in area invoked in
+        addon_prefs = context.user_preferences.addons['weed'].preferences
         if (context.space_data and
             context.space_data.type == 'TEXT_EDITOR' and
             self.area == context.area and
@@ -663,15 +662,15 @@ class CodeEditorStart(bpy.types.Operator):
                 else:
                     self.in_minimap = False
                     
-                if ((self.left_edge - self.tab_width < event.mouse_region_x < self.left_edge) and
-                     (0 < event.mouse_region_y < self.height)):
-                    tab_id = int((self.height-event.mouse_region_y) / self.tab_height)
-                    if tab_id < len(bpy.data.texts):
-                        self.in_tab = bpy.data.texts[tab_id].name
-                    else:
-                        self.in_tab = None
-                else:
-                    self.in_tab = None
+                # if ((self.left_edge - self.tab_width < event.mouse_region_x < self.left_edge) and
+                #      (0 < event.mouse_region_y < self.height)):
+                #     tab_id = int((self.height-event.mouse_region_y) / self.tab_height)
+                #     if tab_id < len(bpy.data.texts):
+                #         self.in_tab = bpy.data.texts[tab_id].name
+                #     else:
+                #         self.in_tab = None
+                # else:
+                #     self.in_tab = None
                     
             if self.in_minimap and self.opacity and event.type == 'LEFTMOUSE' and event.value == 'PRESS':
                 self.drag = True
@@ -683,22 +682,24 @@ class CodeEditorStart(bpy.types.Operator):
             if self.opacity and event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
                 self.drag = False
             
-            if self.in_tab and self.opacity and event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
-                if self.in_tab == context.space_data.text.name:
-                    return bpy.ops.weed.view_code_tree()
-                    #context.window_manager.popup_menu(code_tree_popup,
-                    #                                  title='Code Tree',
-                    #                                  icon='OOPS')
-                else:
-                    context.space_data.text = bpy.data.texts[self.in_tab]
-                    bpy.types.Text.code_tree = {'imports':[], 'class_def':[]}
-                    self.thread.restart(context.space_data.text)
-                return {'RUNNING_MODAL'}
+            # if self.in_tab and self.opacity and event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
+            #     if self.in_tab == context.space_data.text.name:
+            #         return bpy.ops.weed.view_code_tree()
+            #         #context.window_manager.popup_menu(code_tree_popup,
+            #         #                                  title='Code Tree',
+            #         #                                  icon='OOPS')
+            #     else:
+            #         context.space_data.text = bpy.data.texts[self.in_tab]
+            #         bpy.types.Text.code_tree = {'imports':[], 'class_def':[]}
+            #         self.thread.restart(context.space_data.text)
+            #     return {'RUNNING_MODAL'}
 
             # typing characters - update minimap when whitespace
             if self.opacity and (event.unicode == ' ' or event.type in {'RET', 'NUMPAD_ENTER', 'TAB'}):
                 self.thread.restart(context.space_data.text)
-            
+            if addon_prefs.coed_last_text != context.space_data.text.name:
+                addon_prefs.coed_last_text = context.space_data.text.name
+                self.thread.restart(context.space_data.text)
             # custom home handling
             if self.in_area and event.type == 'HOME' and event.value == 'PRESS' and not event.ctrl:
                 if event.alt:
@@ -791,7 +792,7 @@ class CodeEditorStart(bpy.types.Operator):
         # user controllable in addon preferneces
         addon_prefs = context.user_preferences.addons['weed'].preferences
         self.bg_opacity = addon_prefs.opacity
-        self.tabs = addon_prefs.show_tabs
+        #self.tabs = addon_prefs.show_tabs
         self.minimap_width = addon_prefs.minimap_width
         self.min_width = addon_prefs.window_min_width
         self.minimap_symbol_width = addon_prefs.symbol_width
@@ -813,9 +814,9 @@ class CodeEditorStart(bpy.types.Operator):
         self.left_edge = self.width - round(dpi_r*(self.width+5*self.minimap_width)/10.0)
         self.right_edge = self.width - round(dpi_r*15)
         self.in_minimap = False
-        self.in_tab = None
-        self.tab_width = 0
-        self.tab_height = 0
+        #self.in_tab = None
+        #self.tab_width = 0
+        #self.tab_height = 0
         self.drag = False
         self.to_box_center = 0
         self.slide = 0
