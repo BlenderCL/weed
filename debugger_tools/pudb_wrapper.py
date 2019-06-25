@@ -3,8 +3,10 @@ import bpy
 # Ultimate all proof breakpoint with validation
 # exec('try:breakpoint.here\nexcept:print("# weed breakpoint lefted here")')
 # get lost in the scope
-# breakpoint_text = "{0}exec('try:breakpoint.here\\nexcept:pass')\n"
-breakpoint_text = "{0}breakpoint.here\n"
+breakpoint_text = 'breakpoint.here\n'
+find_breakpoint = 'breakpoint.here\n'
+#breakpoint_text = "exec('try:breakpoint.here\\nexcept:pass')\n"
+#find_breakpoint = "exec('try:breakpoint.here"
 
 
 class InsertBreakpoint(bpy.types.Operator):
@@ -18,7 +20,7 @@ class InsertBreakpoint(bpy.types.Operator):
             line = context.space_data.text.current_line.body
             indent = line[:len(line) - len(line.lstrip())]
             bpy.ops.text.move(type = 'LINE_BEGIN')
-            bpy.ops.text.insert(text = breakpoint_text.format(indent))
+            bpy.ops.text.insert(text = indent + breakpoint_text)
         except AttributeError:
             self.report({'INFO'}, 'It seems that there is no any open text')
         return {'FINISHED'}
@@ -35,7 +37,7 @@ class SearchBreakpoint(bpy.types.Operator):
 
     def execute(self, context):
         sd = context.space_data
-        sd.find_text = 'breakpoint.here'
+        sd.find_text = find_breakpoint
         sd.use_find_all = True
         try:
             bpy.ops.text.find()

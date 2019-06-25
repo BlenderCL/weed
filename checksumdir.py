@@ -50,8 +50,8 @@ def dirhash(dirname, hashfunc='md5', excluded_files=None, ignore_hidden=False,
         else:
             hashvalues.extend(
                 [
-                    _filehash(os.path.join(root, f), hash_func) 
-                    for f in files 
+                    _filehash(os.path.join(root, f), hash_func)
+                    for f in files
                     if f not in excluded_files
                     and f.split('.')[-1:][0] not in excluded_extensions
                 ]

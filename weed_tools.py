@@ -12,6 +12,7 @@ from shutil import rmtree
 from collections import defaultdict
 from bpy.app.handlers import persistent
 from . text_block import TextBlock
+from . developer_utils import is_binary_file
 
 is_setting = False
 
@@ -23,8 +24,8 @@ def set_directory_name_handler(self, value):
         self["directory_name_internal"] = correct_file_name(value, is_directory = True)
         is_setting = False
 def get_directory_name_handler(self):
-    try: return self["directory_name_internal"]   
-    except: return "" 
+    try: return self["directory_name_internal"]
+    except: return ""
 
 # file name handlers
 def set_file_name_handler(self, value):
@@ -39,7 +40,7 @@ def get_file_name_handler(self):
 
 #class AddonDevelopmentSceneProperties(bpy.types.PropertyGroup):
 #    addon_name = StringProperty(name = "Addon Name", default = "my_addon", description = "Name of the currently selected addon")
-        
+
 def correct_file_name(name, is_directory = False):
     new_name = ""
     for char in name:
@@ -48,25 +49,25 @@ def correct_file_name(name, is_directory = False):
         elif char.islower() or char == "_":
             new_name += char
         elif char == " ":
-            new_name += "_"  
+            new_name += "_"
         elif char.isdigit() and len(new_name) > 0:
             new_name += char
         elif not is_directory and char == "." and new_name.count(".") == 0:
             new_name += char
-    return new_name     
-        
+    return new_name
 
 
-addons_path = bpy.utils.user_resource("SCRIPTS", "addons") 
+
+addons_path = bpy.utils.user_resource("SCRIPTS", "addons")
 directory_visibility = defaultdict(bool)
 
-       
+
 class WeedToolsPanel(bpy.types.Panel):
     bl_idname = "weed.tools_panel"
     bl_label = "Weed Tools"
     bl_space_type = "TEXT_EDITOR"
     bl_region_type = "UI"
-    
+
     @classmethod
     def poll(cls, context):
         return current_addon_exists()
@@ -75,27 +76,108 @@ class WeedToolsPanel(bpy.types.Panel):
     def draw(self, context):
         wm = context.window_manager
         layout = self.layout
-        layout.prop(wm, 'weed_active_toolbox', expand=False)
+        row = layout.row(align=True)
+        row.prop(wm, 'weed_active_toolbox', expand=False)
+        #row.prop(get_addon_preferences(), 'show_code_tree',
+        #         text = 'view tree', icon = 'OOPS')
         box = layout.box()
         draw_toolbox = getattr(self, wm.weed_active_toolbox)
-        draw_toolbox(context, box)
+        if (wm.weed_active_toolbox == 'draw_explorer_box' and
+                get_addon_preferences().show_code_tree):
+            self.draw_code_tree_box(context, box)
+        else:
+            draw_toolbox(context, box)
 
 
     def draw_debugger_box(self, context, layout):
-        layout.label('debugger box') 
-        layout.operator('weed.insert_breakpoint',
-                        text = 'add breakpoint',
-                        icon = 'RECOVER_AUTO')
-        layout.operator('weed.search_breakpoint',
-                        text = 'find breakpoint',
+        #layout.label('debugger box')
+        label = layout.label(text = 'Debugger breakpoint', icon = 'REC')
+        split_lyt = layout.split(percentage=0.05, align=True)
+        split_lyt.label('breakpoint')
+        split_lyt.operator('weed.insert_breakpoint',
+                        text = 'add',
+                        icon = 'PLUS')
+        split_lyt.operator('weed.search_breakpoint',
+                        text = 'find',
                         icon = 'VIEWZOOM')
+        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        layout.separator()
+        label = layout.label(text = 'Code Editor',
+                     icon = 'WORDWRAP_ON')
+        split_lyt = layout.split(percentage=0.05, align=True)
+        split_lyt.label('')
+        split_lyt.operator('weed.code_editor_start',
+                        text = 'start',
+                        icon = 'PLAY')
+        split_lyt.operator('weed.code_editor_end',
+                        text = 'exit',
+                        icon = 'PANEL_CLOSE')
+        label = layout.label(text = 'Autocomplete',
+                     icon = 'LIBRARY_DATA_DIRECT')
+        split_lyt = layout.split(percentage=0.05, align=True)
+        split_lyt.label('')
+        split_lyt.operator("weed.start_auto_completion",
+                        text = 'start',
+                        icon = "PLAY")
+        split_lyt.operator("weed.stop_auto_completion",
+                        text = 'exit',
+                        icon = "PANEL_CLOSE")
+        
+        if prefs.show_bge_console:
+            objects = bpy.data.objects
+            scene = bpy.context.scene
+            layout.separator()
+            layout.label(text = 'Game Engine bge console', icon = 'LOGIC')
+            split_lyt = layout.split(percentage=0.05, align=False)
+            split_lyt.label('')
+            if '!BgeCon' in objects:
+                if '!BgeCon' in scene.objects:
+                    #layout.label(text='Attach Bge Console',
+                    #             icon='NONE')
+                    split_lyt.operator('weed.dettach_bge_console',
+                                    text='dettach',
+                                    icon='ZOOMOUT')
+                    split_lyt.operator('weed.remove_bge_console',
+                                    text='remove',
+                                    icon='PANEL_CLOSE')
+                else:
+                    split_lyt.operator('weed.attach_bge_console',
+                                    text='attach',
+                                    icon='CONSOLE')
+                    #layout.label(text='Dettach Bge Console',
+                    #             icon='NONE')
+                    split_lyt.operator('weed.remove_bge_console',
+                                    text='remove',
+                                    icon='PANEL_CLOSE')
+            else:
+                    split_lyt.label('')
+                    split_lyt.operator('weed.attach_bge_console',
+                                    text='attach',
+                                    icon='CONSOLE')
+                    #layout.label(text='Dettach Bge Console',
+                    #             icon='NONE')
+                    #layout.label(text='Remove Bge Console',
+                    #             icon='NONE')
 
 
     def draw_code_tree_box(self, context, layout):
         code_editors = context.window_manager.code_editors
+        col = layout.column(align=False)
+        row = col.row(align=False)
+        row.prop(get_addon_preferences(), 'user_site_packages',
+                 icon = 'RECOVER_AUTO', text = '')
+        selector = row.row(align=True)
+        selector.prop(context.scene, 'explorer_root_folder', text='')
+        selector.operator('weed.open_addon_menu',
+                     icon = 'COLLAPSEMENU', text = '')
+        row.enabled = False
+        col.prop(get_addon_preferences(), 'show_code_tree',
+                 icon = 'OOPS', text = 'view code tree')
         if str(context.area) not in code_editors.keys():
-            layout.label(text='Start code editor', icon='INFO')
-            layout.label(text='to activate Code Tree view')
+            layout.label(text='to activate Code tree,', icon='INFO')
+            #layout.label(text='Start code editor here')
+            layout.operator('weed.code_editor_start', icon = 'SYNTAX_ON',
+                            text = 'Start Code Editor here', emboss = True)
             return {'FINISHED'}
 
         icons = { 'import' : 'LAYER_ACTIVE',
@@ -129,39 +211,39 @@ class WeedToolsPanel(bpy.types.Panel):
             prev_indnt = indnt
 
 
-    def draw_develop_box(self, context, layout):
+    def draw_explorer_box(self, context, layout):
         #layout = self.layout
         #row = layout.row(align = False)
         #row.prop(get_addon_preferences(), 'show_dot_addons',
                  #text='', icon='FILE_HIDDEN', emboss=True)
-        col = layout.column(align=True)
-        row = col.row(align=True)
-        row.prop(context.scene, 'addon_development', text='')
-        row.operator("weed.open_addon_menu",
-                     icon = "COLLAPSEMENU",
-                     text = "")
+        col = layout.column(align=False)
+        row = col.row(align=False)
+        browse_libs = row.prop(get_addon_preferences(), 'user_site_packages',
+                 icon = 'RECOVER_AUTO', text = '')
+        selector = row.row(align=True)
+        selector.prop(context.scene, 'explorer_root_folder', text='')
+        selector.operator('weed.open_addon_menu',
+                     icon = 'COLLAPSEMENU', text = '')
+        col.prop(get_addon_preferences(), 'show_code_tree',
+                 icon = 'OOPS', text = 'view code tree')
         if not current_addon_exists():
-            row = col.row()
             if not is_addon_name_valid():
-                row.operator("weed.make_addon_name_valid",
-                                icon = "ERROR", text = "Correct Addon Name")
+                col.operator('weed.make_addon_name_valid',
+                                icon = 'ERROR', text = 'Correct Addon Name')
             else:
                 #row.scale_y = 1.2
-                row.operator_menu_enum("weed.new_addon",
-                                       "new_addon_type", icon = "NEW",
-                                       text = "New Addon")
+                col.operator_menu_enum('weed.new_addon', 'new_addon_type',
+                                       icon = 'NEW', text = 'New Addon')
         else:
             #layout.alignment = "LEFT"
             addon_path = get_current_addon_path()
-            
-            row = col.row(align=True)
-            row.prop(get_addon_preferences(), 'show_dot_files',
-                    text = '', icon = 'FILE_HIDDEN')
-            row.prop(get_addon_preferences(), 'user_site_packages',
-                    text = '', icon = 'RECOVER_AUTO')
-            row.operator("weed.save_files",
-                       text = 'Save all {} files'.format(get_addon_name()[:15]),
-                        icon = 'SAVE_COPY')
+
+            #row = col.row(align=True)
+            #row.prop(get_addon_preferences(), 'show_dot_files',
+            #        text = '', icon = 'FILE_HIDDEN')
+#            row.operator("weed.save_files",
+#                       text = 'Save all {} files'.format(get_addon_name()[:15]),
+#                        icon = 'SAVE_COPY')
             #box = layout.box()
             if not get_addon_preferences().user_site_packages:
                 if isfile(addon_path):
@@ -171,12 +253,13 @@ class WeedToolsPanel(bpy.types.Panel):
                     self.draw_directory(layout, addon_path)
             else:
                 import site, os
+                selector.enabled = False
                 layout.label('User:')
                 self.draw_directory(layout, site.getusersitepackages() + sep)
                 layout.label('Global:')
                 for site in site.getsitepackages():
                     self.draw_directory(layout, site + sep)
-            
+
     def draw_directory(self, layout, directory):
         if not self.is_directory_visible(directory):
             row = layout.row(align=True)
@@ -201,7 +284,7 @@ class WeedToolsPanel(bpy.types.Panel):
                               emboss = False)
             op.directory = directory
 
-            
+
             directory_names = get_directory_names(directory)
             split_lyt = layout.split(0.04)
             split_lyt.label('')
@@ -209,10 +292,10 @@ class WeedToolsPanel(bpy.types.Panel):
             col.alignment = "LEFT"
             #row = col.row(align=True)
             #row.alignment = "LEFT"
-           
+
             for directory_name in directory_names:
                 self.draw_directory(col, directory + directory_name + sep)
-            
+
             file_names = get_file_names(directory)
             for file_name in file_names:
                 self.draw_element(col, directory, file_name)
@@ -221,17 +304,28 @@ class WeedToolsPanel(bpy.types.Panel):
     def draw_element(self, layout, directory, file_name):
         texts_paths = {text.filepath: text for text in bpy.data.texts}
         full_path = directory + file_name
-        split_lyt = layout.split(0.8)
-        row = split_lyt.row(align=True)
-        row.alignment = "LEFT"
-        op = row.operator("weed.open_file",
-                          icon = "FILE_TEXT",
-                          text = file_name,
-                          emboss = False)
-        op.path = full_path
-        if full_path == get_current_filepath():
-            split_lyt.label("", icon = "GREASEPENCIL")
+        if full_path != get_current_filepath():
+            split_lyt = layout.split(0.8)
+            row = split_lyt.row(align=True)
+            row.alignment = "LEFT"
+            op = row.operator("weed.open_file",
+                      icon = "FILE_TEXT",
+                      text = file_name,
+                      emboss = False)
+            op.path = full_path
+            if is_binary_file(full_path):
+                row.enabled = False
+            split_lyt.label("", icon = "NONE")
         else:
+            active = layout.box()
+            split_lyt = active.split(0.8)
+            row = split_lyt.row(align=True)
+            row.alignment = "LEFT"
+            op = row.operator("weed.open_file",
+                      icon = "GREASEPENCIL",
+                      text = file_name,
+                      emboss = False)
+            op.path = full_path
             split_lyt.label("", icon = "NONE")
         if full_path in texts_paths:
             if texts_paths[full_path].is_dirty:
@@ -246,7 +340,7 @@ class WeedToolsPanel(bpy.types.Panel):
                 props = split_lyt.operator('weed.close_file',
                                        text = '',
                                        icon = 'X',
-                                       emboss = False)       
+                                       emboss = False)
                 props.path = full_path
                 props.save_it = False
                 props.close_it = True
@@ -259,8 +353,8 @@ class WeedToolsPanel(bpy.types.Panel):
 
 
     def is_directory_visible(self, directory):
-        return directory_visibility[directory]                
- 
+        return directory_visibility[directory]
+
 def get_addon_preferences():
     addon_path_name = os.path.basename(os.path.dirname(__file__))
     addon = bpy.context.user_preferences.addons.get(addon_path_name)
@@ -269,16 +363,19 @@ def get_addon_preferences():
     else:
         return addon.preferences
 
-ignore_names = ["__pycache__", ".git", ".gitignore"] 
+ignore_names = ["__pycache__", ".git", ".gitignore"]
 
 def get_directory_names(directory):
-    dirs = sorted([file_name for file_name in listdir(directory)
-                   if not isfile(join(directory, file_name))
-                   and file_name not in ignore_names])
-    if not get_addon_preferences().show_dot_files:
-        dirs = [file_name for file_name in dirs
-                if file_name[0] is not '.']
-    return dirs
+    try:
+        dirs = sorted([file_name for file_name in listdir(directory)
+                       if not isfile(join(directory, file_name))
+                       and file_name not in ignore_names])
+        if not get_addon_preferences().show_dot_files:
+            dirs = [file_name for file_name in dirs
+                    if file_name[0] is not '.']
+        return dirs
+    except:
+        return []
 
 def get_addons_names(directory):
     addons = sorted([file_name for file_name in listdir(directory)
@@ -292,26 +389,33 @@ def get_addons_names(directory):
     return addons
 
 def get_file_names(directory):
-    dirs = sorted([file_name for file_name in listdir(directory)
-                   if isfile(join(directory, file_name))
-                   and file_name not in ignore_names])
-    if not get_addon_preferences().show_dot_files:
-        dirs = [file_name for file_name in dirs
-                if file_name[0] is not '.']
-    return dirs
+    try:
+        dirs = sorted([file_name for file_name in listdir(directory)
+                       if isfile(join(directory, file_name))
+                       and file_name not in ignore_names])
+        if not get_addon_preferences().show_dot_files:
+            dirs = [file_name for file_name in dirs
+                    if file_name[0] is not '.']
+        return dirs
+    except:
+        return []
 
-
-def get_addons_list(self, context):
-    # que es (addon, addon, addon) ?
-    #list.append(('/home','ui_text','tooltip'))
+def get_folders_list(self, context):
+    #list.append(('folder/path','ui_label','tooltip'))
     list = []
     for addon in get_addons_names(addons_path):
         try:
-            list.append((addon, 
-                         addon,
+            list.append((join(addons_path, addon),
+                         'addon: ' + addon,
                          __import__(addon).bl_info['description']))
         except:
             list.append((addon, addon, 'one file or hidden Addon'))
+    blend_path = bpy.path.abspath('//').rstrip(sep)
+    if blend_path:
+        list.append((blend_path,
+                    'folder for ' + bpy.path.basename(bpy.data.filepath),
+                    'folder from current blend file'))
+        
     return list
 
 
@@ -320,34 +424,34 @@ class MakeAddonNameValid(bpy.types.Operator):
     bl_label = "Make Name Valid"
     bl_description = "Make the addon name a valid module name"
     bl_options = {"REGISTER"}
-    
+
     @classmethod
     def poll(cls, context):
         return not current_addon_exists() and not is_addon_name_valid()
-    
+
     def execute(self, context):
         name = get_addon_name()
         addon_name = correct_file_name(name, is_directory = True)
-        return {"FINISHED"}     
+        return {"FINISHED"}
 
-        
+
 new_addon_type_items = [
     ("BASIC", "Basic", ""),
-    ("MULTIFILE", "Multi-File (recommended)", "") ]        
+    ("MULTIFILE", "Multi-File (recommended)", "") ]
 
 class CreateNewAddon(bpy.types.Operator):
     bl_idname = "weed.new_addon"
     bl_label = "New Addon"
     bl_description = "Create an addon in addons folder and setup a basic code base"
     bl_options = {"REGISTER"}
-    
+
     new_addon_type = EnumProperty(default = "BASIC", items = new_addon_type_items)
     name = StringProperty(name = "New Addon Name", default = "")#, set = set_file_name_handler, get = get_file_name_handler)
 
     #@classmethod
     #def poll(cls, context):
     #    return not current_addon_exists() and is_addon_name_valid()
-    
+
     def execute(self, context):
         #bpy.context.scene.addon_development = self.name
         #if not current_addon_exists() and is_addon_name_valid():
@@ -363,22 +467,22 @@ class CreateNewAddon(bpy.types.Operator):
         else:
             print('ya existe')
         return {"FINISHED"}
-    
+
     def create_addon_directory(self):
         os.makedirs(join(addons_path, self.name))
-            
+
     def generate_from_template(self):
         t = self.new_addon_type
-        if t == "BASIC": 
+        if t == "BASIC":
             code = code = self.read_template_file("basic.txt")
             new_addon_file("__init__.py", code)
-        
-        if t == "MULTIFILE": 
+
+        if t == "MULTIFILE":
             code = self.read_template_file("multifile.txt")
             new_addon_file("__init__.py", code)
             code = self.read_template_file("developer_utils.txt")
             new_addon_file("developer_utils.py", code)
-    
+
     def read_template_file(self, path):
         path = join(dirname(__file__), "addon_templates", path)
         file = open(path)
@@ -393,21 +497,21 @@ class CreateNewAddon(bpy.types.Operator):
         layout = self.layout
         layout.prop(self, 'name')
         #layout.prop(self, 'new_addon_type')
-    
-            
+
+
 
 class RenameAddon(bpy.types.Operator):
     bl_idname = "weed.rename_addon"
     bl_label = "Rename Addon"
     bl_description = "Rename the current Addon"
     bl_options = {"REGISTER"}
-    
+
     name = StringProperty(name = "New Addon Name", default = "")#, set = set_file_name_handler, get = get_file_name_handler)
 
     #@classmethod
     #def poll(cls, context):
     #    return not current_addon_exists() and is_addon_name_valid()
-    
+
     def execute(self, context):
         if self.name not in os.listdir(addons_path):
             src_addon_path = get_current_addon_path()
@@ -424,22 +528,22 @@ class RenameAddon(bpy.types.Operator):
                 self.report({'INFO'}, 'destination already exist')
             context.area.tag_redraw()
         return {"FINISHED"}
-    
+
     def create_addon_directory(self):
         os.makedirs(join(addons_path, self.name))
-            
+
     def generate_from_template(self):
         t = self.new_addon_type
-        if t == "BASIC": 
+        if t == "BASIC":
             code = code = self.read_template_file("basic.txt")
             new_addon_file("__init__.py", code)
-        
-        if t == "MULTIFILE": 
+
+        if t == "MULTIFILE":
             code = self.read_template_file("multifile.txt")
             new_addon_file("__init__.py", code)
             code = self.read_template_file("developer_utils.txt")
             new_addon_file("developer_utils.py", code)
-    
+
     def read_template_file(self, path):
         path = join(dirname(__file__), "addon_templates", path)
         file = open(path)
@@ -454,18 +558,18 @@ class RenameAddon(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         layout.prop(self, 'name')
-    
-            
+
+
 class DeleteAddon(bpy.types.Operator):
     bl_idname = "weed.delete_addon"
     bl_label = "Delete Addon"
     bl_description = "Delete the current Addon"
     bl_options = {"REGISTER"}
-    
+
     #@classmethod
     #def poll(cls, context):
     #    return not current_addon_exists() and is_addon_name_valid()
-    
+
     def execute(self, context):
         addon = get_current_addon_path()
         for text in bpy.data.texts:
@@ -474,7 +578,7 @@ class DeleteAddon(bpy.types.Operator):
                 bpy.ops.text.unlink()
         rmtree(addon, ignore_errors=True, onerror=None)
         return {"FINISHED"}
-    
+
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event)
 
@@ -482,28 +586,28 @@ class DeleteAddon(bpy.types.Operator):
     #    layout = self.layout
     #    layout.prop(self, 'name')
         #layout.prop(self, 'new_addon_type')
-    
-            
+
+
 class NewFile(bpy.types.Operator):
     bl_idname = "weed.new_file"
     bl_label = "New File"
     bl_description = "Create a new file in this directory"
     bl_options = {"REGISTER"}
-    
+
     directory = StringProperty(name = "Directory", default = "")
     name = StringProperty(name = "File Name", default = "", set = set_file_name_handler, get = get_file_name_handler)
-    
+
     @classmethod
     def poll(cls, context):
         return current_addon_exists()
-    
+
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width = 400)
-    
+
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "name")
-    
+
     def execute(self, context):
 
         if self.name != "":
@@ -615,8 +719,8 @@ class DeleteDirectory(bpy.types.Operator):
 
 
 def new_addon_file(path, default = ""):
-    new_file(get_current_addon_path() + path, default) 
-       
+    new_file(get_current_addon_path() + path, default)
+
 def new_file(path, default = ""):
     dirname = os.path.dirname(path)
     new_directory(dirname)
@@ -624,30 +728,30 @@ def new_file(path, default = ""):
         file = open(path, "a")
         file.write(default)
         file.close()
-        
+
 def new_directory(path):
     if not os.path.exists(path):
-        os.makedirs(path)       
+        os.makedirs(path)
 
-    
+
 class ToogleDirectoryVisibility(bpy.types.Operator):
     bl_idname = "weed.toogle_directory_visibility"
     bl_label = "Toogle Directory Visibility"
     bl_description = ""
     bl_options = {"REGISTER"}
-    
+
     directory = StringProperty(name = "Directory", default = "")
-    
+
     @classmethod
     def poll(cls, context):
         return True
-    
+
     def execute(self, context):
         global directory_visibility
         directory_visibility[self.directory] = not directory_visibility[self.directory]
         return {"FINISHED"}
-        
-        
+
+
 class FileMenuCloser(bpy.types.Operator):
     bl_idname = "weed.close_file_menu"
     bl_label = "Close File Menu"
@@ -664,19 +768,26 @@ class FileMenuCloser(bpy.types.Operator):
         layout.operator_context = "INVOKE_DEFAULT"
         props = layout.operator("weed.close_file",
                                 text = "Save",
-                                icon = 'NONE')        
+                                icon = 'SAVE_COPY')
         props.path = fileProps.path
         props.save_it = True
         props.close_it = False
+        props = layout.operator("weed.reload_file",
+                                text = "Discard",
+                                icon = 'RECOVER_LAST')
+        props.path = fileProps.path
+        #props.save_it = False
+        #props.close_it = False
+        layout.separator()
         props = layout.operator("weed.close_file",
                                 text = "Save and Close",
-                                icon = 'SAVE_COPY')        
+                                icon = 'SAVE_AS')
         props.path = fileProps.path
         props.save_it = True
         props.close_it = True
         props = layout.operator("weed.close_file",
                                 text = "Discard and Close",
-                                icon = 'ERROR')        
+                                icon = 'X')
         props.path = fileProps.path
         props.save_it = False
         props.close_it = True
@@ -691,11 +802,11 @@ class CloseFile(bpy.types.Operator):
     path = StringProperty(name = "Path", default = "")
     save_it = BoolProperty(name = "Save", default = False)
     close_it = BoolProperty(name = "Close", default = False)
-    
+
     @classmethod
     def poll(cls, context):
         return True
-    
+
     def execute(self, context):
         for text in bpy.data.texts:
             if text.filepath == self.path:
@@ -707,19 +818,19 @@ class CloseFile(bpy.types.Operator):
         try: bpy.ops.text.resolve_conflict(resolution = "IGNORE")
         except: pass
         return {"FINISHED"}
-        
+
 
 class FileMenuOpener(bpy.types.Operator):
     bl_idname = "weed.open_file_menu"
     bl_label = "Open File Menu"
-    
+
     path = StringProperty(name = "Path", default = "")
-    
+
     def invoke(self, context, event):
         context.window_manager.popup_menu(self.drawMenu,
                                           title = basename(self.path))
         return {"FINISHED"}
-    
+
     def drawMenu(fileProps, self, context):
         layout = self.layout
         layout.alignment = "RIGHT"
@@ -740,19 +851,19 @@ class FileMenuOpener(bpy.types.Operator):
                                 icon = "CANCEL",
                                 text = "Delete file")
         props.path = fileProps.path
-            
+
 
 class AddonMenuOpener(bpy.types.Operator):
     bl_idname = "weed.open_addon_menu"
     bl_label = "Open Addon Menu"
-    
+
     directory = StringProperty(name = "Path", default = "")
-    
+
     def invoke(self, context, event):
         context.window_manager.popup_menu(self.drawMenu,
                                           title = 'Addon Menu')
         return {"FINISHED"}
-    
+
     def drawMenu(dirProps, self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
@@ -761,7 +872,7 @@ class AddonMenuOpener(bpy.types.Operator):
         # RECUERDA, para enviar argumentos...
         # op = layout.operator("weed.renam...
         # op.directory = dirProps.directory
-        layout.operator_menu_enum("weed.new_addon", "new_addon_type", 
+        layout.operator_menu_enum("weed.new_addon", "new_addon_type",
                                     icon = "NEWFOLDER",
                                     text = "Create New Addon")
         layout.operator("weed.rename_addon",
@@ -787,18 +898,20 @@ class AddonMenuOpener(bpy.types.Operator):
 class DirMenuOpener(bpy.types.Operator):
     bl_idname = "weed.open_dir_menu"
     bl_label = "Open Folder Menu"
-    
+
     directory = StringProperty(name = "Path", default = "")
-    
+
     def invoke(self, context, event):
         context.window_manager.popup_menu(self.drawMenu,
                                           title = "in {} folder".format(
                                           split(dirname(self.directory))[-1]))
         return {"FINISHED"}
-    
+
     def drawMenu(parent, self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
+        layout.prop(get_addon_preferences(), 'show_dot_files',
+                 text='Show hidden addons')
         op = layout.operator("weed.new_file",
                             icon = "NEW",
                             text = "Create new file")
@@ -807,8 +920,8 @@ class DirMenuOpener(bpy.types.Operator):
                             icon = "NEWFOLDER",
                             text = "Create new folder")
         op.directory = parent.directory
+        layout.separator()
         if split(parent.directory.rstrip(sep))[0] != addons_path:
-            layout.separator()
             op = layout.operator("weed.rename_directory",
                                 icon = "GHOST",
                                 text = "Rename folder")
@@ -818,26 +931,29 @@ class DirMenuOpener(bpy.types.Operator):
                                  icon = "CANCEL",
                                  text = "Delete folder")
             op.directory = parent.directory
+        else:
+            op = layout.operator("weed.save_files",
+                    text = 'Save all "{}" open files'.format(get_addon_name()[:15]),
+                    icon = 'IMGDISPLAY')
 
         #op1.enabled = op2.enabled = True if (
                 #split(parent.directory.rstrip(sep))[0] != addons_path
                 #) else False
-        
+
         #if split(parent.directory.rstrip(sep))[0] != addons_path:
         #    op1.enabled = op2.enabled = True
         #else:
         #    op1.enabled = op2.enabled = False
-            
 
-            
+
 class OpenFile(bpy.types.Operator):
     bl_idname = "weed.open_file"
     bl_label = "Open File"
     bl_description = "Load the file into the text editor"
     bl_options = {"REGISTER"}
-    
+
     path = StringProperty(name = "Path", default = "")
-        
+
     def execute(self, context):
         text = None
         for text_block in bpy.data.texts:
@@ -846,81 +962,103 @@ class OpenFile(bpy.types.Operator):
                 break
         if not text:
             text = bpy.data.texts.load(self.path, internal = False)
-        
+
         context.space_data.text = text
         return {"FINISHED"}
-    
-    
+
+
+class ReloadFile(bpy.types.Operator):
+    bl_idname = "weed.reload_file"
+    bl_label = "Reload File"
+    bl_description = "Reload current file"
+    bl_options = {"REGISTER"}
+
+    path = StringProperty(name = "Path", default = "")
+
+    def execute(self, context):
+#        text = None
+#        for text_block in bpy.data.texts:
+#            if text_block.filepath == self.path:
+#                text = text_block
+#                break
+#        if not text:
+        bpy.ops.text.unlink()
+        text = bpy.data.texts.load(self.path, internal = False)
+
+        context.space_data.text = text
+        return {"FINISHED"}
+
+
 class OpenExternalFileBrowser(bpy.types.Operator):
     bl_idname = "weed.open_external_file_browser"
     bl_label = "Open External File Browser"
     bl_description = ""
     bl_options = {"REGISTER"}
-    
+
     path = StringProperty(name = "Directory", default = "")
-    
+
     def execute(self, context):
         bpy.ops.wm.path_open(filepath = self.directory)
         return {"FINISHED"}
-        
-        
+
+
 class RenameFile(bpy.types.Operator):
     bl_idname = "weed.rename_file"
     bl_label = "Open External File Browser"
     bl_description = ""
     bl_options = {"REGISTER"}
-    
+
     path = StringProperty(name = "Directory", default = "")
     new_name = StringProperty(name = "Directory", description = "New file name", default = "")
-    
+
     def invoke(self, context, event):
         self.new_name = basename(self.path)
         return context.window_manager.invoke_props_dialog(self, width = 400)
-    
+
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "new_name")
-    
+
     def execute(self, context):
         new_path = join(dirname(self.path), self.new_name)
         os.rename(self.path, new_path)
         self.correct_text_block_paths(self.path, new_path)
         context.area.tag_redraw()
-        return {"FINISHED"}     
+        return {"FINISHED"}
 
     def correct_text_block_paths(self, old_path, new_path):
         for text in bpy.data.texts:
             if text.filepath == old_path:
                 text.filepath = new_path
-                
-                
+
+
 class DeleteFile(bpy.types.Operator):
     bl_idname = "weed.delete_file"
     bl_label = "Delete File"
     bl_description = "Delete file on the hard drive"
     bl_options = {"REGISTER"}
-    
+
     path = StringProperty(name = "Directory", default = "")
-    
+
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event)
-    
+
     def execute(self, context):
         os.remove(self.path)
         context.area.tag_redraw()
-        return {"FINISHED"}  
-    
-    
+        return {"FINISHED"}
+
+
 class SaveFiles(bpy.types.Operator):
     bl_idname = "weed.save_files"
     bl_label = " Save All Files"
     bl_description = "Save all datablock files from an addon"
     bl_options = {"REGISTER"}
-    
+
     @classmethod
     def poll(cls, context):
         return True
-    
+
     def execute(self, context):
         addon_path = get_current_addon_path()
         for text in bpy.data.texts:
@@ -929,30 +1067,30 @@ class SaveFiles(bpy.types.Operator):
         try: bpy.ops.text.resolve_conflict(resolution = "IGNORE")
         except: pass
         return {"FINISHED"}
-        
-        
+
+
 class ConvertAddonIndentation(bpy.types.Operator):
     bl_idname = "weed.convert_addon_indentation"
     bl_label = "Convert Addon Indentation"
     bl_description = ""
     bl_options = {"REGISTER"}
-    
+
     old_indentation = StringProperty(default = "\t")
     new_indentation = StringProperty(default = "    ")
-    
+
     @classmethod
     def poll(cls, context):
         return current_addon_exists()
-        
+
     def execute(self, context):
         paths = self.get_addon_files()
         for path in paths:
             bpy.ops.weed.convert_file_indentation(
-                path = path, 
-                old_indentation = self.old_indentation, 
+                path = path,
+                old_indentation = self.old_indentation,
                 new_indentation = self.new_indentation)
         return {"FINISHED"}
-        
+
     def get_addon_files(self):
         paths = []
         for root, dirs, files in os.walk(get_current_addon_path()):
@@ -960,24 +1098,24 @@ class ConvertAddonIndentation(bpy.types.Operator):
                 if file.endswith(".py"):
                     paths.append(join(root, file))
         return paths
-            
-                    
+
+
 class ExportAddon(bpy.types.Operator):
     bl_idname = "weed.export_addon"
     bl_label = "Export Addon"
     bl_description = "Save a .zip file of the addon"
     bl_options = {"REGISTER"}
-    
+
     filepath = StringProperty(subtype = "FILE_PATH")
-    
+
     @classmethod
     def poll(cls, context):
         return current_addon_exists()
-    
+
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
-    
+
     def execute(self, context):
         subdirectory_name = get_addon_name() + sep
         source_path = get_current_addon_path()
@@ -986,28 +1124,28 @@ class ExportAddon(bpy.types.Operator):
             output_path += ".zip"
         zip_directory(source_path, output_path, additional_path = subdirectory_name)
         return {"FINISHED"}
-   
-            
+
+
 class RunAddon(bpy.types.Operator):
     bl_idname = "weed.run_addon"
     bl_label = "Run Addon"
     bl_description = "Unregister, reload and register it again."
     bl_options = {"REGISTER"}
-    
+
     @classmethod
     def poll(cls, context):
         return current_addon_exists()
-    
+
     def execute(self, context):
         bpy.ops.weed.save_files()
-        
+
         addon_name = get_addon_name()
         module = sys.modules.get(addon_name)
-        if module:  
+        if module:
             addon_utils.disable(addon_name)
             importlib.reload(module)
         addon_utils.enable(addon_name)
-        return {"FINISHED"}        
+        return {"FINISHED"}
 
 
 class UnregisterAddon(bpy.types.Operator):
@@ -1015,16 +1153,16 @@ class UnregisterAddon(bpy.types.Operator):
     bl_label = "Unregister Addon"
     bl_description = "Unregister only."
     bl_options = {"REGISTER"}
-    
+
     @classmethod
     def poll(cls, context):
         return current_addon_exists()
-    
+
     def execute(self, context):
         bpy.ops.weed.save_files()
-        
+
         addon_utils.disable(get_addon_name())
-        return {"FINISHED"}        
+        return {"FINISHED"}
 
 
 class RestartBlender(bpy.types.Operator):
@@ -1032,26 +1170,26 @@ class RestartBlender(bpy.types.Operator):
     bl_label = "Restart Blender"
     bl_description = "Close and open a new Blender instance to test the Addon on the startup file. (Currently only supported for windows)"
     bl_options = {"REGISTER"}
-    
+
     @classmethod
     def poll(cls, context):
         return sys.platform == "win32"
-    
+
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event)
-    
+
     def execute(self, context):
         bpy.ops.weed.save_files()
         save_status()
         start_another_blender_instance()
         bpy.ops.wm.quit_blender()
-        return {"FINISHED"}         
-        
+        return {"FINISHED"}
 
-restart_data_path = join(dirname(__file__), "restart_data.txt")   
+
+restart_data_path = join(dirname(__file__), "restart_data.txt")
 
 id_addon_name = "ADDON_NAME: "
-id_current_path = "CURRENT_PATH: "  
+id_current_path = "CURRENT_PATH: "
 id_visiblie_path = "VISIBLE_PATH: "
 def save_status():
     file = open(restart_data_path, "w")
@@ -1062,10 +1200,10 @@ def save_status():
     for path, is_open in directory_visibility.items():
         if is_open:
             file.write(id_visiblie_path + path + "\n")
-            
+
     file.close()
- 
-@persistent 
+
+@persistent
 def open_status(scene):
     if os.path.exists(restart_data_path):
         file = open(restart_data_path)
@@ -1073,8 +1211,8 @@ def open_status(scene):
         file.close()
         os.remove(restart_data_path)
         parse_startup_file_lines(lines)
-        
-def parse_startup_file_lines(lines):        
+
+def parse_startup_file_lines(lines):
     for line in lines:
         if line.startswith(id_addon_name):
             addon_name = line[len(id_addon_name):].strip()
@@ -1088,19 +1226,19 @@ def parse_startup_file_lines(lines):
                             space.text = text_block
         if line.startswith(id_visiblie_path):
             path = line[len(id_visiblie_path):].strip()
-            make_directory_visible(path)   
+            make_directory_visible(path)
 
 def make_directory_visible(path):
     global directory_visibility
-    directory_visibility[path] = True   
-    
+    directory_visibility[path] = True
+
 def get_current_filepath():
     try: return bpy.context.space_data.text.filepath
     except: return ""
-    
+
 def current_addon_exists():
     return os.path.exists(get_current_addon_path()) and get_addon_name() != ""
-    
+
 def get_current_addon_path():
     path_name = join(addons_path, get_addon_name())
     return path_name if isfile(path_name) else path_name + sep
@@ -1109,12 +1247,12 @@ def is_addon_name_valid():
     addon_name = get_addon_name()
     return addon_name == correct_file_name(
         addon_name, is_directory = True) and addon_name != ""
-    
+
 # def get_addon_name():
 #     return get_settings().addon_name
 
 def get_addon_name():
-    return bpy.context.scene.addon_development
+    return bpy.context.scene.explorer_root_folder
 
 #def save_text_block(text_block):
 #    if not text_block: return
@@ -1123,18 +1261,18 @@ def get_addon_name():
 #    file = open(text_block.filepath, mode = "w")
 #    file.write(text_block.as_string())
 #    file.close()
-    
+
 def save_text_block(text_block):
     if not text_block: return
     if not os.path.exists(text_block.filepath): return
 
     bpy.context.space_data.text = text_block
     bpy.ops.text.save()
-    
+
 def zip_directory(source_path, output_path, additional_path = ""):
     try:
         parent_folder = dirname(source_path)
-        content = os.walk(source_path)  
+        content = os.walk(source_path)
         zip_file = zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED)
         for root, folders, files in content:
             for data in folders + files:
@@ -1143,16 +1281,16 @@ def zip_directory(source_path, output_path, additional_path = ""):
                 zip_file.write(absolute_path, relative_path)
         zip_file.close()
     except: print("Could not zip the directory")
-    
+
 def start_another_blender_instance():
-    open_file(bpy.app.binary_path) 
- 
-# only works for windows currently   
+    open_file(bpy.app.binary_path)
+
+# only works for windows currently
 def open_file(path):
     if sys.platform == "win32":
         os.startfile(path)
     else:
         opener = "open" if sys.platform == "darwin" else "xdg-open"
         subprocess.call([opener, path])
-    
-bpy.app.handlers.load_post.append(open_status)  
+
+bpy.app.handlers.load_post.append(open_status)

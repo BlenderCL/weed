@@ -3,17 +3,23 @@ import sys
 import pkgutil
 import importlib
 
+textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+
+def is_binary_file(filepath):
+    bytes = open(filepath, 'rb').read(512)
+    return bool(bytes.translate(None, textchars))
+
 def setup_addon_modules(path, package_name, reload):
     """
-    Imports and reloads all modules in this addon. 
-    
+    Imports and reloads all modules in this addon.
+
     path -- __path__ from __init__.py
     package_name -- __name__ from __init__.py
     """
     # Import from a static curated list
     #    than the function get_submodule_names
     # used before
-    
+
     #def get_submodule_names(path = path[0], root = ""):
     #    module_names = []
     #    for importer, module_name, is_package in pkgutil.iter_modules([path]):
@@ -21,9 +27,9 @@ def setup_addon_modules(path, package_name, reload):
     #            sub_path = os.path.join(path, module_name)
     #            sub_root = root + module_name + "."
     #            module_names.extend(get_submodule_names(sub_path, sub_root))
-    #        else: 
+    #        else:
     #            module_names.append(root + module_name)
-    #    return module_names 
+    #    return module_names
 
     def import_submodules(names):
         modules = []
@@ -34,7 +40,7 @@ def setup_addon_modules(path, package_name, reload):
     def reload_modules(modules):
         for module in modules:
             importlib.reload(module)
-    
+
     # names = get_submodule_names()
     names = [
         #'bge_console.bgeCon',                      # no need to register
@@ -69,7 +75,7 @@ def setup_addon_modules(path, package_name, reload):
         'ui',                                       # register this module
         'weed_tools'                                # register this module
     ]
-    modules = import_submodules(names)        
-    if reload: 
-        reload_modules(modules) 
+    modules = import_submodules(names)
+    if reload:
+        reload_modules(modules)
     return modules

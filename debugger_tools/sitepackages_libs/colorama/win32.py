@@ -6,6 +6,8 @@ STDIN  = -10 #STDIN  = c_ulong(-10)
 STDOUT = -11 #STDOUT = c_ulong(-11)
 STDERR = -12 #STDERR = c_ulong(-12)
 
+winapi_test = lambda *_: True # hack para weed arreglar luego
+
 try:
     import ctypes
     from ctypes import LibraryLoader

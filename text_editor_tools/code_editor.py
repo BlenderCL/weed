@@ -83,7 +83,6 @@ class ThreadedSyntaxHighlighter(threading.Thread):
         threading.Thread.__init__(self)
         self.daemon = True
         self.output = output_list
-        bpy.types.Text.code_tree = {'imports':[], 'class_def':[]}
         self.indent_with = indent_with
         self.text = text
         self._restart = threading.Event()
@@ -164,6 +163,7 @@ class ThreadedSyntaxHighlighter(threading.Thread):
         #indent_with = bpy.context.space_data.tab_width
 
         # process the text if there is one
+        bpy.types.Text.code_tree = {'imports':[], 'class_def':[]}
         for h, line in enumerate(self.text.lines if self.text else []):
             
             # (n°linea, jerarquia, (tipo, nombre, arguments))
@@ -384,7 +384,7 @@ def draw_callback_px(self, context):
     fs = context.space_data.font_size
     cw = round(dpi_r * round(2 + 0.6 * (fs - 4)))                    # char width
     ch = round(dpi_r * round(2 + 1.3 * (fs - 2) + ((fs % 10) == 0))) # char height
-    
+    #chfx = round(dpi_r * (2 + 1.3 * (fs - 2) + ((fs % 10) == 0))) # char height fixed
     # panel background box
     #self.tab_width = round(dpi_r * 25) if (self.tabs and len(bpy.data.texts) > 1) else 0
     bgl.glColor4f(self.background.r, self.background.g, self.background.b, (1-self.bg_opacity)*self.opacity)
@@ -409,15 +409,19 @@ def draw_callback_px(self, context):
         lines = len(space.text.lines)
         lines_digits = len(str(lines)) if space.show_line_numbers else 0
         self.line_bar_width = int(dpi_r*5)+cw*(lines_digits)
-        bgl.glColor4f(1, 0, 0, 0.3)
-        for id in range(space.top, min(space.top+space.visible_lines+1, lines+1)):
-            if id in [2, 1, 4, 8, 24, 55]:
-                bgl.glBegin(bgl.GL_QUADS)
-                bgl.glVertex2i(0, self.height-ch*(id-space.top)+3)
-                bgl.glVertex2i(self.line_bar_width, self.height-ch*(id-space.top)+3)
-                bgl.glVertex2i(self.line_bar_width, self.height-ch*(id-1-space.top)+3)
-                bgl.glVertex2i(0, self.height-ch*(id-1-space.top)+3)
-                bgl.glEnd()
+#        bgl.glColor4f(1, 0, 0, 0.3)
+#        for id in range(space.top, min(space.top+space.visible_lines+1, lines+1)):
+#            if id in [2, 1, 4, 8, 24, 55]:
+#                bgl.glBegin(bgl.GL_QUADS)
+#                bgl.glVertex2i(0, self.height-chfx*(id-space.top))
+#                bgl.glVertex2i(self.line_bar_width, self.height-chfx*(id-space.top))
+#                bgl.glVertex2i(self.line_bar_width, self.height-chfx*(id-1-space.top))
+#                bgl.glVertex2i(0, self.height-chfx*(id-1-space.top))
+#                bgl.glEnd()
+#                #bgl.glColor4f(1, 0, 0, 0.5)
+                #blf.size(font_id, fs, int(dpi_r)*72)
+                #blf.position(font_id, 2+int(0.5*cw*(len(str(lines))-len(str(id)))), self.height-ch*(id-space.top)+3, 0)
+                #blf.draw(font_id, '*')
                 # blf.position(font_id,
                 #              2+int(0.5*cw*(len(str(lines))-len(str(id)))),
                 #              self.height-ch*(id-space.top)+3, 0)
@@ -553,13 +557,14 @@ def draw_callback_px(self, context):
 #    blf.position(font_id, self.left_edge-50, 5, 0)
 #    blf.draw(font_id, str(round(1/(time.clock() - start),3)))
     
-    # # draw line numbers
-    # if space.text:
-    #     bgl.glColor4f(1,
-    #                   0,
-    #                   0,
-    #                   0.5)
-    #     # bgl.glColor4f(self.segments[0]['col'][0],
+    # draw line numbers
+#    if space.text:
+#        bgl.glColor4f(1, 0, 0, 0.5)
+#        for id in range(space.top, min(space.top+space.visible_lines+1, lines+1)):
+#            blf.size(font_id, fs, int(dpi_r*72))
+#            blf.position(font_id, 2+int(0.5*cw*(len(str(lines))-len(str(id)))), self.height-ch*(id-space.top)+3, 0)
+#            blf.draw(font_id, '*')
+#    #     # bgl.glColor4f(self.segments[0]['col'][0],
     #     #               self.segments[0]['col'][1],
     #     #               self.segments[0]['col'][2],
     #     #               0.5)
@@ -604,6 +609,10 @@ class CodeEditorStart(bpy.types.Operator):
     bl_idname = "weed.code_editor_start"
     bl_label = "Code Editor"
 
+    @classmethod
+    def poll(cls, context):
+        code_editors = context.window_manager.code_editors
+        return not (str(context.area) in code_editors.keys())
 
     def __init__(self):
         self.indent_width = bpy.context.space_data.tab_width 
@@ -697,7 +706,9 @@ class CodeEditorStart(bpy.types.Operator):
             # typing characters - update minimap when whitespace
             if self.opacity and (event.unicode == ' ' or event.type in {'RET', 'NUMPAD_ENTER', 'TAB'}):
                 self.thread.restart(context.space_data.text)
-            if addon_prefs.coed_last_text != context.space_data.text.name:
+            if context.space_data.text is None:
+                self.thread.restart(context.space_data.text)
+            elif addon_prefs.coed_last_text != context.space_data.text.name:
                 addon_prefs.coed_last_text = context.space_data.text.name
                 self.thread.restart(context.space_data.text)
             # custom home handling
@@ -865,6 +876,11 @@ class CodeEditorEnd(bpy.types.Operator):
     bl_idname = "weed.code_editor_end"
     bl_label = ""
     
+    @classmethod
+    def poll(cls, context):
+        code_editors = context.window_manager.code_editors
+        return (str(context.area) in code_editors.keys())
+
     def execute(self, context):
         editors = context.window_manager.code_editors
         editors.remove(editors.find(str(context.area)))

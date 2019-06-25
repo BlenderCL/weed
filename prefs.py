@@ -83,46 +83,46 @@ class WeedPreferences(bpy.types.AddonPreferences):
         name = "Panel Background transparency",
         description = "0 - fully opaque, 1 - fully transparent",
         min = 0.0, max = 1.0, default = 0.2)
-    
+
     show_tabs = BoolProperty(
         name = "Show Tabs in Panel when multiple text blocks",
         description = "Show opened textblock in tabs next to minimap",
         default = True)
-    
+
     minimap_width = IntProperty(
         name = "Minimap panel width",
         description = "Minimap base width in px",
         min = 25, max = 400, default = 100)
-    
+
     window_min_width = IntProperty(
         name = "Hide Panel when area width less than",
         description = "Set 0 to deactivate side panel hiding, set huge to disable panel",
         min = 0, max = 4096, default = 600)
-    
+
     symbol_width = FloatProperty(
         name = "Minimap character width",
         description = "Minimap character width in px",
         min = 1.0, max = 10.0, default = 1.5)
-    
+
     line_height = IntProperty(
         name = "Minimap line spacing",
         description = "Minimap line spacign in px",
         min = 2, max = 10, default = 4)
-    
+
     block_trans = FloatProperty(
         name = "Code block markings transparency",
         description = "0 - fully opaque, 1 - fully transparent",
         min = 0.0, max = 1.0, default = 0.6)
-    
+
     indent_trans = FloatProperty(
         name = "Indentation markings transparency",
         description = "0 - fully opaque, 1 - fully transparent",
         min = 0.0, max = 1.0, default = 0.9)
-    
+
     show_margin = BoolProperty(
         name = "Activate global Text Margin marker",
         default = True)
-    
+
     margin_column = IntProperty(
         name = "Margin Column",
         description = "Column number to show marker at",
@@ -139,7 +139,7 @@ class WeedPreferences(bpy.types.AddonPreferences):
 # class AddonPreferences(bpy.types.AddonPreferences):
 #     bl_idname = __name__
 
-    line_amount = IntProperty(name = "Lines", default = 8,  
+    line_amount = IntProperty(name = "Lines", default = 8,
                     min = 1, max = 20,
                     description = "Amount of lines shown in the context box")
     show_dot_files = BoolProperty(name = ' Show hidden files',
@@ -148,6 +148,9 @@ class WeedPreferences(bpy.types.AddonPreferences):
     show_dot_addons = BoolProperty(name = 'Show dot Addons',
                     default = False,
                     description = 'Show hidden addons on addon files panel')
+    show_code_tree = BoolProperty(name = 'Show Code Tree',
+                    default = False,
+                    description = 'Show code tree of current file in explorer')
     user_site_packages = BoolProperty(name = 'Browse User Site Packages',
                     default = False,
                     description = 'Browse User Site Packages on addon files panel')
@@ -162,7 +165,7 @@ class WeedPreferences(bpy.types.AddonPreferences):
     def draw(self, context):
         layout = self.layout
 
-        # layout.label(text = "Here you can enable or disable " 
+        # layout.label(text = "Here you can enable or disable "
         #                     "specific tools, in case they interfere "
         #                     "with others or are just plain annoying")
 
@@ -176,7 +179,7 @@ class WeedPreferences(bpy.types.AddonPreferences):
         sub.prop(self, "show_icons_get", toggle=True)
 
         sub.separator()
-        
+
         sub.label(text="3D View", icon='VIEW3D')
         sub.label(text="3D View", icon='VIEW3D')
         #sub.label(text="3D View", icon='VIEW3D')
@@ -184,9 +187,9 @@ class WeedPreferences(bpy.types.AddonPreferences):
 
         # Code Editor Settings
         col = split.column()
-        
+
         box = col.box()
-        
+
         box.label(text="Code Editor Settings", icon='WORDWRAP_ON')
         row = box.row()
         sub = row.column(align=True)
@@ -197,9 +200,9 @@ class WeedPreferences(bpy.types.AddonPreferences):
         sub.prop(self, "minimap_width")
         sub.prop(self, "symbol_width")
         sub.prop(self, "line_height")
-        
+
         box.separator()
-        
+
         row = box.row(align=True)
         row.prop(self, "show_margin", toggle=True)
         row.prop(self, "margin_column")

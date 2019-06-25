@@ -65,7 +65,7 @@ import sys
 from os import path, listdir, access, W_OK
 from shutil import copytree, rmtree
 from site import getsitepackages, getusersitepackages
-from . weed_tools import get_addons_list
+from . weed_tools import get_folders_list
 from . quick_operators import register_menus, unregister_menus
 from . checksumdir import dirhash
 import builtins
@@ -264,15 +264,15 @@ def register():
                                                         type=CodeEditorsGroup)
     bpy.types.WindowManager.weed_active_toolbox = bpy.props.EnumProperty(
             name = 'panel',
-            default = 'draw_develop_box',
-            items = [('draw_develop_box', 'Addon develop', '', 'SCRIPT', 0),
-                     ('draw_code_tree_box', 'Code tree', '', 'OOPS', 1),
-                     ('draw_debugger_box', 'Debugger tools', '', 'RECOVER_AUTO', 2)])
+            default = 'draw_explorer_box',
+            items = [('draw_explorer_box', 'File Explorer', '', 'FILE_FOLDER', 0),
+                     #('draw_code_tree_box', 'Code Tree', '', 'OOPS', 1),
+                     ('draw_debugger_box', 'Debugger Tools', '', 'RECOVER_AUTO', 2)])
     register_keymaps()
     register_menus()
-    bpy.types.Scene.addon_development = bpy.props.EnumProperty(
-        items=get_addons_list,
-        name="Addon Development")
+    bpy.types.Scene.explorer_root_folder = bpy.props.EnumProperty(
+        items=get_folders_list,
+        name="File Explorer Folder")
     
     # Weed Blender IDE only use python3, it's default from blender 2.5x +
     # if PY3:
@@ -316,5 +316,5 @@ def unregister():
 
     # remember try to clean this objects
     # del bpy.types.WindowManager.code_editors
-    # del bpy.types.Scene.addon_development
+    # del bpy.types.Scene.explorer_root_folder
     print("weed unregistered")

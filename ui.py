@@ -19,7 +19,7 @@ class IsRunningAutoCompletion(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         return True
-    
+
     def execute(self, context):
         global running
         if running:
@@ -31,21 +31,21 @@ class IsRunningAutoCompletion(bpy.types.Operator):
 class StartAutoCompletion(bpy.types.Operator):
     bl_idname = "weed.start_auto_completion"
     bl_label = "Start"
-    
+
     @classmethod
     def poll(cls, context):
         return not running
-    
+
     def modal(self, context, event):
         if not running or event.type == "F8":
             self.modal_handler.free()
             return { "FINISHED" }
-    
+
         block_event = False
         if active_text_block_exists():
             context.area.tag_redraw()
             block_event = self.modal_handler.update(event)
-            
+
         if not block_event:
             return { "PASS_THROUGH" }
         return { "RUNNING_MODAL" }
@@ -61,11 +61,11 @@ class StartAutoCompletion(bpy.types.Operator):
 class RebuildDocumentation(bpy.types.Operator):
     bl_idname = "weed.rebuild_documentation"
     bl_label = "Reload API"
-    
+
     @classmethod
     def poll(cls, context):
         return get_documentation().is_build
-    
+
     def execute(self, context):
         get_documentation().build()
         return { "FINISHED" }
@@ -74,14 +74,14 @@ class RebuildDocumentation(bpy.types.Operator):
 class StopAutoCompletion(bpy.types.Operator):
     bl_idname = "weed.stop_auto_completion"
     bl_label = "Stop"
-    
+
     @classmethod
     def poll(cls, context):
         return running
-    
+
     def execute(self, context):
         stop()
-        return { "FINISHED" }   
+        return { "FINISHED" }
 
 
 class CodeAutocompleteMenu(bpy.types.Menu):
@@ -98,7 +98,7 @@ class CodeAutocompleteMenu(bpy.types.Menu):
         #    layout.label(text='Text Editor Tools', icon='SYNTAX_ON')
 
         layout = self.layout
-        if running: 
+        if running:
             layout.operator("weed.stop_auto_completion", icon = "PANEL_CLOSE")
         else: layout.operator("weed.start_auto_completion", icon = "LIBRARY_DATA_DIRECT")
         if get_documentation().is_build:
