@@ -106,6 +106,16 @@ class ThreadedSyntaxHighlighter(threading.Thread):
             # do stuff
             self.highlight()
     
+    class CodeTreeNode(object):
+        def __init__(self, name, type, line_n = 1, indnt = 0, open = None):
+            self.name = name
+            self.type = type
+            self.line_n = line_n
+            self.indnt = indnt
+            self.open = open
+            self.low_limit = 0
+            self.upper_limit = 0
+    
     def highlight(self):
         # approximate syntax higlighter, accuracy is traded for speed
         
@@ -158,26 +168,42 @@ class ThreadedSyntaxHighlighter(threading.Thread):
 
         # capturar de las lineas con imports, def, class;
         # (n°linea, jerarquia, (tipo, nombre, arguments))
-        ptrn = re.compile('(class|def|import)\s([^\s\(:]+)([^:]+)?')
+
+        # class CodeTreeNode(object):
+        #     def __init__(self, name, type, line_n = 0, indnt = 0, open = None):
+        ptrn = re.compile('(class|def|import|from)\s([^\s\(:]+)([^:]+)?')
         # space_data doesn't work here (inside a thread)
         #indent_with = bpy.context.space_data.tab_width
 
         # process the text if there is one
-        bpy.types.Text.code_tree = {'imports':[], 'class_def':[]}
+        bpy.types.Text.code_tree = [self.CodeTreeNode('imports', 'imports', open = False)]
+        code_tree_class_def = []
         for h, line in enumerate(self.text.lines if self.text else []):
             
             # (n°linea, jerarquia, (tipo, nombre, arguments))
             code = line.body.lstrip()
-            indent = int((len(line.body) - len(code)) / self.indent_with)
+            indnt = int((len(line.body) - len(code)) / self.indent_with)
             match = re.match(ptrn, code)
             if match:
-                if match.group(1) == 'import':
-                    bpy.types.Text.code_tree['imports'].append(
-                                            (h, indent, match.group(1,2,3))) 
+                if (match.group(1) == 'import'
+                     or match.group(1) == 'from'):
+                    bpy.types.Text.code_tree.append(self.CodeTreeNode(match.group(2),
+                                                            'import',
+                                                            h,
+                                                            1))
                 else:    
-                    bpy.types.Text.code_tree['class_def'].append(
-                                            (h, indent, match.group(1,2,3))) 
-            
+                    if (code_tree_class_def
+                         and  indnt > code_tree_class_def[-1].indnt):
+                        code_tree_class_def[-1].open = False
+                    code_tree_class_def.append(self.CodeTreeNode(match.group(2),
+                                                            match.group(1),
+                                                            h,
+                                                            indnt))
+                    code_tree_class_def[-1].low_limit = h
+                    code_tree_class_def[-1].upper_limit = h + 1
+            else:
+                if code_tree_class_def:
+                    code_tree_class_def[-1].upper_limit = h + 1
             # new line new element, carry string flag
             element[0] = h
             element[1] = 0
@@ -321,6 +347,9 @@ class ThreadedSyntaxHighlighter(threading.Thread):
                     data['numbers'][element[0]].append([element[1], element[2]])
             except:
                 pass
+        
+        # mix imports and class_def in code tree
+        bpy.types.Text.code_tree.extend(code_tree_class_def)
         
         # close all remaining blocks
         for entry in special_temp:
@@ -787,8 +816,9 @@ class CodeEditorStart(bpy.types.Operator):
     def invoke(self, context, event):
         # Version with one 'invoke scene' operator handling multiple text editor areas has the same performance
         # as one operator for eatch area - version 2 is implemented for simplicity
-        if context.area.type != 'TEXT_EDITOR':
-            self.report({'WARNING'}, "Text Editor not found, cannot run operator")
+        if (context.area.type != 'TEXT_EDITOR'
+            or context.space_data.text is None):
+            self.report({'WARNING'}, "None Text block open or Text Editor not found, cannot run operator")
             return {'CANCELLED'}
         
         # init handlers

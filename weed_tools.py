@@ -60,6 +60,7 @@ def correct_file_name(name, is_directory = False):
 
 addons_path = bpy.utils.user_resource("SCRIPTS", "addons")
 directory_visibility = defaultdict(bool)
+#code_visibility = defaultdict(bool)
 
 
 class WeedToolsPanel(bpy.types.Panel):
@@ -180,35 +181,84 @@ class WeedToolsPanel(bpy.types.Panel):
                             text = 'Start Code Editor here', emboss = True)
             return {'FINISHED'}
 
-        icons = { 'import' : 'LAYER_ACTIVE',
-                    'class' : 'OBJECT_DATA',
-                    'def' : 'SCRIPTPLUGINS' }
+        icons = { 'imports' : 'OUTLINER_OB_GROUP_INSTANCE',
+                  'imports_off' : 'GROUP',
+                  'import' : 'OUTLINER_OB_GROUP_INSTANCE',
+                  'toggle_open' : 'DISCLOSURE_TRI_RIGHT',
+                  'toggle_close' : 'DISCLOSURE_TRI_DOWN',
+                  'class' : 'OBJECT_DATA', 'class_off' : 'MATCUBE',
+                  'def' : 'LAYER_ACTIVE', 'def_off' : 'FONT_DATA'}
         #layout.operator_context = 'EXEC_DEFAULT'
         col = layout.column(align=True)
         col.alignment = 'LEFT'
-        tot_imports = len(bpy.types.Text.code_tree['imports'])
-        for i, (idx, indnt, (keyword, name, args)) in enumerate(
-                                        bpy.types.Text.code_tree['imports']):
-            #row = row if i%2 else layout.row(align=True)
-            row = col.row(align=True)
-            row.alignment = 'LEFT'
-            prop = row.operator('text.jump',
-                                text = name,
-                                icon = icons[keyword],
-                                emboss = False)
-            prop.line = idx + 1
+        col.label(icon = 'FILE_TEXT', text = context.space_data.text.name)
+        #col.template_ID(context.space_data, "text")
 
-        for idx, indnt, (keyword, name, args) in bpy.types.Text.code_tree['class_def']:
-            #if not indnt:
-            #    col.separator()
-            row = col.row(align=True)
+        subnode_closed = False
+        node_indnt = 0
+        active = TextBlock.get_active()
+        for i, codetree_node in enumerate(bpy.types.Text.code_tree):
+            if subnode_closed and codetree_node.indnt > node_indnt:
+                continue
+            if codetree_node.low_limit <= active.get_line_index() < codetree_node.upper_limit:
+                col2 = col.box()
+            else:
+                col2 = col
+            if codetree_node.indnt > 0:
+                indent = col2.split(percentage=(0.03 + codetree_node.indnt * 0.01) * codetree_node.indnt)
+                indent.label('')
+                row = indent.row(align=True)
+            else:
+                row = col2.row(align=True)
             row.alignment = 'LEFT'
+            if codetree_node.open is not None:
+                tggl = row.operator("weed.toogle_code_visibility",
+                                 text = '',
+                                 icon = 'DISCLOSURE_TRI_DOWN'
+                                        if codetree_node.open
+                                        else 'DISCLOSURE_TRI_RIGHT',
+                                 emboss = False)
+                tggl.index = i
+                if codetree_node.open:
+                    subnode_closed = False
+                else:
+                    subnode_closed = True
+                node_indnt = codetree_node.indnt
+            else:
+                #row.label(text = '', icon = 'NONE')
+                row.operator("weed.toogle_code_visibility",
+                             text = '',
+                             icon = 'SCULPT_DYNTOPO',
+                             emboss = False)
             prop = row.operator('text.jump',
-                                text = '·   '*indnt + name,
-                                icon = icons[keyword] if not indnt else 'NONE',
+                                text = codetree_node.name,
+                                icon = icons[codetree_node.type],
                                 emboss = False)
-            prop.line = idx + 1
-            prev_indnt = indnt
+            prop.line = codetree_node.line_n + 1
+
+        
+#         for i, (idx, indnt, (keyword, name, args)) in enumerate(
+#                                         bpy.types.Text.code_tree['imports']):
+#             #row = row if i%2 else layout.row(align=True)
+#             row = col.row(align=True)
+#             row.alignment = 'LEFT'
+#             prop = row.operator('text.jump',
+#                                 text = name,
+#                                 icon = icons[keyword],
+#                                 emboss = False)
+#             prop.line = idx + 1
+# 
+#         for idx, indnt, (keyword, name, args) in bpy.types.Text.code_tree['class_def']:
+#             #if not indnt:
+#             #    col.separator()
+#             row = col.row(align=True)
+#             row.alignment = 'LEFT'
+#             prop = row.operator('text.jump',
+#                                 text = '·   '*indnt + name,
+#                                 icon = icons[keyword] if not indnt else 'NONE',
+#                                 emboss = False)
+#             prop.line = idx + 1
+#             prev_indnt = indnt
 
 
     def draw_explorer_box(self, context, layout):
@@ -351,9 +401,104 @@ class WeedToolsPanel(bpy.types.Panel):
                               emboss = False)
             props.path = full_path
 
-
     def is_directory_visible(self, directory):
         return directory_visibility[directory]
+
+#     def draw_code_branch(self, layout, code):
+#         if not self.is_code_visible(code):
+#             split_lyt = layout.split(0.9)
+#             row = split_lyt.row(align=True)
+#             row.alignment = "LEFT"
+#             op = row.operator("weed.toogle_code_visibility",
+#                                  text = code,
+#                                  icon = "FILESEL",
+#                                  emboss = False)
+#             op.code = code
+#         else:
+#             split_lyt = layout.split(0.9)
+#             row = split_lyt.row(align=True)
+#             row.alignment = "LEFT"
+#             op = row.operator("weed.toogle_directory_visibility",
+#                                 text = split(directory[:-1])[-1],
+#                                 icon = "FILE_FOLDER",
+#                                 emboss = False)
+#             op.directory = directory
+#             op = split_lyt.operator("weed.open_dir_menu",
+#                               icon = "COLLAPSEMENU",
+#                               text = "",
+#                               emboss = False)
+#             op.directory = directory
+# 
+# 
+#             directory_names = get_directory_names(directory)
+#             split_lyt = layout.split(0.04)
+#             split_lyt.label('')
+#             col = split_lyt.column(align=True)
+#             col.alignment = "LEFT"
+#             #row = col.row(align=True)
+#             #row.alignment = "LEFT"
+# 
+#             for directory_name in directory_names:
+#                 self.draw_directory(col, directory + directory_name + sep)
+# 
+#             file_names = get_file_names(directory)
+#             for file_name in file_names:
+#                 self.draw_element(col, directory, file_name)
+# 
+# 
+#     def draw_code_element(self, layout, code, file_name = None):
+#         #texts_paths = {text.filepath: text for text in bpy.data.texts}
+#         #full_path = directory + file_name
+#         if full_path != get_current_filepath():
+#             split_lyt = layout.split(0.8)
+#             row = split_lyt.row(align=True)
+#             row.alignment = "LEFT"
+#             op = row.operator("weed.open_file",
+#                       icon = "FILE_TEXT",
+#                       text = file_name,
+#                       emboss = False)
+#             op.path = full_path
+#             if is_binary_file(full_path):
+#                 row.enabled = False
+#             split_lyt.label("", icon = "NONE")
+#         else:
+#             active = layout.box()
+#             split_lyt = active.split(0.8)
+#             row = split_lyt.row(align=True)
+#             row.alignment = "LEFT"
+#             op = row.operator("weed.open_file",
+#                       icon = "GREASEPENCIL",
+#                       text = file_name,
+#                       emboss = False)
+#             op.path = full_path
+#             split_lyt.label("", icon = "NONE")
+#         if full_path in texts_paths:
+#             if texts_paths[full_path].is_dirty:
+#                 # call menu save/discard
+#                 props = split_lyt.operator('weed.close_file_menu',
+#                                        icon = 'HELP',
+#                                        text = '',
+#                                        emboss = False)
+#                 props.path = full_path
+#             else:
+#                 # close quietly
+#                 props = split_lyt.operator('weed.close_file',
+#                                        text = '',
+#                                        icon = 'X',
+#                                        emboss = False)
+#                 props.path = full_path
+#                 props.save_it = False
+#                 props.close_it = True
+#         else:
+#             props = split_lyt.operator("weed.open_file_menu",
+#                               icon = "LAYER_USED",
+#                               text = "",
+#                               emboss = False)
+#             props.path = full_path
+
+    def is_code_visible(self, code):
+        return code_visibility[code]
+
 
 def get_addon_preferences():
     addon_path_name = os.path.basename(os.path.dirname(__file__))
@@ -749,6 +894,23 @@ class ToogleDirectoryVisibility(bpy.types.Operator):
     def execute(self, context):
         global directory_visibility
         directory_visibility[self.directory] = not directory_visibility[self.directory]
+        return {"FINISHED"}
+
+
+class ToogleCodeVisibility(bpy.types.Operator):
+    bl_idname = "weed.toogle_code_visibility"
+    bl_label = "Toogle Code Visibility"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+
+    index = IntProperty(name = "index", default = 0)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        bpy.types.Text.code_tree[self.index].open = not bpy.types.Text.code_tree[self.index].open
         return {"FINISHED"}
 
 

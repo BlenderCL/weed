@@ -7,7 +7,6 @@ def code_tree_popup(self, context):
     layout = self.layout
     layout.operator_context = 'EXEC_DEFAULT'
     col = layout.column(align=True)
-    tot_imports = len(bpy.types.Text.code_tree['imports'])
     for i, (idx, indnt, (keyword, name, args)) in enumerate(
                                     bpy.types.Text.code_tree['imports']):
         #row = row if i%2 else layout.row(align=True)
