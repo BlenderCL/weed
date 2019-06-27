@@ -187,7 +187,7 @@ class ThreadedSyntaxHighlighter(threading.Thread):
             if match:
                 if (match.group(1) == 'import'
                      or match.group(1) == 'from'):
-                    bpy.types.Text.code_tree.append(self.CodeTreeNode(match.group(2),
+                    bpy.types.Text.code_tree.append(self.CodeTreeNode(code,#match.group(2),
                                                             'import',
                                                             h,
                                                             1))

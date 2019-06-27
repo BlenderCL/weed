@@ -1,30 +1,59 @@
 import bpy
 
+def draw_code_tree_box(self, context, layout):
+    code_editors = context.window_manager.code_editors
+    col = layout.column(align=False)
+    row = col.row(align=False)
+    row.prop(get_addon_preferences(), 'user_site_packages',
+             icon = 'RECOVER_AUTO', text = '')
+    selector = row.row(align=True)
+    selector.prop(context.scene, 'explorer_root_folder', text='')
+    selector.operator('weed.open_addon_menu',
+                 icon = 'COLLAPSEMENU', text = '')
+    row.enabled = False
+    col.prop(get_addon_preferences(), 'show_code_tree',
+             icon = 'OOPS', text = 'view code tree')
+    if str(context.area) not in code_editors.keys():
+        layout.label(text='to activate Code tree,', icon='INFO')
+        #layout.label(text='Start code editor here')
+        layout.operator('weed.code_editor_start', icon = 'SYNTAX_ON',
+                        text = 'Start Code Editor here', emboss = True)
+        return {'FINISHED'}
+
+    icons = { 'imports' : 'OUTLINER_OB_GROUP_INSTANCE',
+              'imports_off' : 'GROUP',
+              'import' : 'OUTLINER_OB_GROUP_INSTANCE',
+              'toggle_open' : 'DISCLOSURE_TRI_RIGHT',
+              'toggle_close' : 'DISCLOSURE_TRI_DOWN',
+              'class' : 'OBJECT_DATA', 'class_off' : 'MATCUBE',
+              'def' : 'LAYER_ACTIVE', 'def_off' : 'FONT_DATA'}
+    #layout.operator_context = 'EXEC_DEFAULT'
+    col = layout.column(align=True)
+
+
 def code_tree_popup(self, context):
-    icons = { 'import' : 'LAYER_ACTIVE',
-               'class' : 'OBJECT_DATA',
-                 'def' : 'SCRIPTPLUGINS' }
+    icons = { 'imports' : 'OUTLINER_OB_GROUP_INSTANCE',
+              'imports_off' : 'GROUP',
+              'import' : 'OUTLINER_OB_GROUP_INSTANCE',
+              'toggle_open' : 'DISCLOSURE_TRI_RIGHT',
+              'toggle_close' : 'DISCLOSURE_TRI_DOWN',
+              'class' : 'OBJECT_DATA', 'class_off' : 'MATCUBE',
+              'def' : 'LAYER_ACTIVE', 'def_off' : 'FONT_DATA'}
     layout = self.layout
     layout.operator_context = 'EXEC_DEFAULT'
-    col = layout.column(align=True)
-    for i, (idx, indnt, (keyword, name, args)) in enumerate(
-                                    bpy.types.Text.code_tree['imports']):
-        #row = row if i%2 else layout.row(align=True)
-        prop = col.operator('text.jump',
-                            text = name,
-                            icon = icons[keyword],
+    layout.alignment = 'LEFT'
+    layout.label(icon = 'FILE_TEXT', text = context.space_data.text.name)
+    
+    for i, node in enumerate(bpy.types.Text.code_tree[1:]):
+        type = '' if node.type == 'import' else node.type + ' '
+        prop = layout.operator('text.jump',
+                            text = '     '*node.indnt + type + node.name,
+                            icon = icons[node.type],
                             emboss = True)
-        prop.line = idx + 1
+        prop.line = node.line_n + 1
 
-    for idx, indnt, (keyword, name, args) in bpy.types.Text.code_tree['class_def']:
-        #if not indnt:
-        #    col.separator()
-        prop = col.operator('text.jump',
-                            text = '·   '*indnt + name,
-                            icon = icons[keyword] if not indnt else 'NONE',
-                            emboss = True)
-        prop.line = idx + 1
-        prev_indnt = indnt
+    
+
     
 
 class WEED_OT_ViewCodeTree(bpy.types.Operator):
