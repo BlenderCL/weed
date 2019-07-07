@@ -185,11 +185,11 @@ def register():
     # register with the proper site_package folder (*md5sum tal vez?)
     # definir mecanismo, no reinstalar estas librerias cada vez...
     md5_hashes = {
-            'bpython'  : 'f71aa32d8a395e53c5629bcc1bde4763',
-            'colorama' : 'af625c7cb8315d11e8c72027ea082295',
-            'pudb'     : '2da49e650733873dc51b0e9aadfceb39',
-            'pygments' : '86f122fc42f24ea825a03de8fe012d86',
-            'urwid'    : '243d975bcaad214cef0ce6c11d1e601e'
+            'bpython'  : 'a8071668c3e8f4932d35ca43476336a3',
+            'colorama' : '3743e16974a48b497ed64312987f8949',
+            'pudb'     : '574c7d70267988255fde242d0ed30ef3',
+            'pygments' : '21f797c1d16df6fa412644f319278145',
+            'urwid'    : 'ad93d4f9533c4a77f512feb6492bd598'
             }
     src_libs_path = path.join(path.dirname(__file__),
                         'debugger_tools',
