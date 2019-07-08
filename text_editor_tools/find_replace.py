@@ -11,6 +11,9 @@ class PopupFindReplace(bpy.types.Operator):
     replace_hack = bpy.props.BoolProperty(default=False)
 
     # set_selected_hack = bpy.props.BoolProperty(default = False)
+    @classmethod
+    def poll(cls, context):
+        return context.area.type == 'TEXT_EDITOR'
 
     def draw(self, context):
         layout = self.layout

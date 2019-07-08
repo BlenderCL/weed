@@ -11,6 +11,7 @@ __doc__ = '''
 
 from bge import logic, render, events
 from datetime import datetime
+import bpy
 import sys
 import bgl
 import blf
@@ -20,15 +21,21 @@ BUFFER = 150
 WRAP = 80
 # Both prompts must be the same length
 PROMPT = '>>> '
-PROMPT_MULTI = '|   '
+PROMPT_MULTI = '  | '
 
 MESSGS_COLOR = (1.0, 1.0, 0.0)      # Amarillo
 PROMPT_COLOR = (1.0, 1.0, 1.0)      # Blanco
 OUTPUT_COLOR = (0.0, 1.0, 0.0)      # Verde
 ERRORS_COLOR = (1.0, 0.0, 0.0)      # Rojo
 
-from colorama import init, Fore, Back, Style
-init()
+bge_log = None
+
+from colorama import init, AnsiToWin32, Fore, Back, Style
+init(wrap=False)
+stream = AnsiToWin32(sys.stdout).stream
+
+# Python 3
+# print(Fore.BLUE + 'blue text on stderr', file=stream)
 
 def register_draw(cont):
     '''register draw functions on scene.postdraw'''
@@ -254,6 +261,7 @@ class BgeConsole:
         #print(hs)
 
     def execute(self, hold=[]):
+        global bge_log
         self.doing_autocomplete = False
         if self.popup_lines:
             self.removePopup()
@@ -261,9 +269,11 @@ class BgeConsole:
         self.AddScrollback(*cmdline) #row_color='PROMPT'
         
         if len(cmdline[0]) > 4 and cmdline[0][:5] == '>>> #':
-            print(Fore.YELLOW, end='')
-        print(cmdline[0][4:] + Fore.RESET)
-        
+            print(Fore.YELLOW + cmdline[0][4:], file=stream)
+            print(Fore.WHITE, end='', file=stream)
+        else:
+            print(Fore.WHITE + cmdline[0][4:], file=stream)
+        bge_log.write(cmdline[0][4:] + '\n')
         stdout_redir = fileRedirect(False)
         stderr_redir = fileRedirect(True)
         
@@ -280,13 +290,18 @@ class BgeConsole:
         
         if stdout_redir.read(): 
             self.AddScrollback(stdout_redir.read(), row_color=OUTPUT_COLOR)
-            print(Fore.GREEN + '"""\n' + stdout_redir.read() + '"""\n' + Fore.RESET)
+            print(Fore.GREEN + '"""\n' + stdout_redir.read() + '"""', file=stream)
+            print(Fore.WHITE + ' ', file=stream)
+            bge_log.write('"""\n' + stdout_redir.read() + '"""\n\n')
             stdout_redir.close()
         if stderr_redir.read():
             self.AddScrollback(stderr_redir.read(), row_color=ERRORS_COLOR)
-            print(Fore.RED + '# ERROR !\n# ', end='')
-            print(stderr_redir.read().rstrip().replace('\n','\n# '))
-            print(Fore.RESET)
+            print(Fore.RED + '# ERROR !\n# ', end='', file=stream)
+            print(stderr_redir.read().rstrip().replace('\n','\n# '), file=stream)
+            print(Fore.WHITE + ' ', file=stream)
+            bge_log.write('# ERROR !\n# ')
+            bge_log.write(stderr_redir.read().rstrip().replace('\n','\n# ') + '\n')
+            
             stderr_redir.close()
 
         # Avoid double ups, add the new one at the front
@@ -592,6 +607,7 @@ def main(cont):
 
     own = cont.owner
     sens = cont.sensors['any_key']
+    global bge_log
     
     if sens.positive :
 
@@ -610,9 +626,20 @@ def main(cont):
             #bcon.AddScrollback('\n'*10)
             bcon.AddScrollback(__doc__, MESSGS_COLOR)
             now = datetime.now()
-            print(Fore.YELLOW + "# BGE Console started")
-            print(now.strftime("# session of %Y %m %d, %A at %H:%M"))
-            print("# On file %s\n" % __file__[:-10] + Fore.RESET)
+            if '<bge_console_log>' not in bpy.data.texts:
+                bge_log = bpy.data.texts.new('<bge_console_log>')
+            else:
+                bge_log = bpy.data.texts['<bge_console_log>']
+                bge_log.clear()
+            
+            print(Fore.YELLOW + "# BGE Console started", file=stream)
+            print(now.strftime("# session of %Y %m %d, %A at %H:%M"), file=stream)
+            print("# On file %s\n" % __file__[:-10], file=stream)
+            
+            bge_log.write("# BGE Console started\n")
+            bge_log.write(now.strftime("# session of %Y %m %d, %A at %H:%M\n"))
+            bge_log.write("# On file %s\n\n" % __file__[:-10])
+            
 
         try:
             # Draw the text!

@@ -148,10 +148,21 @@ class BreakpointShortcut(object):
         else:
             caller_file = frame.f_code.co_filename
         script = path.basename(caller_file)    
-        try:
+        # aqui abajo pueden surgir bugs a futuro.
+        # bpy.data.texts.keys() =>
+        # ['__init__.py', '__init__.py.001', ...]
+        if script in bpy.data.texts:
             dbg_code = bpy.data.texts[script].as_string()
-        except:
+        elif path.isfile(caller_file):
             dbg_code = open(caller_file).read()
+        elif caller_file == '<blender_console>':
+            return '# cannot breakpoint interactive console...'
+        else:
+            dbg_code = '# cannot get code...'
+        #try:
+        #    dbg_code = bpy.data.texts[script].as_string()
+        #except:
+        #    dbg_code = open(caller_file).read()
         frame.f_globals['_MODULE_SOURCE_CODE'] = dbg_code
 
         dbg = _get_debugger()
