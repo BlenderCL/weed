@@ -10,7 +10,7 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
@@ -19,11 +19,11 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-# bl_info = {
+#bl_info = {
 #     "name": "API Navigator",
 #     "author": "Dany Lebel (Axon_D)",
 #     "version": (1, 0, 2),
-#     "blender": (2, 57, 0),
+#     "blender": (2, 80, 0),
 #     "location": "Text Editor > Properties > API Navigator Panel",
 #     "description": "Allows exploration of the python api via the user interface",
 #     "warning": "",
@@ -124,7 +124,7 @@ def evaluate(module):
 
 def get_tree_level():
     # print('get_tree_level')
-    prefs = bpy.context.user_preferences.addons['weed'].preferences
+    prefs = bpy.context.preferences.addons['weed'].preferences
     path = prefs.anp_path
 
     def object_list():
@@ -193,7 +193,7 @@ def parent(path):
 def update_filter():
     """Update the filter according to the current path"""
     global filter_mem
-    prefs = bpy.context.user_preferences.addons['weed'].preferences
+    prefs = bpy.context.preferences.addons['weed'].preferences
 
     try:
         prefs.anp_filter = filter_mem[prefs.anp_path]
@@ -217,7 +217,7 @@ def isiterable(mod):
 
 def fill_filter_mem():
     global filter_mem
-    prefs = bpy.context.user_preferences.addons['weed'].preferences
+    prefs = bpy.context.preferences.addons['weed'].preferences
 
     filter = prefs.anp_filter
     if filter:
@@ -235,7 +235,7 @@ class ApiNavigator():
     def generate_global_values():
         """Populate the level attributes to display the panel buttons and the documentation"""
         global tree_level, current_module, module_type, return_report, last_text
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
 
         try:
             text = bpy.context.space_data.text
@@ -268,7 +268,7 @@ class ApiNavigator():
     def generate_api_doc():
         """Format the doc string for API Navigator"""
         global current_module, api_doc_, return_report, module_type
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
         path = prefs.anp_path
         doc = current_module.__doc__
 
@@ -281,7 +281,7 @@ class ApiNavigator():
 
 
 def api_update(context):
-    prefs = bpy.context.user_preferences.addons['weed'].preferences
+    prefs = bpy.context.preferences.addons['weed'].preferences
     if prefs.anp_path != prefs.anp_old_path:
         fill_filter_mem()
         prefs.anp_old_path = prefs.anp_path
@@ -306,7 +306,7 @@ class BackToBpy(ApiNavigator, bpy.types.Operator):
 
     def execute(self, context):
         fill_filter_mem()
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
 
         if not prefs.anp_path:
             prefs.anp_old_path = prefs.anp_path = 'bpy'
@@ -321,11 +321,11 @@ class Down(ApiNavigator, bpy.types.Operator):
     """go to this Module"""
     bl_idname = "weed.api_navigator_down"
     bl_label = "API Navigator Down"
-    pointed_module = bpy.props.StringProperty(name='Current Module', default='')
+    pointed_module: bpy.props.StringProperty(name='Current Module', default='')
 
     def execute(self, context):
         fill_filter_mem()
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
 
         if not prefs.anp_path:
             prefs.anp_old_path = prefs.anp_path = prefs.anp_path + self.pointed_module
@@ -343,7 +343,7 @@ class Parent(ApiNavigator, bpy.types.Operator):
     bl_label = "API Navigator Parent"
 
     def execute(self, context):
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
         path = prefs.anp_path
 
         if path:
@@ -358,15 +358,16 @@ class Subscript(ApiNavigator, bpy.types.Operator):
     """Subscript to this Item"""
     bl_idname = "weed.api_navigator_subscript"
     bl_label = "API Navigator Subscript"
-    subscription = bpy.props.StringProperty(name='', default='')
+    subscription: bpy.props.StringProperty(name='', default='')
 
     def execute(self, context):
         fill_filter_mem()
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
         prefs.anp_old_path = prefs.anp_path = prefs.anp_path + '[' + self.subscription + ']'
         update_filter()
         self.generate_global_values()
         return {'FINISHED'}
+
 
 class ClearFilter(ApiNavigator, bpy.types.Operator):
     """Clear the filter"""
@@ -374,7 +375,7 @@ class ClearFilter(ApiNavigator, bpy.types.Operator):
     bl_label = 'API Nav clear filter'
 
     def execute(self, context):
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
         prefs.anp_filter = ''
         return {'FINISHED'}
 
@@ -392,12 +393,12 @@ class SelectModule(ApiNavigator, bpy.types.Menu):
              emboss=True).subscription = '\"' + obj + '\"'",
         1 : "col.operator('weed.api_navigator_subscript', text=str(obj)[:30],\
              emboss=True).subscription = str(i)",
-        8 : "col.label(obj[:30])"
+        8 : "col.label(text=obj[:30])"
     }
 
     def draw(self, context):
         global tree_level, current_module, module_type, return_report
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
         layout = self.layout
         text_filter = prefs.anp_filter
         split = layout.split()
@@ -423,7 +424,7 @@ class PopupApiNavigator(ApiNavigator, bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def __init__(self):
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
         modules_types = [
             (0, "Items", "DOTSDOWN"),
             (1, "Item Values", "DOTSDOWN"),
@@ -443,14 +444,13 @@ class PopupApiNavigator(ApiNavigator, bpy.types.Operator):
             module.icon = icon
 
 
-
     def draw(self, context):
         global tree_level, current_module, module_type, return_report, api_doc_
-        prefs = bpy.context.user_preferences.addons['weed'].preferences
+        prefs = bpy.context.preferences.addons['weed'].preferences
 
         layout = self.layout
         box = layout.box()
-        split = box.split(percentage=0.7)
+        split = box.split(factor=0.7)
         split.prop(prefs, 'anp_path', text='', icon='OOPS')
         row = split.row(align=True)
         row.operator('weed.api_navigator_parent',
@@ -458,7 +458,7 @@ class PopupApiNavigator(ApiNavigator, bpy.types.Operator):
         row.operator('weed.api_navigator_back_to_bpy',
                        text='back to bpy', icon='BACK')
 
-        split = box.split(percentage=0.85)
+        split = box.split(factor=0.85)
         row = split.row(align=True)
         for module in prefs.submodules:
             if tree_level[module.level].__len__():
@@ -473,9 +473,9 @@ class PopupApiNavigator(ApiNavigator, bpy.types.Operator):
         col = layout.column(align=True)
         try:
             for line in api_doc_.splitlines():
-                col.label(line)
+                col.label(text=line)
         except:
-            col.label('Empty:::')
+            col.label(text='Empty:::')
 
     def check(self, context):
         return True
@@ -488,29 +488,31 @@ class PopupApiNavigator(ApiNavigator, bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=700)
 
 
-# registro automatico de modulos.
+## registro automatico de modulos.
 
-# def register():
-#     bpy.utils.register_class(Update)
-#     bpy.utils.register_class(BackToBpy)
-#     bpy.utils.register_class(Down)
-#     bpy.utils.register_class(Parent)
-#     bpy.utils.register_class(Subscript)
-#     bpy.utils.register_class(ClearFilter)
-#     bpy.utils.register_class(SelectModule)
-#     bpy.utils.register_class(PopupApiNavigator)
-
-
-# def unregister():
-#     bpy.utils.unregister_class(PopupApiNavigator)
-#     bpy.utils.unregister_class(SelectModule)
-#     bpy.utils.unregister_class(ClearFilter)
-#     bpy.utils.unregister_class(Subscript)
-#     bpy.utils.unregister_class(Parent)
-#     bpy.utils.unregister_class(Down)
-#     bpy.utils.unregister_class(BackToBpy)
-#     bpy.utils.unregister_class(Update)
+#def register():
+#    bpy.utils.register_class(Update)
+#    bpy.utils.register_class(BackToBpy)
+#    bpy.utils.register_class(Down)
+#    bpy.utils.register_class(Parent)
+#    bpy.utils.register_class(Subscript)
+#    bpy.utils.register_class(ClearFilter)
+#    bpy.utils.register_class(SelectModule)
+#    bpy.utils.register_class(PopupApiNavigator)
 
 
-# if __name__ == '__main__':
-#     register()
+#def unregister():
+#    bpy.utils.unregister_class(PopupApiNavigator)
+#    bpy.utils.unregister_class(SelectModule)
+#    bpy.utils.unregister_class(ClearFilter)
+#    bpy.utils.unregister_class(Subscript)
+#    bpy.utils.unregister_class(Parent)
+#    bpy.utils.unregister_class(Down)
+#    bpy.utils.unregister_class(BackToBpy)
+#    bpy.utils.unregister_class(Update)
+
+
+#if __name__ == '__main__':
+#    register()
+
+##unregister()
