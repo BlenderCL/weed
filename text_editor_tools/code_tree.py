@@ -5,7 +5,7 @@ def draw_code_tree_box(self, context, layout):
     col = layout.column(align=False)
     row = col.row(align=False)
     row.prop(get_addon_preferences(), 'user_site_packages',
-             icon = 'RECOVER_AUTO', text = '')
+             icon = 'RECOVER_LAST', text = '')
     selector = row.row(align=True)
     selector.prop(context.scene, 'explorer_root_folder', text='')
     selector.operator('weed.open_addon_menu',
@@ -77,3 +77,4 @@ class WEED_OT_ViewCodeTree(bpy.types.Operator):
 
 # def unregister():
 #     bpy.utils.unregister_class(WEED_OT_ViewCodeTree)
+
