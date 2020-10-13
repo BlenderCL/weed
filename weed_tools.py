@@ -7,7 +7,7 @@ import subprocess
 import addon_utils
 from bpy.props import *
 from os import listdir, sep
-from os.path import isfile, isdir, join, split, dirname, basename
+from os.path import isfile, isdir, join, split, dirname, basename, exists
 from shutil import rmtree
 from collections import defaultdict
 from bpy.app.handlers import persistent
@@ -309,6 +309,7 @@ class WeedToolsPanel(bpy.types.Panel):
                 layout.label('Global:')
                 for site in site.getsitepackages():
                     self.draw_directory(layout, site + sep)
+                self.draw_directory(layout, split(site)[0] + sep)
 
     def draw_directory(self, layout, directory):
         if not self.is_directory_visible(directory):
@@ -501,7 +502,7 @@ class WeedToolsPanel(bpy.types.Panel):
 
 
 def get_addon_preferences():
-    addon_path_name = os.path.basename(os.path.dirname(__file__))
+    addon_path_name = basename(dirname(__file__))
     addon = bpy.context.user_preferences.addons.get(addon_path_name)
     if addon is None:
         return None
@@ -857,7 +858,7 @@ class DeleteDirectory(bpy.types.Operator):
         return context.window_manager.invoke_confirm(self, event)
 
     def execute(self, context):
-        if os.path.exists(self.directory):
+        if exists(self.directory):
             rmtree(self.directory, ignore_errors=True, onerror=None)
         context.area.tag_redraw()
         return {"FINISHED"}
@@ -867,15 +868,15 @@ def new_addon_file(path, default = ""):
     new_file(get_current_addon_path() + path, default)
 
 def new_file(path, default = ""):
-    dirname = os.path.dirname(path)
+    dirname = dirname(path)
     new_directory(dirname)
-    if not os.path.exists(path):
+    if not exists(path):
         file = open(path, "a")
         file.write(default)
         file.close()
 
 def new_directory(path):
-    if not os.path.exists(path):
+    if not exists(path):
         os.makedirs(path)
 
 
@@ -1367,7 +1368,7 @@ def save_status():
 
 @persistent
 def open_status(scene):
-    if os.path.exists(restart_data_path):
+    if exists(restart_data_path):
         file = open(restart_data_path)
         lines = file.readlines()
         file.close()
@@ -1399,7 +1400,7 @@ def get_current_filepath():
     except: return ""
 
 def current_addon_exists():
-    return os.path.exists(get_current_addon_path()) and get_addon_name() != ""
+    return exists(get_current_addon_path()) and get_addon_name() != ""
 
 def get_current_addon_path():
     path_name = join(addons_path, get_addon_name())
@@ -1418,7 +1419,7 @@ def get_addon_name():
 
 #def save_text_block(text_block):
 #    if not text_block: return
-#    if not os.path.exists(text_block.filepath): return
+#    if not exists(text_block.filepath): return
 
 #    file = open(text_block.filepath, mode = "w")
 #    file.write(text_block.as_string())
@@ -1426,7 +1427,7 @@ def get_addon_name():
 
 def save_text_block(text_block):
     if not text_block: return
-    if not os.path.exists(text_block.filepath): return
+    if not exists(text_block.filepath): return
 
     bpy.context.space_data.text = text_block
     bpy.ops.text.save()

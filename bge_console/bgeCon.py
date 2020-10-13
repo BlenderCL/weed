@@ -45,7 +45,7 @@ def register_draw(cont):
                    'text' : '' }
                         for x in range(29) ]
     # welcome message                                
-    logic.rows[0]['text'] = 'Press [Super] (win-key) to start BGE Console'
+    logic.rows[0]['text'] = 'Press any key to start BGE Console'
     print()
 
 
@@ -605,7 +605,7 @@ def main(cont):
                                                 own['repeat_timer'],
                                                 own['repeat_delay'])
 
-        elif 181 in list(zip(*sens.events))[0]: #magia
+        else: # if 181 in list(zip(*sens.events))[0]: #magia
             bcon = logic.__console__ = BgeConsole(cont)
             #bcon.AddScrollback('\n'*10)
             bcon.AddScrollback(__doc__, MESSGS_COLOR)

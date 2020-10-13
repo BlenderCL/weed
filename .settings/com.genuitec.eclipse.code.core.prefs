@@ -1,0 +1,4 @@
+customPatterns=true
+customValidation=true
+eclipse.preferences.version=1
+patternsRemoved=*.pyi,

@@ -140,72 +140,20 @@ class BreakpointShortcut(object):
     def here(self):
         #"#""Print the local variables in the caller's frame."#""
         import inspect
-        frame = inspect.currentframe()
-        import pudb
-        pu.db
+        frame = inspect.currentframe().f_back
+
+        if ('__file__' in frame.f_locals
+                and frame.f_locals['__file__']):
+            caller_file = frame.f_locals['__file__']
+        else:
+            caller_file = frame.f_code.co_filename
+        script = path.basename(caller_file)    
         try:
-            caller_file = frame.f_back.f_code.co_filename
-            script = path.basename(caller_file)    
             dbg_code = bpy.data.texts[script].as_string()
         except:
-            caller_file = frame.f_back.f_code.co_filename
-            #caller_file = frame.f_back.f_locals['__file__']
-            script = path.basename(caller_file)    
             dbg_code = open(caller_file).read()
-        frame.f_back.f_globals['_MODULE_SOURCE_CODE'] = dbg_code
-#         try:
-#             #caller_file = frame.f_back.f_locals['__file__']
-#             caller_file = frame.f_back.f_code.co_filename
-#         except:
-#             caller_file = '# no code'
-#             print('fail to get __file__')
-#         # def get_code(filepath):
-#         # import bpy, os.path
-#         try:
-#             import bge
-#             if hasattr(bge, 'is_fake'):
-#                 #print('# bge fake')
-#                 in_game = False
-#             else:
-#                 #print('# bge real')
-#                 in_game = True
-#         except ImportError:
-#             #print('# bge not present')
-#             in_game = False
-#         if in_game:
-#             import bge
-#             script = bge.logic.getCurrentController().script
-#             if len(script.splitlines()) == 1:
-#                 #print('# bge module type controller call')
-#                 script = script[:script.find('.')] + '.py'
-#                 dbg_code = bpy.data.texts[script].as_string()
-#             else:
-#                 #print('# bge script type controller call')
-#                 dbg_code = script
-#         else:
-#             try:
-#                 #print('# script open in collection bpy.data.texts')
-#                 #script = path.basename(caller_file)
-#                 dbg_code = bpy.data.texts[script].as_string()
-#             except:
-#                 #print('# read script from disk')
-#                 try:
-#                     caller_file = frame.f_back.f_locals['__file__']
-#                     dbg_code = open(caller_file).read()
-#                 except:
-#                     dbg_code = '# no code passed yet!..'
-#             # if hasattr(bpy, 'data') and hasattr(bpy.data, 'texts'):
-#             #     print('# commonly [alt]-[p] regular blender script')
-#             #     script = os.path.basename(caller_file)
-#             #     return bpy.data.texts[script].as_string()
-#             # else:
-#             #     print('# inside restricted, like register addon')
-#             #     return open(caller_file).read()
+        frame.f_globals['_MODULE_SOURCE_CODE'] = dbg_code
 
-        #cache[caller_file] = (len(dbg_code), 0,
-        #                            dbg_code,
-        #                            caller_file)
-        # import sys
         dbg = _get_debugger()
         
         # del inspect frame
