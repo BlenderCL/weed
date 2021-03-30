@@ -8,8 +8,9 @@ def weed_menu(self, context):
 def icon_get_menu(self, context):
     # iv.icons_show
     layout = self.layout
-    layout.operator('iv.icons_show', text=' get icon ID', icon='IMAGE_DATA')
-
+    layout.operator_context = 'INVOKE_DEFAULT'
+    icon_show = layout.operator('iv.icons_show', text='get icon ID', icon='IMAGE_DATA')
+    # icon_show.instance = icon_show
 
 class WEED_MT_main_menu(bpy.types.Menu):
     bl_label = 'Weed Menu'
@@ -20,6 +21,14 @@ class WEED_MT_main_menu(bpy.types.Menu):
 
     def draw(self, context):
         layout = self.layout
+
+
+class WEED_PT_main_panel(bpy.types.Panel):
+    bl_space_type = "TEXT_EDITOR"
+    bl_region_type = "UI"
+    bl_label = "Weed IDE"
+    bl_category = "Weed"
+    bl_options = {'DEFAULT_CLOSED'}
 
 def register():
     bpy.utils.register_class(WEED_MT_main_menu)

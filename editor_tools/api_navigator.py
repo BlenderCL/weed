@@ -94,6 +94,8 @@ prev_filter = ''
 
 prev_path = ''
 
+def prefs():
+    return bpy.context.preferences.addons['weed'].preferences.props_api_nav
 
 # class SubmoduleGroup(bpy.types.PropertyGroup):
 #     level: IntProperty()
@@ -170,14 +172,7 @@ def evaluate(module):
 
 
 def get_tree_level():
-    # print('get_tree_level')
-    # global api_nav
-    # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-    addons = bpy.context.preferences.addons
-    if not addons.get('weed'):
-        return
-    api_nav = addons['weed'].preferences.props_api_nav
-
+    api_nav = prefs()
     def object_list():
         # print('object_list')
         global current_module, root_m_path
@@ -244,13 +239,7 @@ def parent(path):
 def update_filter():
     """Update the filter according to the current path"""
     global filter_mem
-    # global api_nav
-    #api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-    addons = bpy.context.preferences.addons
-    if not addons.get('weed'):
-        return
-    api_nav = addons['weed'].preferences.props_api_nav
-
+    api_nav = prefs()
     try:
         api_nav.api_filter = filter_mem[api_nav.path]
     except:
@@ -273,13 +262,7 @@ def isiterable(mod):
 
 def fill_filter_mem():
     global filter_mem
-    # global api_nav
-    #api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-    addons = bpy.context.preferences.addons
-    if not addons.get('weed'):
-        return
-    api_nav = addons['weed'].preferences.props_api_nav
-
+    api_nav = prefs()
     if api_nav.api_filter:
         filter_mem[api_nav.old_path] = api_nav.api_filter
     else:
@@ -295,12 +278,7 @@ class ApiNavigator():
     def generate_global_values():
         """Populate the level attributes to display the panel buttons and the documentation"""
         global tree_level, current_module, module_type, return_report, last_text
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
 
         try:
             text = bpy.context.space_data.text
@@ -333,12 +311,7 @@ class ApiNavigator():
     def generate_api_doc():
         """Format the doc string for API Navigator"""
         global current_module, api_doc_, return_report, module_type
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
 
         api_doc_ = "Module: %s\nType: %s\nReturn: %s\n%s\n%s" % \
                    (api_nav.path, 
@@ -353,13 +326,7 @@ class ApiNavigator():
 
 
 def api_update(context):
-    # global api_nav
-    # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-    addons = bpy.context.preferences.addons
-    if not addons.get('weed'):
-        return
-    api_nav = addons['weed'].preferences.props_api_nav
-
+    api_nav = prefs()
     if api_nav.path != api_nav.old_path:
         fill_filter_mem()
         api_nav.old_path = api_nav.path
@@ -384,12 +351,7 @@ class WEED_OT_api_nav_back_to_bpy(ApiNavigator, bpy.types.Operator):
 
     def execute(self, context):
         fill_filter_mem()
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return {'CANCELLED'}
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
 
         api_nav.old_path = api_nav.path = 'bpy'
         # if not api_nav.path:
@@ -409,12 +371,7 @@ class WEED_OT_api_nav_down(ApiNavigator, bpy.types.Operator):
 
     def execute(self, context):
         fill_filter_mem()
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return {'CANCELLED'}
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
 
         if not api_nav.path:
             api_nav.old_path = api_nav.path = api_nav.path + self.pointed_module
@@ -432,12 +389,7 @@ class WEED_OT_api_nav_parent(ApiNavigator, bpy.types.Operator):
     bl_label = "API Navigator Parent"
 
     def execute(self, context):
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return {'CANCELLED'}
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
 
         if api_nav.path:
             fill_filter_mem()
@@ -455,12 +407,7 @@ class WEED_OT_api_nav_subscript(ApiNavigator, bpy.types.Operator):
 
     def execute(self, context):
         fill_filter_mem()
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return {'CANCELLED'}
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
 
         api_nav.old_path = api_nav.path = api_nav.path + '[' + self.subscription + ']'
         update_filter()
@@ -473,13 +420,7 @@ class WEED_OT_api_nav_clear_filter(ApiNavigator, bpy.types.Operator):
     bl_label = 'API Nav clear filter'
 
     def execute(self, context):
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return {'CANCELLED'}
-        api_nav = addons['weed'].preferences.props_api_nav
-
+        api_nav = prefs()
         api_nav.api_filter = ''
         return {'FINISHED'}
 
@@ -506,12 +447,7 @@ class WEED_MT_api_nav_select_module(ApiNavigator, bpy.types.Menu):
 
     def draw(self, context):
         global tree_level, current_module, module_type, return_report
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return 
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
 
         layout = self.layout
         text_filter = api_nav.api_filter
@@ -538,12 +474,7 @@ class WEED_OT_api_nav_popup(ApiNavigator, bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def __init__(self):
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
         if len(api_nav.submodules):
             return
         modules_types = [
@@ -563,18 +494,13 @@ class WEED_OT_api_nav_popup(ApiNavigator, bpy.types.Operator):
             module.name = name
             module.icon = icon
 
-    @classmethod
-    def poll(cls, context):
-        return context.preferences.addons.get('weed')
+    # @classmethod
+    # def poll(cls, context):
+    #     return context.preferences.addons.get('weed')
 
     def draw(self, context):
         global tree_level, current_module, module_type, return_report, api_doc_
-        # global api_nav
-        # api_nav = bpy.context.preferences.addons['weed'].preferences.props_weed_api_nav
-        addons = bpy.context.preferences.addons
-        if not addons.get('weed'):
-            return
-        api_nav = addons['weed'].preferences.props_api_nav
+        api_nav = prefs()
 
         layout = self.layout
         box = layout.box()
@@ -634,8 +560,10 @@ def register():
     bpy.utils.register_class(WEED_OT_api_nav_clear_filter)
     bpy.utils.register_class(WEED_OT_api_nav_popup)
     bpy.types.TEXT_MT_view.append(api_menu)
+    bpy.types.TEXT_MT_context_menu.append(api_menu)
 
 def unregister():
+    bpy.types.TEXT_MT_context_menu.remove(api_menu)
     bpy.types.TEXT_MT_view.remove(api_menu)
     bpy.utils.unregister_class(WEED_OT_api_nav_popup)
     bpy.utils.unregister_class(WEED_OT_api_nav_clear_filter)

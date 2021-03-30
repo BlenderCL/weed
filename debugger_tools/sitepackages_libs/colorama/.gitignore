@@ -1,4 +1,0 @@
-# .gitignores python
-**/*.pyc
-**/__pycache__/
-**/.vscode
