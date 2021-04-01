@@ -33,7 +33,7 @@ else:
     from weed.editor_tools import (
         api_navigator,
         # code_editor,
-        # code_tree,
+        code_tree,
         # find_replace,
         # icons_get
         )
@@ -44,6 +44,7 @@ modules = (
     bge_console_manager,
     pudb_wrapper,
     api_navigator,
+    code_tree
     # icons_get
 )
 
