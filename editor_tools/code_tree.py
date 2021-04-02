@@ -13,17 +13,16 @@ def timer(func, *args, delay=0, init=False):
     #                   { line_n : ('name', 'type', 'indnt', 'open', 'low_limit', 'upper_limit') } }
 class CodeTreeManager(dict):
     __slots__ = ('__dict__',)
-
+    _ptrn = re.compile('(class|def|import|from)\s([^\s\(:]+)([^:]+)?')
 
     class CodeTreeNode(object):
-        __slots__ = ('code', 'code_type', 'indnt', 'expanded', 'low_limit', 'upper_limit')
+        __slots__ = ('code', 'code_type', 'indnt', 'expanded', 'upper_limit')
 
         def __init__(self, code, code_type, indnt = 0, expanded = None):
             self.code = code
             self.code_type = code_type
             self.indnt = indnt
             self.expanded = expanded
-            self.low_limit = 0
             self.upper_limit = 0
 
         def __repr__(self):
@@ -31,14 +30,12 @@ class CodeTreeManager(dict):
                     f"code_type:{self.code_type}, "
                     f"indnt:{self.indnt}, "
                     f"expanded:{self.expanded}, "
-                    f"low_limit:{self.low_limit}, "
                     f"upper_limit:{self.upper_limit})")
 
 
     def __init__(self):
         super(__class__, self).__init__()
         self.__dict__ = self
-        self.indent_with = 4 # bpy.context.space_data.tab_width
 
     def gcollect(self):
         act_txts = {f"code_tree_{txt.as_pointer()}" for txt in bpy.data.texts}
@@ -56,51 +53,58 @@ class CodeTreeManager(dict):
         handle = self.get(handle_id)
 
         if (not handle
-                or handle[-1] != len(context.edit_text.lines)):
+                or handle['total_lines'] != len(context.edit_text.lines)):
             self.gcollect()  # remove closed code_trees
             self[handle_id] = handle = self.build_code_tree(context)
             context.area.tag_redraw()
         return handle
 
     def build_code_tree(self, context):
-        ptrn = re.compile('(class|def|import|from)\s([^\s\(:]+)([^:]+)?')
-
-        # code_tree = { "context.space_data.text.as_pointer" :
-        #                   { line_n : ('name', 'type', 'indnt', 'open', 'low_limit', 'upper_limit') } }
-        code_tree = { -1 : len(context.edit_text.lines),
-                       0 : self.CodeTreeNode('imports', 'imports', 0, False) }
+        return_obj = { 'total_lines' : len(context.edit_text.lines),
+                       'tree' : { -1 : self.CodeTreeNode('imports', 'imports', 0, False) }
+        }
+        code_tree = return_obj['tree']
         prev_code_tree = self.get(f"code_tree_{context.edit_text.as_pointer()}")
-        self.indent_with = bpy.context.space_data.tab_width
+        indent_width = bpy.context.space_data.tab_width
+        class_def_finded = False
 
-        first_match = True
         for ln, line in enumerate(context.edit_text.lines):
             code = line.body.lstrip()
-            indnt = int((len(line.body) - len(code)) / self.indent_with)
-            match = re.match(ptrn, code)
-            last_match = sorted(code_tree.keys())[-1]
-            ln += 1
+            indnt = int((len(line.body) - len(code)) / indent_width)
+            match = re.match(self._ptrn, code)
+            last_match = list(code_tree)[-1]
             if match:
                 if (match.group(1) == 'import'
                      or match.group(1) == 'from'):
-                    code_tree[ln] = self.CodeTreeNode(code, 'import', 1, None)
+                    if not class_def_finded:
+                        code_tree[ln] = self.CodeTreeNode(code, 'import', indnt+1, None)
+                    else:
+                        code_tree[ln] = self.CodeTreeNode(code, 'import', indnt, None)
+                        if code_tree[last_match].code_type is not 'import':
+                            code_tree[last_match].expanded = False
+
                 else:    
-                    if (not first_match
-                         and  indnt > code_tree[last_match].indnt):
+                    class_def_finded = True
+                    if indnt > code_tree[last_match].indnt:
                         if (prev_code_tree
                             and prev_code_tree.get(ln)
                             and code == prev_code_tree.get(ln).code):
                             code_tree[last_match].expanded = prev_code_tree.get(ln).expanded
                         else:
                             code_tree[last_match].expanded = False
-
+                    # else:
+                    #     code_tree[last_match].upper_limit = ln 
                     code_tree[ln] = self.CodeTreeNode(match.group(2), match.group(1), indnt, None)
-                    code_tree[last_match].low_limit = ln
-                    first_match = False
 
-
-            code_tree[last_match].upper_limit = ln + 1
-
-        return code_tree            
+        lines_matched = list(code_tree.keys())
+        # breakpoint.here
+        for i, ln in enumerate(lines_matched):
+            code_tree[ln].upper_limit = return_obj['total_lines']
+            for ln_nxt in lines_matched[i+1:]:
+                if code_tree[ln].indnt >= code_tree[ln_nxt].indnt:
+                    code_tree[ln].upper_limit = ln_nxt - 1
+                    break
+        return return_obj            
 
 
 # handle keyboard events in text editor to update
@@ -150,6 +154,9 @@ class WEED_OT_code_tree_jump(bpy.types.Operator):
         if self.do_nothing:
             return {'CANCELLED'}
 
+        if self.line == 0:
+            bpy.ops.text.move(type='FILE_TOP')
+            return {'FINISHED'}
         if self.last_line:
             self.line = self.last_line
         if context.area.spaces[0].text.lines[self.line - 1].body:
@@ -167,7 +174,7 @@ class WEED_OT_code_tree_jump(bpy.types.Operator):
             context.space_data.use_match_case = oldcase
 
         self.last_line = 0
-        context.scene.CodeNavLineNum = self.line
+        #context.scene.CodeNavLineNum = self.line
         return {'FINISHED'}
 
 
@@ -185,9 +192,113 @@ class WEED_OT_code_tree_expand(bpy.types.Operator):
 
     def execute(self, context):
         handle_id = f"code_tree_{context.edit_text.as_pointer()}"
-        code_tree = bpy.types.Text.code_tree_manager[handle_id]
+        code_tree = bpy.types.Text.code_tree_manager[handle_id]['tree']
         code_tree[self.line].expanded = not code_tree[self.line].expanded
         return {"FINISHED"}
+
+def draw_code_tree_panel(self, context):
+    wm = context.window_manager
+    layout = self.layout
+    icons = {      'imports' : 'OUTLINER_OB_GROUP_INSTANCE',
+              'imports_open' : 'GROUP',
+                    'import' : 'ASSET_MANAGER',
+                  'expanded' : 'DISCLOSURE_TRI_DOWN',
+                    'closed' : 'DISCLOSURE_TRI_RIGHT',
+                     'class' : 'PACKAGE',
+                'class_open' : 'UGLYPACKAGE',
+                       'def' : 'LAYER_ACTIVE', 
+                  'def_open' : 'LAYER_USED'
+            }
+
+    col = layout.column(align=True)
+    col.alignment = 'LEFT'
+    col.label(icon = 'FILE_TEXT', text = context.space_data.text.name)
+    col.separator()
+    #col.template_ID(context.space_data, "text")
+
+    subnode_closed = False
+    node_indnt = 0
+    active = getattr(bpy.context.space_data, "text", None)
+
+    handle_id = f"code_tree_{context.edit_text.as_pointer()}"
+    ctm = bpy.types.Text.code_tree_manager
+    if not ctm.get(handle_id):
+        ctm.gcollect()  # remove closed code_trees
+        ctm[handle_id] = ctm.build_code_tree(context)
+        # context.area.tag_redraw() # maybe to an tab UI
+
+    # >>> for i, (ln, o) in enumerate(sorted(c.items())[1:]):
+    # ...     print(i, ln, o)
+    for ln, code_tree_node in ctm[handle_id]['tree'].items():
+        if subnode_closed and code_tree_node.indnt > node_indnt:
+            continue
+        if code_tree_node.expanded and ln == active.current_line_index:
+            col2 = col.box()
+        elif (not code_tree_node.expanded and
+            ln <= active.current_line_index <= code_tree_node.upper_limit):
+            col2 = col.box()
+        else:
+            col2 = col
+        if code_tree_node.indnt > 0:
+            indent = col2.split(factor=(0.03 + code_tree_node.indnt * 0.01) * code_tree_node.indnt)
+            indent.label(text='')
+            row = indent.row(align=True)
+        else:
+            row = col2.row(align=True)
+        row.alignment = 'LEFT'
+        if code_tree_node.expanded is not None:
+            tggl = row.operator("weed.code_tree_expand",
+                                text = '',
+                                icon = icons['expanded']
+                                    if code_tree_node.expanded
+                                    else icons['closed'],
+                                emboss = False)
+            tggl.line = ln
+            if code_tree_node.expanded:
+                subnode_closed = False
+            else:
+                subnode_closed = True
+            node_indnt = code_tree_node.indnt
+        else:
+            #row.label(text = '', icon = 'NONE')
+            row.operator("weed.code_tree_expand",
+                            text = '',
+                            icon = 'BLANK1',
+                            emboss = False)
+        icon = code_tree_node.code_type + ('_open'
+                                            if code_tree_node.expanded
+                                            else '')
+        prop = row.operator('weed.code_tree_jump',
+                            text = code_tree_node.code,
+                            icon = icons[icon],
+                            emboss = False)
+        prop.line = ln + 1
+
+
+class WEED_OT_code_tree_popup(bpy.types.Operator):
+    bl_idname = "weed.code_tree_popup"
+    bl_label = "Code Tree popup"
+    bl_description = "Code Tree"
+    # bl_property = "filter_auto_focus"
+
+    draw = draw_code_tree_panel
+
+    def close(self):
+        bpy.context.window.screen = bpy.context.window.screen
+
+    def check(self, context):
+        return True
+
+    def cancel(self, context):
+        print('canceled')
+
+    def execute(self, context):
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(
+            self, width=250)
+
 
 
 class WEED_PT_code_tree(bpy.types.Panel):
@@ -200,81 +311,15 @@ class WEED_PT_code_tree(bpy.types.Panel):
     # @classmethod
     # def poll(cls, context):
     #     return True
+    draw = draw_code_tree_panel
 
-    def draw(self, context):
-        wm = context.window_manager
-        layout = self.layout
-
-        icons = { 'imports' : 'OUTLINER_OB_GROUP_INSTANCE',
-                  'imports_open' : 'GROUP',
-                  'import' : 'OUTLINER_OB_GROUP_INSTANCE',
-                  'expanded' : 'TRIA_DOWN',
-                  'closed' : 'TRIA_RIGHT',
-                  'class' : 'PACKAGE', 'class_open' : 'UGLYPACKAGE',
-                  'def' : 'RADIOBUT_ON', 'def_open' : 'RADIOBUT_OFF'}
-        #layout.operator_context = 'EXEC_DEFAULT'
-        col = layout.column(align=True)
-        col.alignment = 'LEFT'
-        col.label(icon = 'FILE_TEXT', text = context.space_data.text.name)
-        col.separator()
-        #col.template_ID(context.space_data, "text")
-
-        subnode_closed = False
-        node_indnt = 0
-        active = getattr(bpy.context.space_data, "text", None)
-
-        handle_id = f"code_tree_{context.edit_text.as_pointer()}"
-        ctm = bpy.types.Text.code_tree_manager
-        if not ctm.get(handle_id):
-            ctm.gcollect()  # remove closed code_trees
-            ctm[handle_id] = ctm.build_code_tree(context)
-            # context.area.tag_redraw() # maybe to an tab UI
-
-        # >>> for i, (ln, o) in enumerate(sorted(c.items())[1:]):
-        # ...     print(i, ln, o)
-        for i, (ln, code_tree_node) in enumerate(sorted(ctm[handle_id].items())[1:]):
-            if subnode_closed and code_tree_node.indnt > node_indnt:
-                continue
-            if code_tree_node.low_limit <= active.current_line_index < code_tree_node.upper_limit:
-                col2 = col.box()
-            else:
-                col2 = col
-            if code_tree_node.indnt > 0:
-                indent = col2.split(factor=(0.03 + code_tree_node.indnt * 0.01) * code_tree_node.indnt)
-                indent.label(text='')
-                row = indent.row(align=True)
-            else:
-                row = col2.row(align=True)
-            row.alignment = 'LEFT'
-            if code_tree_node.expanded is not None:
-                tggl = row.operator("weed.code_tree_expand",
-                                 text = '',
-                                 icon = icons['expanded']
-                                        if code_tree_node.expanded
-                                        else icons['closed'],
-                                 emboss = False)
-                tggl.line = ln
-                if code_tree_node.expanded:
-                    subnode_closed = False
-                else:
-                    subnode_closed = True
-                node_indnt = code_tree_node.indnt
-            else:
-                #row.label(text = '', icon = 'NONE')
-                row.operator("weed.code_tree_expand",
-                             text = '',
-                             icon = 'BLANK1',
-                             emboss = False)
-            icon = code_tree_node.code_type + ('_open'
-                                             if code_tree_node.expanded
-                                             else '')
-            prop = row.operator('weed.code_tree_jump',
-                                text = code_tree_node.code,
-                                icon = icons[icon],
-                                emboss = False)
-            prop.line = ln
-
-
+def code_tree_menu(self, context):
+    layout = self.layout
+    layout.operator_context = 'INVOKE_DEFAULT'
+    layout.operator('weed.code_tree_popup',
+                    text='popup Code Tree',
+                    icon='OUTLINER')
+    layout.separator()
 
 
 classes = (
@@ -282,6 +327,7 @@ classes = (
     WEED_OT_code_tree_event_catcher,
     WEED_OT_code_tree_jump,
     WEED_OT_code_tree_expand,
+    WEED_OT_code_tree_popup,
     WEED_PT_code_tree
 )
 
@@ -294,6 +340,8 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    bpy.types.TEXT_MT_view.append(code_tree_menu)
+    bpy.types.TEXT_MT_context_menu.append(code_tree_menu)
     # TEXT_HT_header.append(CodeEditorPrefs.add_to_header)
 
     kc = bpy.context.window_manager.keyconfigs.addon.keymaps
@@ -310,6 +358,8 @@ def unregister():
         km.keymap_items.remove(kmi)
     del register.keymaps
 
+    bpy.types.TEXT_MT_context_menu.remove(code_tree_menu)
+    bpy.types.TEXT_MT_view.remove(code_tree_menu)
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
