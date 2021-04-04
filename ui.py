@@ -41,7 +41,7 @@ def register():
 def unregister():
     bpy.types.TEXT_MT_view.remove(weed_menu)
     bpy.types.TEXT_MT_context_menu.remove(weed_menu)
-    bpy.utils.unregister_class(WEED_MT_MainMenu)
+    bpy.utils.unregister_class(WEED_MT_main_menu)
     if bpy.context.preferences.addons.get('development_icon_get'):
         bpy.types.TEXT_MT_context_menu.remove(icon_get_menu)
         bpy.types.TEXT_MT_view.remove(icon_get_menu)

@@ -95,7 +95,7 @@ class BreakpointShortcut(object):
         # down here in code, can come up bugs in a near future ;) .
         # bpy.data.texts.keys() -->
         # ['__init__.py', '__init__.py.001', ...]
-        if script in bpy.data.texts:
+        if hasattr(bpy.data, 'texts') and script in bpy.data.texts:
             dbg_code = bpy.data.texts[script].as_string()
         elif path.isfile(caller_file):
             dbg_code = open(caller_file).read()

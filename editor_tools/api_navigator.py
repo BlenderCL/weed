@@ -544,35 +544,36 @@ class WEED_OT_api_nav_popup(ApiNavigator, bpy.types.Operator):
 def api_menu(self, context):
     layout = self.layout
     layout.operator_context = 'INVOKE_DEFAULT'
-    layout.operator(WEED_OT_api_nav_popup.bl_idname,
-                    text='popup API navigator',
+    layout.operator('weed.api_nav_popup',
+                    text='API navigator',
                     icon='OUTLINER')
-    layout.separator()
+    # layout.separator()
+
+classes = (
+    WEED_MT_api_nav_select_module,
+    WEED_OT_api_nav_parent,
+    WEED_OT_api_nav_update,
+    WEED_OT_api_nav_back_to_bpy,
+    WEED_OT_api_nav_down,
+    WEED_OT_api_nav_subscript,
+    WEED_OT_api_nav_clear_filter,
+    WEED_OT_api_nav_popup
+)
 
 # registro explicito de modulos.
 def register():
-    bpy.utils.register_class(WEED_MT_api_nav_select_module)
-    bpy.utils.register_class(WEED_OT_api_nav_parent)
-    bpy.utils.register_class(WEED_OT_api_nav_update)
-    bpy.utils.register_class(WEED_OT_api_nav_back_to_bpy)
-    bpy.utils.register_class(WEED_OT_api_nav_down)
-    bpy.utils.register_class(WEED_OT_api_nav_subscript)
-    bpy.utils.register_class(WEED_OT_api_nav_clear_filter)
-    bpy.utils.register_class(WEED_OT_api_nav_popup)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
     bpy.types.TEXT_MT_view.append(api_menu)
     bpy.types.TEXT_MT_context_menu.append(api_menu)
+    bpy.types.TEXT_HT_footer.prepend(api_menu)
 
 def unregister():
     bpy.types.TEXT_MT_context_menu.remove(api_menu)
     bpy.types.TEXT_MT_view.remove(api_menu)
-    bpy.utils.unregister_class(WEED_OT_api_nav_popup)
-    bpy.utils.unregister_class(WEED_OT_api_nav_clear_filter)
-    bpy.utils.unregister_class(WEED_OT_api_nav_subscript)
-    bpy.utils.unregister_class(WEED_OT_api_nav_down)
-    bpy.utils.unregister_class(WEED_OT_api_nav_back_to_bpy)
-    bpy.utils.unregister_class(WEED_OT_api_nav_update)
-    bpy.utils.unregister_class(WEED_OT_api_nav_parent)
-    bpy.utils.unregister_class(WEED_MT_api_nav_select_module)
-    # bpy.utils.unregister_class(SubmoduleGroup)
-    # bpy.utils.unregister_class(PropsApiNav)
+    bpy.types.TEXT_HT_footer.remove(api_menu)
+
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
