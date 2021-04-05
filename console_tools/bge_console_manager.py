@@ -123,8 +123,6 @@ class DettachBgeConsole(bpy.types.Operator):
         sce_collections = bpy.context.scene.collection.children
         if '!BgeCon' in sce_collections.keys():
                 sce_collections.unlink(bpy.data.collections['!BgeCon'])
-        else:
-            pass        
         return {'FINISHED'}
 
 
@@ -138,11 +136,8 @@ class AttachBgeConsole(bpy.types.Operator):
         bgecon = bpy.data.collections.get('!BgeCon')
         sce_collection = bpy.context.scene.collection.children
         # Avoid duplicates
-        if bgecon:
-            if '!BgeCon' not in sce_collection.keys():
-                sce_collection.link(bpy.data.collections['!BgeCon'])
-            else:
-                pass
+        if bgecon and '!BgeCon' not in sce_collection.keys():
+            sce_collection.link(bpy.data.collections['!BgeCon'])
         else:
             createBgeCon()        
         return {'FINISHED'}

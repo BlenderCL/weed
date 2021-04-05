@@ -51,6 +51,14 @@ class PropsIconsGet(bpy.types.PropertyGroup):
         default='n')    # 'n' value just for trigger at first time
 
 
+class PropsFindReplace(bpy.types.PropertyGroup):
+
+    find_replace_toggle : BoolProperty(
+        name = 'show find footer',
+        default = False,
+        description = 'Show Find and Replace footer panel')
+
+
 class WeedPreferences(bpy.types.AddonPreferences):
     bl_idname = 'weed'
 
@@ -58,6 +66,8 @@ class WeedPreferences(bpy.types.AddonPreferences):
     props_api_nav: PointerProperty(type=PropsApiNav)
     # icon get dialog props 'icg'
     props_icons_get: PointerProperty(type=PropsIconsGet)
+    # find-replace props 'fr'
+    props_find_replace: PointerProperty(type=PropsFindReplace)
     # code editor props 'coed'
     # coed_last_text: StringProperty(name='last_text', default='')
 
@@ -67,11 +77,13 @@ def register():
     bpy.utils.register_class(SubmoduleGroup)
     bpy.utils.register_class(PropsApiNav)
     bpy.utils.register_class(PropsIconsGet)
+    bpy.utils.register_class(PropsFindReplace)
     bpy.utils.register_class(WeedPreferences)
  
  
 def unregister():
     bpy.utils.unregister_class(WeedPreferences)
+    bpy.utils.unregister_class(PropsFindReplace)
     bpy.utils.unregister_class(PropsIconsGet)
     bpy.utils.unregister_class(PropsApiNav)
     bpy.utils.unregister_class(SubmoduleGroup)

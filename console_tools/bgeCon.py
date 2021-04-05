@@ -327,7 +327,7 @@ class BgeConsole:
             self.removePopup()
             self.doing_autocomplete = False
         elif (self.is_multiline and
-            self.edit_text[:self.cur].lstrip() is ''):
+            self.edit_text[:self.cur].lstrip() == ''):
             # multiline with chars left to the cursor
             # are spaces. Do indents            
             if 'shft' in hold:

@@ -18,9 +18,9 @@ if "bpy" in locals():
     importlib.reload(bge_console_manager)
     importlib.reload(pudb_wrapper)
     importlib.reload(api_navigator)
+    importlib.reload(find_replace_extended)
     # importlib.reload(code_editor)
     # importlib.reload(code_tree)
-    # importlib.reload(find_replace)
     # importlib.reload(icons_get)
 
 else:
@@ -32,9 +32,9 @@ else:
          
     from weed.editor_tools import (
         api_navigator,
-        # code_editor,
         code_tree,
-        # find_replace,
+        find_replace_extended,
+        # code_editor,
         # icons_get
         )
 
@@ -44,7 +44,8 @@ modules = (
     bge_console_manager,
     pudb_wrapper,
     api_navigator,
-    code_tree
+    code_tree,
+    find_replace_extended,
     # icons_get
 )
 

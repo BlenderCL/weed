@@ -44,6 +44,7 @@ class CodeTreeManager(dict):
         act_txts = {f"code_tree_{txt.as_pointer()}" for txt in bpy.data.texts}
         for code_tree in (*self.keys(),):
             if code_tree not in act_txts:
+                print(f'4.- gcollect eliminando {code_tree}')
                 del self[code_tree]
 
     def nuke(self):
@@ -54,15 +55,17 @@ class CodeTreeManager(dict):
             return None
         handle_id = f"code_tree_{context.edit_text.as_pointer()}"
         handle = self.get(handle_id)
-
+        print('2.-update code tree')
         if (not handle
                 or handle['total_lines'] != len(context.edit_text.lines)):
+            print('3.-detectada diferencia')
             self.gcollect()  # remove closed code_trees
             self[handle_id] = handle = self.build_code_tree(context)
             context.area.tag_redraw()
         return handle
 
     def build_code_tree(self, context):
+        print('5.-build code tree')
         return_obj = { 'total_lines' : len(context.edit_text.lines),
                        'tree' : { -1 : self.CodeTreeNode('imports', 'imports', 0, False) }
         }
@@ -111,17 +114,19 @@ class CodeTreeManager(dict):
         return return_obj            
 
 
-# handle keyboard events in text editor to update
-class WEED_OT_code_tree_textinput_event(bpy.types.Operator):
-    bl_idname = "weed.code_tree_textinput_event"
+# handle events in text editor to update code tree
+class WEED_OT_code_tree_event(bpy.types.Operator):
+    bl_idname = "weed.code_tree_event"
     bl_label = "Text Input"
     bl_options = {'INTERNAL'}
 
     @classmethod
     def poll(cls, context):
         if getattr(context, 'edit_text', False):
+            print('0.-en el contexto adecuado')
             event = WEED_OT_code_tree_event_catcher(context.window)
             if event:
+                print('1.-evento capturado')
                 #breakpoint.here
                 bpy.types.Text.code_tree_manager.update_code_tree(context)
 
@@ -165,17 +170,21 @@ class WEED_OT_code_tree_jump(bpy.types.Operator):
             self.line = self.last_line
         if context.area.spaces[0].text.lines[self.line - 1].body:
             oldfind = context.area.spaces[0].find_text
-            oldwrap = bpy.context.space_data.use_find_wrap
-            oldcase = bpy.context.space_data.use_match_case
-            context.space_data.use_find_wrap = True
+            oldcase = context.space_data.use_match_case
+            oldwrap = context.space_data.use_find_wrap
+            oldall  = context.space_data.use_find_all
             context.space_data.use_match_case = True
+            context.space_data.use_find_wrap = True
+            context.space_data.use_find_all = False
+            
             while context.area.spaces[0].text.current_line_index+1 != self.line:
                 context.area.spaces[0].find_text = context.area.spaces[0].text.lines[self.line - 1].body
                 bpy.ops.text.find()
 
             context.area.spaces[0].find_text = oldfind
-            context.space_data.use_find_wrap = oldwrap
             context.space_data.use_match_case = oldcase
+            context.space_data.use_find_wrap = oldwrap
+            context.space_data.use_find_all = oldall
 
         self.last_line = 0
         #context.scene.CodeNavLineNum = self.line
@@ -329,7 +338,7 @@ def code_tree_menu(self, context):
 
 
 classes = (
-    WEED_OT_code_tree_textinput_event,
+    WEED_OT_code_tree_event,
     WEED_OT_code_tree_event_catcher,
     WEED_OT_code_tree_jump,
     WEED_OT_code_tree_expand,
@@ -354,7 +363,7 @@ def register():
     kc = bpy.context.window_manager.keyconfigs.addon.keymaps
     km = kc.get('Text', kc.new('Text', space_type='TEXT_EDITOR'))
     new = km.keymap_items.new
-    kmi1 = new('weed.code_tree_textinput_event', 'TEXTINPUT', 'ANY', head=True)
+    kmi1 = new('weed.code_tree_event', 'ACTIONZONE_AREA', 'ANY', head=True) # TEXTINPUT
 
     register.keymaps = ((km, kmi1),)
 

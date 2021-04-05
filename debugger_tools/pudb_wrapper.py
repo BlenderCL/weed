@@ -1,19 +1,15 @@
+import bpy
 import sys
-from os import path
 from os import path, listdir, access, W_OK
 from shutil import copytree, rmtree
 from . checksumdir import dirhash
 from site import getsitepackages, getusersitepackages
-import builtins
-import bpy
 
 # Ultimate all proof breakpoint with validation
-# exec('try:breakpoint.here\nexcept:print("# weed breakpoint lefted here")')
+# >>> breakpoint.here if 'breakpoint' in __builtins__.__dict__ else None
 # get lost in the scope
 breakpoint_text = 'breakpoint.here\n'
 find_breakpoint = 'breakpoint.here'
-#breakpoint_text = "exec('try:breakpoint.here\\nexcept:pass')\n"
-#find_breakpoint = "exec('try:breakpoint.here"
 
 
 CURRENT_DEBUGGER = []
@@ -44,7 +40,6 @@ def _install_low_level_libs():
     # of pudb_wrapper, install python low level libraries
     #############################################################
     # register with the proper site_package folder (*md5sum tal vez?)
-    # definir mecanismo, no reinstalar estas librerias cada vez...
     md5_hashes = {
             'bpython'  : 'a8071668c3e8f4932d35ca43476336a3',
             'colorama' : '3743e16974a48b497ed64312987f8949',
@@ -149,12 +144,19 @@ class SearchBreakpoint(bpy.types.Operator):
         return context.space_data.type == 'TEXT_EDITOR'
 
     def execute(self, context):
-        sd = context.space_data
-        sd.find_text = find_breakpoint
-        sd.use_find_all = True
+        old_find = context.area.spaces[0].find_text
+        old_case = context.space_data.use_match_case
+        old_wrap = context.space_data.use_find_wrap
+        old_all  = context.space_data.use_find_all
+
+        context.space_data.find_text = find_breakpoint
+        context.space_data.use_match_case = True
+        context.space_data.use_find_wrap = True
+        context.space_data.use_find_all = True
+        
         try:
             bpy.ops.text.find()
-            if sd.text.current_line_index:
+            if context.space_data.text.current_line_index:
                 bpy.ops.text.move(type='LINE_BEGIN')
                 bpy.ops.text.move_select(type = 'NEXT_LINE')
         except RuntimeError:
@@ -162,6 +164,10 @@ class SearchBreakpoint(bpy.types.Operator):
         except IndexError:
             self.report({'INFO'}, 'It seems that is an empty text')
         finally:
+            context.area.spaces[0].find_text = old_find
+            context.space_data.use_match_case = old_case
+            context.space_data.use_find_wrap = old_wrap
+            context.space_data.use_find_all = old_all
             return {'FINISHED'}
 
 
@@ -180,7 +186,7 @@ def pudb_menu(self, context):
 
 def register():
     _install_low_level_libs()
-    builtins.__dict__["breakpoint"] = BreakpointShortcut()
+    __builtins__["breakpoint"] = BreakpointShortcut()
     bpy.utils.register_class(InsertBreakpoint)
     bpy.utils.register_class(SearchBreakpoint)
     bpy.types.WEED_MT_main_menu.append(pudb_menu)
@@ -190,8 +196,10 @@ def unregister():
     bpy.utils.unregister_class(SearchBreakpoint)
     bpy.utils.unregister_class(InsertBreakpoint)
     try:
-        builtins.__dict__.pop("breakpoint")
+        __builtins__.pop("breakpoint")
     except KeyError:
         self.report({'INFO'}, 'breakpoint caller, already removed from builtins')
+
+    
 
 
