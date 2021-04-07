@@ -1,4 +1,5 @@
 import bpy
+from bpy.props import IntProperty
 import re
 
 
@@ -117,8 +118,8 @@ class WEED_OT_code_tree_jump(bpy.types.Operator):
     'Go to line and select in text editor'
     bl_idname = 'weed.code_tree_jump'
     bl_label = 'Jump Here'
-    line: bpy.props.IntProperty()
-    last_line: bpy.props.IntProperty()
+    line: IntProperty()
+    last_line: IntProperty()
 
     def execute(self, context):
         if self.line == 0:
@@ -154,7 +155,7 @@ class WEED_OT_code_tree_expand(bpy.types.Operator):
     bl_description = ""
     bl_options = {"REGISTER", "INTERNAL"}
 
-    line : bpy.props.IntProperty(name = "line", default = 0)
+    line : IntProperty(name = "line", default = 0)
 
     def execute(self, context):
         handle_id = context.edit_text.as_pointer()
@@ -229,6 +230,7 @@ def draw_code_tree_panel(self, context):
                             icon = icons[icon],
                             emboss = False)
         prop.line = ln + 1
+    layout.separator()
 
 
 class WEED_OT_code_tree_popup(bpy.types.Operator):
@@ -265,7 +267,8 @@ class WEED_PT_code_tree(bpy.types.Panel):
     bl_region_type = "UI"
     bl_label = "Code Tree"
     bl_category = "Weed"
-    bl_options = {'DRAW_BOX'}
+    bl_options = {'HEADER_LAYOUT_EXPAND'}
+    # bl_options = {'DRAW_BOX'}
 
     @classmethod
     def poll(cls, context):

@@ -12,72 +12,51 @@ bl_info = {
     "category": "Development",
 }
 
+#import bpy
+from bpy.props import *
+
+_modules = [
+#  active,  has_prefs, 'module',        'path'
+    (True,  False,     'ui',            ''),
+    (True,  False,     'bge_console',   '.console_tools'),
+    (True,  False,     'pudb_wrapper',  '.debugger_tools'),
+    (True,  True,      'api_navigator', '.editor_tools'),
+    (True,  False,     'code_tree',     '.editor_tools'),
+    (True,  True,      'find_replace',  '.editor_tools'),
+    (False, False,     'code_editor',   '.editor_tools'),
+    (False, False,     'icons_get',     '.editor_tools')
+]
+
 if "bpy" in locals():
     import importlib
-    importlib.reload(prefs)
-    importlib.reload(bge_console_manager)
-    importlib.reload(pudb_wrapper)
-    importlib.reload(api_navigator)
-    importlib.reload(find_replace_extended)
-    # importlib.reload(code_editor)
-    # importlib.reload(code_tree)
-    # importlib.reload(icons_get)
+    for active, has_prefs, module, path in _modules:
+        if active:
+            exec(f"importlib.reload({module})")
 
 else:
-    from weed import prefs, ui
-    
-    from weed.console_tools import bge_console_manager
-    
-    from weed.debugger_tools import pudb_wrapper
-         
-    from weed.editor_tools import (
-        api_navigator,
-        code_tree,
-        find_replace_extended,
-        # code_editor,
-        # icons_get
-        )
+    import bpy
+    for active, has_prefs, module, path in _modules:
+        if active:
+            exec(f"from weed{path} import {module}")
 
-modules = (
-    prefs,
-    ui,
-    bge_console_manager,
-    pudb_wrapper,
-    api_navigator,
-    code_tree,
-    find_replace_extended,
-    # icons_get
-)
+
+# from bpy.types import AddonPreferences
+class WeedPreferences(bpy.types.AddonPreferences):
+    bl_idname = 'weed'
+
+    for active, has_prefs, module, path in _modules:
+        if active and has_prefs:
+            exec(f"{module}: PointerProperty(type={module}.Preferences)")
+
 
 def register():
-    for mod in modules:
-        mod.register()
+    for active, has_prefs, module, path in _modules:
+        if active:
+            exec(f"{module}.register()")
+    bpy.utils.register_class(WeedPreferences)
 
 def unregister():  # note how unregistering is done in reverse
-    for mod in reversed(modules):
-        mod.unregister()
-
-
-# def _call_globals(attr_name):
-#     for m in globals().values():
-#         if hasattr(m, attr_name):
-#             getattr(m, attr_name)()
-
-
-# def register():
-#     _call_globals("register")
-
-
-# def unregister():
-#     _call_globals("unregister")
-
-# import bpy
-
-# classes = (
-#     prefs,
-#     bge_console_manager,
-#     pudb_wrapper,
-#     # api_navigator,
-#     icons_get
-# )
-# register, unregister = bpy.utils.register_classes_factory(classes)
+    bpy.utils.unregister_class(WeedPreferences)
+    for active, has_prefs, module, path in reversed(_modules):
+        if active:
+            exec(f"{module}.unregister()")

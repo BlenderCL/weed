@@ -95,51 +95,45 @@ prev_filter = ''
 prev_path = ''
 
 def prefs():
-    return bpy.context.preferences.addons['weed'].preferences.props_api_nav
-
-# class SubmoduleGroup(bpy.types.PropertyGroup):
-#     level: IntProperty()
-#     name: StringProperty()
-#     icon: StringProperty()
+    return bpy.context.preferences.addons['weed'].preferences.api_navigator
 
 
-# class PropsApiNav(bpy.types.PropertyGroup):
+class ApiNavModule(bpy.types.PropertyGroup):
+    level: IntProperty()
+    name: StringProperty()
+    icon: StringProperty()
 
-#     path: StringProperty(
-#         name='path',
-#         description='Enter bpy.ops.api_navigator to see the documentation',
-#         default='bpy')
+
+class Preferences(bpy.types.PropertyGroup):
+
+    path: StringProperty(
+        name='path',
+        description='Enter bpy.ops.api_navigator to see the documentation',
+        default='bpy')
     
-#     old_path: StringProperty(
-#         name='old_path', 
-#         default='')
+    old_path: StringProperty(
+        name='old_path', 
+        default='')
     
-#     api_filter: StringProperty(
-#         name='filter',
-#         description='Filter the resulting modules', 
-#         default='')
+    api_filter: StringProperty(
+        name='filter',
+        description='Filter the resulting modules', 
+        default='')
     
-#     reduce_to: IntProperty(
-#         name='Reduce to ',
-#         description='Display a maximum number of x entries by pages',
-#         default=10, 
-#         min=1)
+    reduce_to: IntProperty(
+        name='Reduce to ',
+        description='Display a maximum number of x entries by pages',
+        default=10, 
+        min=1)
     
-#     pages: IntProperty(
-#         name='Pages',
-#         description='Display a Page', 
-#         default=0, 
-#         min=0)
+    pages: IntProperty(
+        name='Pages',
+        description='Display a Page', 
+        default=0, 
+        min=0)
 
-#     submodules: CollectionProperty(type=SubmoduleGroup)
+    submodules: CollectionProperty(type=ApiNavModule)
 
-
-# bpy.utils.register_class(SubmoduleGroup)
-# bpy.utils.register_class(PropsApiNav)
-
-# bpy.types.WindowManager.props_weed_api_nav = bpy.props.PointerProperty(type=PropsApiNav)
-
-# api_nav = bpy.context.window_manager.props_weed_api_nav
 
 ############   Functions   ############
 
@@ -367,7 +361,7 @@ class WEED_OT_api_nav_down(ApiNavigator, bpy.types.Operator):
     """go to this Module"""
     bl_idname = "weed.api_nav_down"
     bl_label = "API Navigator Down"
-    pointed_module: bpy.props.StringProperty(name='Current Module', default='')
+    pointed_module: StringProperty(name='Current Module', default='')
 
     def execute(self, context):
         fill_filter_mem()
@@ -403,7 +397,7 @@ class WEED_OT_api_nav_subscript(ApiNavigator, bpy.types.Operator):
     """Subscript to this Item"""
     bl_idname = "weed.api_nav_subscript"
     bl_label = "API Navigator Subscript"
-    subscription: bpy.props.StringProperty(name='', default='')
+    subscription: StringProperty(name='', default='')
 
     def execute(self, context):
         fill_filter_mem()
@@ -530,6 +524,7 @@ class WEED_OT_api_nav_popup(ApiNavigator, bpy.types.Operator):
                 col.label(text=line)
         except:
             col.label(text='Empty:::')
+        layout.separator()
 
     def check(self, context):
         return True
@@ -550,6 +545,8 @@ def api_menu(self, context):
     # layout.separator()
 
 classes = (
+    ApiNavModule,
+    Preferences,
     WEED_MT_api_nav_select_module,
     WEED_OT_api_nav_parent,
     WEED_OT_api_nav_update,

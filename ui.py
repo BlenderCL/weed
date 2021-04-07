@@ -16,11 +16,10 @@ def icon_get_menu(self, context):
     icon_show = layout.operator('iv.icons_show', text='get icon ID', icon='IMAGE_DATA')
     # icon_show.instance = icon_show
 
+
 class WEED_MT_main_menu(bpy.types.Menu):
     bl_label = 'Weed Menu'
-    # bl_idname = 'OBJECT_MT_custom_menu'
     bl_idname = 'WEED_MT_main_menu'
-    # bl_idname = 'weed.main_menu'
     bl_options = {'REGISTER'}
 
     def draw(self, context):
@@ -32,10 +31,16 @@ class WEED_PT_main_panel(bpy.types.Panel):
     bl_region_type = "UI"
     bl_label = "Weed IDE"
     bl_category = "Weed"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {'HEADER_LAYOUT_EXPAND'}
+    # bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+
 
 def register():
     bpy.utils.register_class(WEED_MT_main_menu)
+    bpy.utils.register_class(WEED_PT_main_panel)
     bpy.types.TEXT_MT_context_menu.append(weed_menu)
     bpy.types.TEXT_MT_view.append(weed_menu)
     bpy.types.TEXT_HT_footer.append(footer_spacer)
@@ -52,6 +57,7 @@ def unregister():
     bpy.types.TEXT_HT_footer.remove(footer_spacer)
     bpy.types.TEXT_MT_view.remove(weed_menu)
     bpy.types.TEXT_MT_context_menu.remove(weed_menu)
+    bpy.utils.unregister_class(WEED_PT_main_panel)
     bpy.utils.unregister_class(WEED_MT_main_menu)
 
 

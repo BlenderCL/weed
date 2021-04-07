@@ -10,9 +10,20 @@
 # }
 
 import bpy
+from bpy.props import BoolProperty
 
+# declares function to weed preferences
+# before preferences exist
 def prefs():
-    return bpy.context.preferences.addons['weed'].preferences.props_find_replace
+    return bpy.context.preferences.addons['weed'].preferences.find_replace
+
+
+class Preferences(bpy.types.PropertyGroup):
+
+    find_replace_toggle : BoolProperty(
+        name = 'show find footer',
+        default = False,
+        description = 'Show Find and Replace footer panel')
 
 
 class WEED_OT_find_replace_popup(bpy.types.Operator):
@@ -62,28 +73,11 @@ class WEED_OT_find_replace_popup(bpy.types.Operator):
 
         layout.separator()
 
-    # def check(self, context):
-    #     return True
-
     def execute(self, context):
-        # try:
-        #     if self.find_hack:
-        #         bpy.ops.text.find()
-        #     elif self.replace_hack:
-        #         bpy.ops.text.replace()
-        #     elif self.replace_all_hack:
-        #         bpy.ops.text.replace().all = True
-        # except:
-        #     self.report({'WARNING'}, 'Not Found')
-        # self.find_hack = False
-        # self.replace_hack = False
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        # try:
         bpy.ops.text.find_set_selected()
-        # except:
-        #     pass
         return context.window_manager.invoke_props_dialog(self, width=400)
 
 
@@ -123,19 +117,10 @@ def draw_find_replace(self, context):
             row.scale_x = 0.6
         
             
-
-# def find_replace_menu(self, context):
-#     layout = self.layout
-#     layout.operator_context = 'INVOKE_DEFAULT'
-#     layout.operator('weed.find_replace_popup',
-#                     text='Find',
-#                     icon='VIEWZOOM')
-
-
 def register():
+    bpy.utils.register_class(Preferences)
     bpy.utils.register_class(WEED_OT_find_replace_popup)
     bpy.types.TEXT_HT_footer.prepend(draw_find_replace)
-    # bpy.types.TEXT_HT_footer.prepend(find_replace_menu)
 
     kc = bpy.context.window_manager.keyconfigs
     if kc.addon:
@@ -150,6 +135,7 @@ def unregister():
         kmi = km.keymap_items['weed.find_replace_popup']
         km.keymap_items.remove(kmi)
 
-    # bpy.types.TEXT_HT_footer.remove(find_replace_menu)
     bpy.types.TEXT_HT_footer.remove(draw_find_replace)
     bpy.utils.unregister_class(WEED_OT_find_replace_popup)
+    bpy.utils.unregister_class(Preferences)
+
