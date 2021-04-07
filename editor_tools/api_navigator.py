@@ -567,7 +567,7 @@ def register():
 
     bpy.types.TEXT_MT_view.append(api_menu)
     bpy.types.TEXT_MT_context_menu.append(api_menu)
-    bpy.types.TEXT_HT_footer.prepend(api_menu)
+    bpy.types.TEXT_HT_footer.append(api_menu)
 
 def unregister():
     bpy.types.TEXT_MT_context_menu.remove(api_menu)

@@ -2,7 +2,7 @@ __doc__ = '''
 ╔══════════════════════════════╦═══════════════════════════════════════════════╗
 ║ ░▒▓█ BGE Console REBORN █▓▒░ ║   Upgraded and improved for:    Blender 2.7x  ║
 ╠═════════════════════════════╦╝─────────────────────────────────── Python 3.x ║
-║                             ║      [up]/[down] : History                     ║
+║  obj = active object        ║      [up]/[down] : History                     ║
 ║  sce = current scene        ║    [CTRL][space] : special chars.              ║
 ║ cont = current controller   ║            [TAB] : Indent/Autocomplete         ║
 ╚═════════════════════════════╩════════════════════════════════════════════════╝
@@ -73,11 +73,14 @@ def draw_console_gl():
 
 def extended_namespace(cont):
     '''namespace plus logic, sce, cont, own'''
+    bpy_obj = bpy.context.view_layer.objects.active.name
+    cur_sce = logic.getCurrentScene()
     namespace = locals()
-    namespace.update({ 'logic':logic,
-                       'sce':logic.getCurrentScene(),
-                       'cont':cont,
-                       'own':cont.owner })
+    namespace.update({ 'logic' : logic,
+                         'sce' : cur_sce,
+                        'cont' : cont,
+                         'obj' : cur_sce.objects[bpy_obj]
+                    })
     return namespace
 
 def is_delimiter(ch):
@@ -599,7 +602,6 @@ class BgeConsole:
 
 
 def main(cont):
-
     own = cont.owner
     sens = cont.sensors['any_key']
     global bge_log
