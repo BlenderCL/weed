@@ -124,7 +124,10 @@ prefs_classes = (
 def register(prefs=True):
     if prefs:
         for cls in prefs_classes:
-            bpy.utils.register_class(cls)
+            try:
+                bpy.utils.register_class(cls)
+            except:
+                pass
 
     bpy.utils.register_class(WEED_OT_find_replace_popup)
     bpy.types.TEXT_HT_footer.prepend(draw_find_replace)

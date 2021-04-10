@@ -24,6 +24,8 @@ class WEED_MT_main_menu(bpy.types.Menu):
 
     def draw(self, context):
         layout = self.layout
+        layout.label(text='Weed tools')
+        layout.separator()
 
 
 class WEED_PT_main_panel(bpy.types.Panel):

@@ -564,7 +564,10 @@ classes = (
 def register(prefs=True):
     if prefs:
         for cls in prefs_classes:
-            bpy.utils.register_class(cls)
+            try:
+                bpy.utils.register_class(cls)
+            except:
+                pass
 
     for cls in classes:
         bpy.utils.register_class(cls)

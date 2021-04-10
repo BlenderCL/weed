@@ -96,15 +96,17 @@ class WeedPreferences(bpy.types.AddonPreferences):
         for module, path, has_prefs in _modules:
             draw_generator = f"""
                 if hasattr(self, "{module}_enabled"):
-                    box = col.box()
-                    box.prop(self, "{module}_enabled")
-                    subbox = box.box()
+                    mod_pref = col.split(factor=0.2)
+                    mod_pref.prop(self, "{module}_enabled")
+                    subbox = mod_pref.box()
                     if {has_prefs} and hasattr(self,'{module}') and hasattr(self.{module}, 'draw'):
                         self.{module}.draw(subbox)
                     else:
                         subbox.label(text="module {module} doesn't have an attribute panel")
                 else:
                     subbox.label(text="module {module} disabled")
+                subbox.enabled = self.{module}_enabled
+                col.separator()
             """
             exec(cleandoc(draw_generator))
 
@@ -122,8 +124,12 @@ def register():
     for module, path, has_prefs in _modules:
         # if active: # and eval(f"{module} in prefs"):
         execute_code = f"""
-            if not {has_prefs} and not prefs.{module}_enabled:
-                {module}.unregister()     
+            if not prefs.{module}_enabled:
+                if {has_prefs}:
+                    {module}.unregister(prefs=False)     
+                else:
+                    {module}.unregister()     
+
         """
         exec(cleandoc(execute_code))
 

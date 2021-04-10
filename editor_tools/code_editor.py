@@ -1245,7 +1245,7 @@ def set_draw(state=True):
             return timer(set_draw, delay=1e-3)
         set_draw._handle = st.draw_handler_add(
             draw_callback_px, (bpy.context,), 'WINDOW', 'POST_PIXEL')
-    else:
+    elif hasattr(set_draw, '_handle'):
         st.draw_handler_remove(set_draw._handle, 'WINDOW')
         del set_draw._handle
 
@@ -1305,12 +1305,17 @@ def register(prefs=True):
 
     if prefs:
         for cls in prefs_classes:
-            register_class(cls)
+            try:
+                bpy.utils.register_class(cls)
+            except:
+                pass
 
     for cls in classes:
         register_class(cls)
 
     Screen.code_editors = bpy.props.CollectionProperty(type=CE_PG_settings)
+    # for w in bpy.context.window_manager.windows:
+    #     w.screen.code_editors.clear()
     # TEXT_HT_header.append(Preferences.add_to_header)
 
     kc = bpy.context.window_manager.keyconfigs.addon.keymaps
@@ -1340,7 +1345,6 @@ def unregister(prefs=True):
 
     for w in bpy.context.window_manager.windows:
         w.screen.code_editors.clear()
-    del bpy.types.Screen.code_editors
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
@@ -1348,4 +1352,5 @@ def unregister(prefs=True):
     if prefs:
         for cls in reversed(prefs_classes):
             bpy.utils.unregister_class(cls)
+        del bpy.types.Screen.code_editors
     
