@@ -116,9 +116,16 @@ def draw_find_replace(self, context):
             row.prop(st, "use_find_all", text="All", toggle=True)  # all
             row.scale_x = 0.6
         
-            
-def register():
-    bpy.utils.register_class(Preferences)
+
+prefs_classes = (
+    Preferences,
+)
+
+def register(prefs=True):
+    if prefs:
+        for cls in prefs_classes:
+            bpy.utils.register_class(cls)
+
     bpy.utils.register_class(WEED_OT_find_replace_popup)
     bpy.types.TEXT_HT_footer.prepend(draw_find_replace)
 
@@ -128,7 +135,7 @@ def register():
         km.keymap_items.new('weed.find_replace_popup',
                             'F', 'PRESS', ctrl=True, shift=True)
 
-def unregister():
+def unregister(prefs=True):
     kc = bpy.context.window_manager.keyconfigs
     if kc.addon:
         km = kc.addon.keymaps['Text']
@@ -137,5 +144,8 @@ def unregister():
 
     bpy.types.TEXT_HT_footer.remove(draw_find_replace)
     bpy.utils.unregister_class(WEED_OT_find_replace_popup)
-    bpy.utils.unregister_class(Preferences)
 
+    if prefs:
+        for cls in reversed(prefs_classes):
+            bpy.utils.unregister_class(cls)
+    

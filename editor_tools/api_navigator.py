@@ -543,10 +543,12 @@ def api_menu(self, context):
                     text='API navigator',
                     icon='OUTLINER')
     # layout.separator()
+prefs_classes = (
+    ApiNavModule,
+    Preferences
+)
 
 classes = (
-    ApiNavModule,
-    Preferences,
     WEED_MT_api_nav_select_module,
     WEED_OT_api_nav_parent,
     WEED_OT_api_nav_update,
@@ -558,7 +560,12 @@ classes = (
 )
 
 # registro explicito de modulos.
-def register():
+# con **kwargs para registrar o no las preferencias
+def register(prefs=True):
+    if prefs:
+        for cls in prefs_classes:
+            bpy.utils.register_class(cls)
+
     for cls in classes:
         bpy.utils.register_class(cls)
 
@@ -566,11 +573,16 @@ def register():
     bpy.types.TEXT_MT_context_menu.append(api_menu)
     bpy.types.TEXT_HT_footer.append(api_menu)
 
-def unregister():
+def unregister(prefs=True):
     bpy.types.TEXT_MT_context_menu.remove(api_menu)
     bpy.types.TEXT_MT_view.remove(api_menu)
     bpy.types.TEXT_HT_footer.remove(api_menu)
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+
+    if prefs:
+        for cls in reversed(prefs_classes):
+            bpy.utils.unregister_class(cls)
+
 

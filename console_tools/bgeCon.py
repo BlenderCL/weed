@@ -73,14 +73,15 @@ def draw_console_gl():
 
 def extended_namespace(cont):
     '''namespace plus logic, sce, cont, own'''
-    bpy_obj = bpy.context.view_layer.objects.active.name
-    cur_sce = logic.getCurrentScene()
+    obj = bpy.context.view_layer.objects.active.name
+    sce = logic.getCurrentScene()
     namespace = locals()
     namespace.update({ 'logic' : logic,
-                         'sce' : cur_sce,
+                        # 'sce' : cur_sce,
                         'cont' : cont,
-                         'obj' : cur_sce.objects[bpy_obj]
+                         'obj' : sce.objects[obj]
                     })
+    
     return namespace
 
 def is_delimiter(ch):

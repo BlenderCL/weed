@@ -1,6 +1,8 @@
 import bpy
 from os import path
 
+
+
 def createBgeCon():
     if 'bgeCon.py' not in bpy.data.texts:
         bgeCon_file = path.normpath(path.dirname(__file__) + path.sep + 'bgeCon.py')
@@ -100,6 +102,13 @@ class RemoveBgeConsole(bpy.types.Operator):
     bl_label = "Remove Bge Console from actual blend file."
     bl_options = {'REGISTER', 'INTERNAL'}
 
+    gameengine = True if (hasattr(bpy.app.build_options, 'gameengine')
+                            and bpy.app.build_options.gameengine) else False
+
+    @classmethod
+    def poll(self, context):
+        return self.gameengine
+
     def execute(self, context):
         bgecon_txt = bpy.data.texts.get('bgeCon.py')
         bgecon_obj = bpy.data.objects.get('!BgeCon')
@@ -119,6 +128,13 @@ class DettachBgeConsole(bpy.types.Operator):
     bl_label = "Dettach Bge Console from actual Scene."
     bl_options = {'REGISTER', 'INTERNAL'}
 
+    gameengine = True if (hasattr(bpy.app.build_options, 'gameengine')
+                            and bpy.app.build_options.gameengine) else False
+
+    @classmethod
+    def poll(self, context):
+        return self.gameengine
+
     def execute(self, context):
         sce_collections = bpy.context.scene.collection.children
         if '!BgeCon' in sce_collections.keys():
@@ -131,6 +147,13 @@ class AttachBgeConsole(bpy.types.Operator):
     bl_idname = "weed.attach_bge_console"
     bl_label = "Attach Bge Console to actual Scene."
     bl_options = {'REGISTER', 'INTERNAL'}
+
+    gameengine = True if (hasattr(bpy.app.build_options, 'gameengine')
+                            and bpy.app.build_options.gameengine) else False
+
+    @classmethod
+    def poll(self, context):
+        return self.gameengine
 
     def execute(self, context):
         bgecon = bpy.data.collections.get('!BgeCon')
