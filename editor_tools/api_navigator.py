@@ -543,6 +543,8 @@ def api_menu(self, context):
                     text='API navigator',
                     icon='OUTLINER')
     # layout.separator()
+
+
 prefs_classes = (
     ApiNavModule,
     Preferences

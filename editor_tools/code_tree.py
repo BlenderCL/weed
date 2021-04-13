@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import IntProperty
 import re
+from weed import _icon_types
 
 
 class CodeTreeManager(dict):
@@ -166,6 +167,7 @@ class WEED_OT_code_tree_expand(bpy.types.Operator):
 
 def draw_code_tree_panel(self, context):
     wm = context.window_manager
+    st = context.space_data
     layout = self.layout
     icons = {      'imports' : 'OUTLINER_OB_GROUP_INSTANCE',
               'imports_open' : 'GROUP',
@@ -180,12 +182,14 @@ def draw_code_tree_panel(self, context):
 
     col = layout.column(align=True)
     col.alignment = 'LEFT'
-    col.label(icon = 'FILE_TEXT', text = context.space_data.text.name)
+    col.label(icon = _icon_types.get(
+                        st.text.name.split('.')[-1].lower(), 'FILE'),
+              text = st.text.name)
     col.separator()
 
     subnode_closed = False
     node_indnt = 0
-    active = getattr(bpy.context.space_data, "text", None)
+    active = getattr(st, "text", None)
 
     code_tree = bpy.types.Text.code_tree_manager.verify_code_tree(context)
 
@@ -266,8 +270,8 @@ class WEED_PT_code_tree(bpy.types.Panel):
     bl_space_type = "TEXT_EDITOR"
     bl_region_type = "UI"
     bl_label = "Code Tree"
-    bl_category = "Weed"
-    bl_options = {'HEADER_LAYOUT_EXPAND'}
+    bl_category = "Code Tree"
+    bl_options = {'HEADER_LAYOUT_EXPAND'}#, 'DRAW_BOX'}
     # bl_options = {'DRAW_BOX'}
 
     @classmethod

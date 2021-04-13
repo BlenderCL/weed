@@ -16,17 +16,40 @@ from bpy.props import *
 from inspect import cleandoc
 
 _modules = [
-#  #('module',        'path',        has_prefs )#
+#  #('module',          'path',        has_prefs )#
     # ('ui',            '',                False ),
-    ('bge_console',   '.console_tools',  False ),
-    ('pudb_wrapper',  '.debugger_tools', False ),
-    ('api_navigator', '.editor_tools',   True  ),
-    ('code_tree',     '.editor_tools',   False ),
-    ('find_replace',  '.editor_tools',   True  ),
-    ('code_editor',   '.editor_tools',   True  ),
-    # ('file_manager',  '.editor_tools',   False ),
+    ('bge_console',     '.console_tools',  False ),
+    ('pudb_wrapper',    '.debugger_tools', False ),
+    ('api_navigator',   '.editor_tools',   True  ),
+    ('code_tree',       '.editor_tools',   False ),
+    ('find_replace',    '.editor_tools',   True  ),
+    ('code_editor',     '.editor_tools',   True  ),
+    ('scripts_manager', '.editor_tools',   True  ),
     # ('icons_get',     '.editor_tools',   False )
 ]
+
+_icon_types = {
+    'py'    : 'FILE_SCRIPT',
+    'txt'   : 'TEXT',
+    'blend' : 'FILE_BLEND',
+    'jpg'   : 'FILE_IMAGE',
+    'png'   : 'FILE_IMAGE',
+    'bmp'   : 'FILE_IMAGE',
+    'gif'   : 'FILE_IMAGE',
+    'tga'   : 'FILE_IMAGE',
+    'jpeg'  : 'FILE_IMAGE',
+    'avi'   : 'FILE_MOVIE',
+    'mov'   : 'FILE_MOVIE',
+    'mp4'   : 'FILE_MOVIE',
+    'mp3'   : 'FILE_SOUND',
+    'ogg'   : 'FILE_SOUND',
+    'sh'    : 'CONSOLE',
+    'bin'   : 'FILE_VOLUME',
+    'pyc'   : 'SCRIPT',
+    'pyd'   : 'SCRIPT',
+    'exe'   : 'FILE_VOLUME',
+}
+
 
 if "bpy" in locals():
     import importlib
