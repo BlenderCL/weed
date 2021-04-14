@@ -170,6 +170,10 @@ class Preferences(bpy.types.PropertyGroup):
                     name = "Library folder select",
                     items = get_libs_folders_list)
 
+    bkmrks_folder   : EnumProperty(
+                    name = "Bookmark folder select",
+                    items = [])
+
     manager_view    : EnumProperty(
                     name = 'Explore',
                     items = [
@@ -224,22 +228,23 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
                 self.texts_paths[text.filepath] = text 
 
         layout = self.layout
-        split_sel = layout.split(factor=0.3)
+        box = layout.box()
+        split_sel = box.split(factor=0.3)
         split_sel.label(text='Browse:')
         col = split_sel.column()
         col.prop(self.pref, 'manager_view', expand=True)
         layout.separator(factor=1)
-        box = layout.box()
-        self.manager_views.get(self.pref.manager_view)(box)
+        self.manager_views.get(self.pref.manager_view)(layout)
         
 
     def draw_current_files_view(self, layout):
         if not bpy.data.texts:
-            layout.label(text='No open files', icon='ERROR')
-            layout.label(text='in Text Editor')
-            layout.separator()
-            layout.scale_y = 0.6
-            layout.active = False
+            box = layout.box()
+            box.label(text='No open files', icon='ERROR')
+            box.label(text='in Text Editor')
+            box.separator()
+            box.scale_y = 0.6
+            box.active = False
             return None
         
         layout.label(text='Script files opened:')
@@ -286,14 +291,29 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
     def draw_blend_folder_view(self, layout):
         blend_path = bpy.path.abspath('//').rstrip(sep)
         if not blend_path:
-            layout.label(text='Current blend file', icon='ERROR')
-            layout.label(text='not saved yet')
-            layout.separator()
-            layout.scale_y = 0.6
-            layout.active = False
+            box = layout.box()
+            box.label(text='Current blend file', icon='ERROR')
+            box.label(text='not saved yet')
+            box.separator()
+            box.scale_y = 0.6
+            box.active = False
             return None
         self.draw_directory(layout, blend_path + sep)
         
+    def draw_bookmarks_view(self, layout):
+        # pref = prefs()
+        selector = layout.row(align=True)
+        selector.prop(self.pref, 'bkmrks_folder', text='bookmark:')
+        selector.operator('weed.py_mngr_open_addon_menu',
+                          icon='BOOKMARKS', text='')
+        layout.separator()
+        addon_path = get_current_addon_path()
+        if isfile(addon_path):
+            directory, file_name = split(addon_path)
+            self.draw_element(layout, directory + sep, file_name)
+        else:
+            self.draw_directory(layout, addon_path)
+
 
     def draw_directory(self, layout, directory):
         if not self.is_directory_visible(directory):
@@ -368,7 +388,7 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
                 icon_type = 'STYLUS_PRESSURE'
             else:
                 operator = 'weed.py_mngr_close_file'
-                icon_type = 'X'
+                icon_type = 'EVENT_X'
         else:
             operator = 'weed.py_mngr_open_file_menu'
             icon_type = 'LAYER_USED'
@@ -743,6 +763,10 @@ class WEED_OT_py_mngr_FileMenuCloser(bpy.types.Operator):
     path : StringProperty(name = "Path", default = "")
 
     def invoke(self, context, event):
+        for txt in bpy.data.texts:
+            if self.path == txt.filepath:
+                context.space_data.text = txt
+                break
         context.window_manager.popup_menu(self.drawMenu,
                                           title = "{} - Close ?".format(basename(self.path)))
         return {"FINISHED"}

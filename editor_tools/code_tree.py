@@ -81,6 +81,9 @@ class CodeTreeManager(dict):
 
                 if (match.group(2) == 'import'
                      or match.group(2)[:4] == 'from'):
+                    if match.group(2)[:4] == 'from':
+                        code_tree[ln].name += (' ' + match.group(2)[:-6])
+                    
                     code_tree[ln].code_type = 'import'
                     if not class_def_finded:
                         code_tree[ln].indnt += 1
