@@ -73,13 +73,6 @@ current_module = None  # the object itself in the tree structure
 
 tree_level = None  # the list of objects from the current_module
 
-def init_tree_level():
-    global tree_level
-    tree_level = [[], [], [], [], [], [], [], [], []]
-
-
-init_tree_level()
-
 api_doc_ = ''  # the documentation formated for the API Navigator
 
 module_type = None  # the type of current_module
@@ -94,7 +87,16 @@ prev_filter = ''
 
 prev_path = ''
 
-def prefs():
+
+def init_tree_level():
+    global tree_level
+    tree_level = [[], [], [], [], [], [], [], [], []]
+
+init_tree_level()
+
+
+# get preferences caller function
+def get_prefs():
     return bpy.context.preferences.addons['weed'].preferences.api_navigator
 
 
@@ -166,7 +168,7 @@ def evaluate(module):
 
 
 def get_tree_level():
-    api_nav = prefs()
+    api_nav = get_prefs()
     def object_list():
         # print('object_list')
         global current_module, root_m_path
@@ -233,7 +235,7 @@ def parent(path):
 def update_filter():
     """Update the filter according to the current path"""
     global filter_mem
-    api_nav = prefs()
+    api_nav = get_prefs()
     try:
         api_nav.api_filter = filter_mem[api_nav.path]
     except:
@@ -256,7 +258,7 @@ def isiterable(mod):
 
 def fill_filter_mem():
     global filter_mem
-    api_nav = prefs()
+    api_nav = get_prefs()
     if api_nav.api_filter:
         filter_mem[api_nav.old_path] = api_nav.api_filter
     else:
@@ -272,7 +274,7 @@ class ApiNavigator():
     def generate_global_values():
         """Populate the level attributes to display the panel buttons and the documentation"""
         global tree_level, current_module, module_type, return_report, last_text
-        api_nav = prefs()
+        api_nav = get_prefs()
 
         try:
             text = bpy.context.space_data.text
@@ -305,7 +307,7 @@ class ApiNavigator():
     def generate_api_doc():
         """Format the doc string for API Navigator"""
         global current_module, api_doc_, return_report, module_type
-        api_nav = prefs()
+        api_nav = get_prefs()
 
         api_doc_ = "Module: %s\nType: %s\nReturn: %s\n%s\n%s" % \
                    (api_nav.path, 
@@ -320,7 +322,7 @@ class ApiNavigator():
 
 
 def api_update(context):
-    api_nav = prefs()
+    api_nav = get_prefs()
     if api_nav.path != api_nav.old_path:
         fill_filter_mem()
         api_nav.old_path = api_nav.path
@@ -345,7 +347,7 @@ class WEED_OT_api_nav_back_to_bpy(ApiNavigator, bpy.types.Operator):
 
     def execute(self, context):
         fill_filter_mem()
-        api_nav = prefs()
+        api_nav = get_prefs()
 
         api_nav.old_path = api_nav.path = 'bpy'
         # if not api_nav.path:
@@ -365,7 +367,7 @@ class WEED_OT_api_nav_down(ApiNavigator, bpy.types.Operator):
 
     def execute(self, context):
         fill_filter_mem()
-        api_nav = prefs()
+        api_nav = get_prefs()
 
         if not api_nav.path:
             api_nav.old_path = api_nav.path = api_nav.path + self.pointed_module
@@ -383,7 +385,7 @@ class WEED_OT_api_nav_parent(ApiNavigator, bpy.types.Operator):
     bl_label = "API Navigator Parent"
 
     def execute(self, context):
-        api_nav = prefs()
+        api_nav = get_prefs()
 
         if api_nav.path:
             fill_filter_mem()
@@ -401,7 +403,7 @@ class WEED_OT_api_nav_subscript(ApiNavigator, bpy.types.Operator):
 
     def execute(self, context):
         fill_filter_mem()
-        api_nav = prefs()
+        api_nav = get_prefs()
 
         api_nav.old_path = api_nav.path = api_nav.path + '[' + self.subscription + ']'
         update_filter()
@@ -414,7 +416,7 @@ class WEED_OT_api_nav_clear_filter(ApiNavigator, bpy.types.Operator):
     bl_label = 'API Nav clear filter'
 
     def execute(self, context):
-        api_nav = prefs()
+        api_nav = get_prefs()
         api_nav.api_filter = ''
         return {'FINISHED'}
 
@@ -441,7 +443,7 @@ class WEED_MT_api_nav_select_module(ApiNavigator, bpy.types.Menu):
 
     def draw(self, context):
         global tree_level, current_module, module_type, return_report
-        api_nav = prefs()
+        api_nav = get_prefs()
 
         layout = self.layout
         text_filter = api_nav.api_filter
@@ -468,7 +470,7 @@ class WEED_OT_api_nav_popup(ApiNavigator, bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def __init__(self):
-        api_nav = prefs()
+        api_nav = get_prefs()
         if len(api_nav.submodules):
             return
         modules_types = [
@@ -494,7 +496,7 @@ class WEED_OT_api_nav_popup(ApiNavigator, bpy.types.Operator):
 
     def draw(self, context):
         global tree_level, current_module, module_type, return_report, api_doc_
-        api_nav = prefs()
+        api_nav = get_prefs()
 
         layout = self.layout
         box = layout.box()
@@ -541,7 +543,7 @@ def api_menu(self, context):
     layout.operator_context = 'INVOKE_DEFAULT'
     layout.operator('weed.api_nav_popup',
                     text='API navigator',
-                    icon='OUTLINER')
+                    icon='ASSET_MANAGER')
     # layout.separator()
 
 
@@ -567,9 +569,11 @@ def register(prefs=True):
     if prefs:
         for cls in prefs_classes:
             try:
-                bpy.utils.register_class(cls)
+                bpy.utils.unregister_class(cls)
             except:
-                pass
+                print(f'{cls} already unregistered')
+                #pass
+            bpy.utils.register_class(cls)
 
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -579,9 +583,9 @@ def register(prefs=True):
     bpy.types.TEXT_HT_footer.append(api_menu)
 
 def unregister(prefs=True):
+    bpy.types.TEXT_HT_footer.remove(api_menu)
     bpy.types.TEXT_MT_context_menu.remove(api_menu)
     bpy.types.TEXT_MT_view.remove(api_menu)
-    bpy.types.TEXT_HT_footer.remove(api_menu)
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

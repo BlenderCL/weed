@@ -42,9 +42,8 @@ sh_2d_uniform_float = sh_2d.uniform_float
 sh_2d_bind = sh_2d.bind
 
 
-# declares function to weed preferences
-# before preferences exist
-def prefs():
+# get preferences caller function
+def get_prefs():
     return bpy.context.preferences.addons['weed'].preferences.code_editor
 
 
@@ -144,7 +143,7 @@ class WrapText:
             *self.hashes, = (0,) * lenl
 
         # TODO should use a more elaborate check so
-        # TODO we don't have to rebuild every line after
+        #      we don't have to rebuild every line after
         for idx, (line, hash_val) in enumerate(zip(otext.lines, hashes)):
             if hash(line.body) != hash_val:
                 return self.rebuild_lines(from_line=idx)
@@ -996,18 +995,18 @@ class CodeEditorMain:
             context.screen.code_editors.add().name = index
         self.props = context.screen.code_editors[index]
 
-        p = context.preferences
-        self.ap = ap = prefs()
+        prefs = context.preferences
+        self.cd_edtr = cd_edtr = get_prefs()
         self.text = text = context.edit_text
-        self.bg_opacity = ap.opacity
-        self.mmw = ap.minimap_width
-        self.min_width = ap.window_min_width
-        self.mmcw = ap.character_width
-        self.mlh_base = self.mlh = ap.line_height
-        self.indent_trans = ap.indent_trans
-        self.ws_alpha = ap.ws_alpha
-        # self.large_tabs = ap.large_tabs
-        # self.tabs_right = ap.tabs_right
+        self.bg_opacity = cd_edtr.opacity
+        self.mmw = cd_edtr.minimap_width
+        self.min_width = cd_edtr.window_min_width
+        self.mmcw = cd_edtr.character_width
+        self.mlh_base = self.mlh = cd_edtr.line_height
+        self.indent_trans = cd_edtr.indent_trans
+        self.ws_alpha = cd_edtr.ws_alpha
+        # self.large_tabs = cd_edtr.large_tabs
+        # self.tabs_right = cd_edtr.tabs_right
 
         self.show_whitespace = self.props.show_whitespace
         self.show_minimap = self.props.show_minimap
@@ -1036,8 +1035,8 @@ class CodeEditorMain:
         self.wrap_text = WrapText(self.text, self) if self.word_wrap else None
         self.mmvisl = 0, 1
         # syntax theme colors
-        current_theme = p.themes.items()[0][0]
-        tex_ed = p.themes[current_theme].text_editor
+        current_theme = prefs.themes.items()[0][0]
+        tex_ed = prefs.themes[current_theme].text_editor
         self.background = tex_ed.space.back.owner
         items = (tex_ed.space.text, tex_ed.syntax_string,
                  tex_ed.syntax_comment, tex_ed.syntax_numbers,
@@ -1153,87 +1152,9 @@ class CE_PT_settings_panel(bpy.types.Panel):  # display settings in header
             # layout.prop(ce_props, "show_tabs")
             layout.prop(ce_props, "show_indents")
             layout.prop(ce_props, "show_whitespace")
-            layout.operator(
-                "preferences.addon_show", text="Open Settings"
-            ).module = __name__
-
-
-class Preferences(bpy.types.PropertyGroup):
-    """Code Editors Preferences Panel"""
-    bl_idname = __name__
-
-    opacity: bpy.props.FloatProperty(
-        name="Background", min=0.0, max=1.0, default=0.2, update=update_prefs
-    )
-    ws_alpha: bpy.props.FloatProperty(
-        name="Whitespace Alpha", min=0.0, max=1.0, default=0.2,
-        update=update_prefs
-    )
-    auto_width: bpy.props.BoolProperty(
-        name="Auto Width", description="Automatically scale minimap width "
-        "based on region width", default=1, update=update_prefs
-    )
-    minimap_width: bpy.props.IntProperty(
-        name="Minimap Width", description="Minimap base width in px",
-        min=0, max=400, default=225, update=update_prefs
-    )
-    window_min_width: bpy.props.IntProperty(
-        name="Fade Threshold", description="Region width (px) threshold for "
-        "fading out panel", min=0, max=4096, default=250, update=update_prefs
-    )
-    character_width: bpy.props.FloatProperty(
-        name="Character Width", description="Minimap character "
-        "width in px", min=0.1, max=4.0, default=1.0, update=update_prefs
-    )
-    line_height: bpy.props.FloatProperty(
-        name="Line Height", description="Minimap line height in "
-        "pixels", min=0.5, max=4.0, default=1.0, update=update_prefs
-    )
-    indent_trans: bpy.props.FloatProperty(
-        name="Indent Guides", description="0 - fully opaque, 1 - fully "
-        "transparent", min=0.0, max=1.0, default=0.3, update=update_prefs
-    )
-    # large_tabs: bpy.props.BoolProperty(
-    #     name="Bigger Tabs", description="Increase tab size for bigger "
-    #     "monitors", update=update_prefs
-    # )
-    # tabs_right: bpy.props.BoolProperty(
-    #     name="Tabs Right Side", description="Place text tabs to the right of"
-    #     "minimap", update=update_prefs
-    # )
-
-    def draw(self, layout):
-        # layout = cls.layout
-        layout.use_property_split = True
-        layout.scale_y = 1.1
-        row = layout.row()
-        col = row.column()
-
-        # flow = col.grid_flow(columns=2, even_columns=1)
-        # flow.prop(self, "large_tabs")
-        flow = col.grid_flow(columns=2, even_columns=1)
-        if not self.auto_width:
-            flow.prop(self, "minimap_width", slider=True)
-        flow.prop(self, "auto_width")
-        flow = col.grid_flow(columns=2, even_columns=1)
-        flow.prop(self, "opacity", slider=True)
-        flow.prop(self, "character_width")
-        flow.prop(self, "line_height")
-
-        flow.prop(self, "ws_alpha", slider=True)
-        flow.prop(self, "indent_trans", slider=True)
-        flow.prop(self, "window_min_width")
-        row.separator()
-
-        layout.separator()
-
-    # def add_to_header(self, context):
-    #     layout = self.layout
-    #     layout.popover_group(
-    #         "TEXT_EDITOR",
-    #         region_type="WINDOW",
-    #         context="",
-    #         category="")
+            #layout.operator(
+            #    "preferences.addon_show", text="Open Settings"
+            #).module = __name__
 
 
 def set_draw(state=True):
@@ -1285,6 +1206,72 @@ class CE_PG_settings(bpy.types.PropertyGroup):
     del BoolProperty
 
 
+class Preferences(bpy.types.PropertyGroup):
+    """Code Editor Preferences Panel"""
+    bl_idname = __name__
+
+    opacity: bpy.props.FloatProperty(
+        name="Background", min=0.0, max=1.0, default=0.2, update=update_prefs
+    )
+    ws_alpha: bpy.props.FloatProperty(
+        name="Whitespace Alpha", min=0.0, max=1.0, default=0.2,
+        update=update_prefs
+    )
+    auto_width: bpy.props.BoolProperty(
+        name="Auto Width", description="Automatically scale minimap width "
+        "based on region width", default=1, update=update_prefs
+    )
+    minimap_width: bpy.props.IntProperty(
+        name="Minimap Width", description="Minimap base width in px",
+        min=0, max=400, default=225, update=update_prefs
+    )
+    window_min_width: bpy.props.IntProperty(
+        name="Fade Threshold", description="Region width (px) threshold for "
+        "fading out panel", min=0, max=4096, default=250, update=update_prefs
+    )
+    character_width: bpy.props.FloatProperty(
+        name="Character Width", description="Minimap character "
+        "width in px", min=0.1, max=4.0, default=1.0, update=update_prefs
+    )
+    line_height: bpy.props.FloatProperty(
+        name="Line Height", description="Minimap line height in "
+        "pixels", min=0.5, max=4.0, default=1.0, update=update_prefs
+    )
+    indent_trans: bpy.props.FloatProperty(
+        name="Indent Guides", description="0 - fully opaque, 1 - fully "
+        "transparent", min=0.0, max=1.0, default=0.3, update=update_prefs
+    )
+
+    def draw(self, layout):
+        layout.use_property_split = True
+        layout.scale_y = 1.1
+        # row = layout.row()
+        # col = row.column()
+
+        flow = layout.grid_flow(columns=2, even_columns=1)
+        flow.prop(self, "auto_width")
+        if self.auto_width:
+            flow.label()
+        else:
+            flow.prop(self, "minimap_width", slider=True)
+        flow = layout.grid_flow(columns=2, even_columns=1)
+        flow.prop(self, "opacity", slider=True)
+        flow.prop(self, "character_width")
+        flow.prop(self, "line_height")
+
+        flow.prop(self, "ws_alpha", slider=True)
+        flow.prop(self, "indent_trans", slider=True)
+        flow.prop(self, "window_min_width")
+
+    def quick_prefs(self, context):
+        layout = self.layout
+        layout.popover_group(
+            "TEXT_EDITOR",
+            region_type="WINDOW",
+            context="",
+            category="")
+
+
 prefs_classes = (
     Preferences,
     CE_PG_settings
@@ -1300,23 +1287,22 @@ classes = (
 
 
 def register(prefs=True):
-    from bpy.types import Screen, TEXT_HT_header
-    from bpy.utils import register_class
-
     if prefs:
         for cls in prefs_classes:
             try:
-                bpy.utils.register_class(cls)
+                bpy.utils.unregister_class(cls)
             except:
-                pass
+                print(f'{cls} already unregistered')
+                #pass
+            bpy.utils.register_class(cls)
 
     for cls in classes:
-        register_class(cls)
+        bpy.utils.register_class(cls)
 
-    Screen.code_editors = bpy.props.CollectionProperty(type=CE_PG_settings)
+    bpy.types.Screen.code_editors = bpy.props.CollectionProperty(type=CE_PG_settings)
     # for w in bpy.context.window_manager.windows:
     #     w.screen.code_editors.clear()
-    # TEXT_HT_header.append(Preferences.add_to_header)
+    bpy.types.WEED_PT_main_panel.append(Preferences.quick_prefs)
 
     kc = bpy.context.window_manager.keyconfigs.addon.keymaps
     km = kc.get('Text', kc.new('Text', space_type='TEXT_EDITOR'))
@@ -1334,7 +1320,7 @@ def register(prefs=True):
 
 
 def unregister(prefs=True):
-    # bpy.types.TEXT_HT_header.remove(Preferences.add_to_header)
+    bpy.types.WEED_PT_main_panel.remove(Preferences.quick_prefs)
     set_draw(state=False)
 
     for km, kmi in register.keymaps:
@@ -1352,5 +1338,6 @@ def unregister(prefs=True):
     if prefs:
         for cls in reversed(prefs_classes):
             bpy.utils.unregister_class(cls)
-        del bpy.types.Screen.code_editors
+
+    del bpy.types.Screen.code_editors
     

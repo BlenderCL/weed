@@ -1,32 +1,42 @@
 bl_info = {
     "name": "Weed Blender IDE",
     "author": "Cristian Hasbun",
-    "version": (2021, 5, 1),
+    "version": (2022, 5, 1),
     "blender": (2, 80, 0),
     "location": "Text Editor | Interactive Console | Terminal Console",
     "description": "WEED Enhances Empowered Developers!  *recursive acronym",
     "warning": "",
-    "wiki_url": "http://www.blender.cl/weed_IDE",
+    "doc_url": "http://www.blender.cl/weed_IDE",
     "tracker_url": "",
     "category": "Development",
 }
 
-#import bpy
-from bpy.props import *
-from inspect import cleandoc
 
 _modules = [
-#  #('module',          'path',        has_prefs )#
-    # ('ui',            '',                False ),
-    ('bge_console',     '.console_tools',  False ),
-    ('pudb_wrapper',    '.debugger_tools', False ),
-    ('api_navigator',   '.editor_tools',   True  ),
-    ('code_tree',       '.editor_tools',   False ),
-    ('find_replace',    '.editor_tools',   True  ),
-    ('code_editor',     '.editor_tools',   True  ),
-    ('scripts_manager', '.editor_tools',   True  ),
-    # ('icons_get',     '.editor_tools',   False )
+#   ('module',          'path',        has_prefs )#
+    ('find_replace',    'editor_tools',   True  ),
+    ('pudb_wrapper',    'debugger_tools', False ),
+    ('bge_console',     'console_tools',  False ),
+    ('scripts_manager', 'editor_tools',   True  ),
+    ('code_editor',     'editor_tools',   True  ),
+    ('api_navigator',   'editor_tools',   True  ),
+    ('code_tree',       'editor_tools',   True  ),
+#   ('icons_get',       'editor_tools',   False )
+#   ('ui',              '',               False ),
 ]
+
+# _modules = [
+# #   ('module',          'path',        has_prefs )#
+#     ('find_replace',    'editor_tools'),
+#     ('pudb_wrapper',    'debugger_tools'),
+#     ('bge_console',     'console_tools'),
+#     ('scripts_manager', 'editor_tools'),
+#     ('code_editor',     'editor_tools'),
+#     ('api_navigator',   'editor_tools'),
+#     ('code_tree',       'editor_tools'),
+# #   ('icons_get',     'editor_tools'),
+# #   ('ui',            ''),
+# ]
 
 _icon_types = {
     'py'    : 'FILE_SCRIPT',
@@ -51,6 +61,9 @@ _icon_types = {
 }
 
 
+from bpy.props import *
+from inspect import cleandoc
+
 if "bpy" in locals():
     import importlib
     importlib.reload(ui)
@@ -61,47 +74,39 @@ else:
     import bpy
     from weed import ui
     for module, path, has_prefs in _modules:
-        exec(f"from weed{path} import {module}")
+        exec(f"from weed.{path} import {module}")
 
 
 def module_toggle(self, context):
-    from inspect import cleandoc
-    #prefs = context.preferences.addons['weed'].preferences
-    #breakpoint.here
     for module, path, has_prefs in _modules:
         if eval(f"self.{module}_enabled != self.{module}_last_state"):
+            print(f'{module} change state')
             execute_code = f"""
-                if not {has_prefs}:
-                    if self.{module}_enabled:
-                        {module}.register()
-                    else:
-                        {module}.unregister()
+                if self.{module}_enabled:
+                    try:
+                        {module}.register(prefs=True)
+                        print(f'{module}.register()')
+                    except:
+                        print(f'{module}.register() fail !')
                 else:
-                    if self.{module}_enabled:
-                        {module}.register(prefs=False)
-                    else:
+                    try:
                         {module}.unregister(prefs=False)
+                        print(f'{module}.unregister()')
+                    except:
+                        print(f'{module}.unregister() fail !')
                 self.{module}_last_state = self.{module}_enabled        
-
             """
             exec(cleandoc(execute_code))
             break
-    #bpy.utils.unregister_class(WeedPreferences)
-    #bpy.utils.register_class(WeedPreferences)
 
 
 
-
-# from bpy.types import AddonPreferences
 class WeedPreferences(bpy.types.AddonPreferences):
-    # agregar codigo para presentar en el panel de preferencias
-    #     agregar codigo para integrar preferencias
-    #     en el panel principal de la UI (tal vez no aca)
     bl_idname = 'weed'
 
     for module, path, has_prefs in _modules:
         pref_generator = f"""
-            {module}_enabled: BoolProperty(name='{module}',                    
+            {module}_enabled: BoolProperty(name='{module}'.replace('_',' ').title(),                    
                         default=True, update=module_toggle)
             {module}_last_state: BoolProperty(name='{module}',                    
                         default=True)
@@ -113,61 +118,57 @@ class WeedPreferences(bpy.types.AddonPreferences):
         exec(cleandoc(pref_generator))
 
     def draw(self, context):
-        #prefs = context.preferences.addons['weed'].preferences
         layout = self.layout
-        col = layout.column(align=False)
+        no_prefs_modules = layout.box().grid_flow(columns=2, even_columns=1)
+        layout.separator()
+        prefs_modules = layout.column(align=False)
+        prefs_modules.alignment = 'RIGHT'
         for module, path, has_prefs in _modules:
             draw_generator = f"""
-                if hasattr(self, "{module}_enabled"):
-                    mod_pref = col.split(factor=0.2)
-                    mod_pref.prop(self, "{module}_enabled")
-                    subbox = mod_pref.box()
-                    if {has_prefs} and hasattr(self,'{module}') and hasattr(self.{module}, 'draw'):
+                if ({has_prefs} and hasattr(self,'{module}') and 
+                    hasattr(self.{module}, 'draw')):
+                    #pref_module = prefs_modules.split(factor=0.2)
+                    #pref_module = prefs_modules.split(factor=0.2)
+                    prefs_modules.prop(self, "{module}_enabled")
+                    subbox = prefs_modules.box()
+                    subbox.enabled = self.{module}_enabled    
+                    if self.{module}_enabled:
                         self.{module}.draw(subbox)
                     else:
-                        subbox.label(text="module {module} doesn't have an attribute panel")
+                        subbox.label()
+                    prefs_modules.separator()
                 else:
-                    subbox.label(text="module {module} disabled")
-                subbox.enabled = self.{module}_enabled
-                col.separator()
-            """
+                    no_prefs_modules.prop(self, "{module}_enabled")
+                    #layout.separator()
+           """
             exec(cleandoc(draw_generator))
-
     #del cleandoc
 
 
 def register():
-    from inspect import cleandoc
     ui.register()
     for module, path, has_prefs in _modules:
-        exec(f"{module}.register()")
-    bpy.utils.register_class(WeedPreferences)
-
-    prefs = bpy.context.preferences.addons['weed'].preferences
-    for module, path, has_prefs in _modules:
-        # if active: # and eval(f"{module} in prefs"):
         execute_code = f"""
-            if not prefs.{module}_enabled:
-                if {has_prefs}:
-                    {module}.unregister(prefs=False)     
-                else:
-                    {module}.unregister()     
-
+            try:
+                {module}.register() 
+                print('{module} registered')    
+            except:
+                print('{module} except registering')    
         """
+        
         exec(cleandoc(execute_code))
+    bpy.utils.register_class(WeedPreferences)
 
 
 def unregister():  # note how unregistering is done in reverse
     bpy.utils.unregister_class(WeedPreferences)
-    for module, path, has_prefs in _modules:
+    for module, path, has_prefs in reversed(_modules):
         execute_code = f"""
             try:
-                {module}.unregister()     
+                {module}.unregister() 
+                print('{module} unregistered')    
             except:
-                if hasattr({module}, 'prefs_classes'):
-                    for pref_cls in {module}.prefs_classes:
-                        bpy.utils.unregister_class(pref_cls)
-                        print('module {module}, unregister pref:', pref_cls)
+                print('{module} except unregistering')    
         """
         exec(cleandoc(execute_code))
     ui.unregister()

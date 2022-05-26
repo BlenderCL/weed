@@ -17,8 +17,8 @@ class MyEnumItems(bpy.types.PropertyGroup):
         del bpy.types.Scene.my_enum_items
 
     asdf : bpy.props.EnumProperty(
-        name="asdf",
-        description="asdf",
+        name="bookmark",
+        description="bookmark path",
         # items argument required to initialize, just filled with empty values
         items = add_items_from_collection_callback,
     )
@@ -28,14 +28,20 @@ class MyItem(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
         bpy.types.Scene.my_items = bpy.props.CollectionProperty(type=MyItem)
+        bpy.types.Scene.bookmark = bpy.props.StringProperty(
+                                        name = "bookmark",
+                                        default = "",
+                                        subtype = 'DIR_PATH'
+                                    )
 
     @classmethod
     def unregister(cls):
         del bpy.types.Scene.my_items
 
     some_str : bpy.props.StringProperty(
-        name = "asdf",
-        default = ""
+        name = "bookmark",
+        default = "",
+        subtype = 'DIR_PATH'
     )
 
 class MY_OT_add_item(bpy.types.Operator):
@@ -61,6 +67,7 @@ class MY_PT_simple_panel(bpy.types.Panel):
         layout = self.layout
         layout.operator("my.add_item")
         layout.prop(context.scene.my_enum_items, "asdf")
+        layout.prop(context.scene, "bookmark")
 
 classes = (MyEnumItems, MyItem, MY_OT_add_item, MY_PT_simple_panel)
 register, unregister = bpy.utils.register_classes_factory(classes)

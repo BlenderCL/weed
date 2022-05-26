@@ -5,7 +5,9 @@ import zipfile
 import importlib
 import subprocess
 import addon_utils
-from bpy.props import *
+# from bpy.props import *
+from bpy.props import (BoolProperty, StringProperty, IntProperty,
+                       EnumProperty, CollectionProperty)
 from os import listdir, sep
 from os.path import isfile, isdir, join, split, dirname, basename, exists
 from shutil import rmtree
@@ -17,7 +19,33 @@ from site import getsitepackages, getusersitepackages
 
 ignore_names = ["__pycache__", ".git", ".gitignore"]
 
-textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+textchars = bytearray({7, 8, 9, 10, 12, 13, 27} 
+                      | set(range(0x20, 0x100)) - {0x7f})
+
+is_setting = False
+
+addons_path = bpy.utils.user_resource('SCRIPTS', path='addons')
+
+directory_visibility = defaultdict(bool)
+# code_visibility = defaultdict(bool)
+
+new_addon_type_items = [
+    ("BASIC", "Basic", ""),
+    ("MULTIFILE", "Multi-File (recommended)", "") ]
+
+
+# file functions
+def get_file_names(directory):
+    try:
+        dirs = sorted([file_name for file_name in listdir(directory)
+                       if isfile(join(directory, file_name))
+                       and file_name not in ignore_names])
+        if not get_prefs().show_dot_files:
+            dirs = [file_name for file_name in dirs
+                    if file_name[0] != '.']
+        return dirs
+    except:
+        return []
 
 def is_binary_file(filepath):
     try:
@@ -25,47 +53,6 @@ def is_binary_file(filepath):
         return bool(bytes.translate(None, textchars))
     except:
         return False
-
-is_setting = False
-
-addons_path = bpy.utils.user_resource("SCRIPTS", "addons")
-
-directory_visibility = defaultdict(bool)
-#code_visibility = defaultdict(bool)
-
-new_addon_type_items = [
-    ("BASIC", "Basic", ""),
-    ("MULTIFILE", "Multi-File (recommended)", "") ]
-
-
-# directory name handlers
-def set_directory_name_handler(self, value):
-    global is_setting
-    if not is_setting:
-        is_setting = True
-        self["directory_name_internal"] = correct_file_name(value, is_directory = True)
-        is_setting = False
-
-def get_directory_name_handler(self):
-    try: return self["directory_name_internal"]
-    except: return ""
-
-
-# file name handlers
-def set_file_name_handler(self, value):
-    global is_setting
-    if not is_setting:
-        is_setting = True
-        self["file_name_internal"] = correct_file_name(value, is_directory = False)
-        is_setting = False
-
-def get_file_name_handler(self):
-    try: return self["file_name_internal"]
-    except: return ""
-
-
-#class AddonDevelopmentSceneProperties(bpy.types.PropertyGroup):
-#    addon_name = StringProperty(name = "Addon Name", default = "my_addon", description = "Name of the currently selected addon")
 
 def correct_file_name(name, is_directory = False):
     new_name = ""
@@ -83,12 +70,26 @@ def correct_file_name(name, is_directory = False):
     return new_name
 
 
+# file name handlers
+def get_file_name_handler(self):
+    try: return self["file_name_internal"]
+    except: return ""
+
+def set_file_name_handler(self, value):
+    global is_setting
+    if not is_setting:
+        is_setting = True
+        self["file_name_internal"] = correct_file_name(value, is_directory = False)
+        is_setting = False
+
+
+# directory functions
 def get_directory_names(directory):
     try:
         dirs = sorted([file_name for file_name in listdir(directory)
                        if not isfile(join(directory, file_name))
                        and file_name not in ignore_names])
-        if not prefs().show_dot_files:
+        if not get_prefs().show_dot_files:
             dirs = [file_name for file_name in dirs
                     if file_name[0] != '.']
         return dirs
@@ -101,22 +102,24 @@ def get_addons_names(directory):
                     and (not isfile(join(directory, file_name))
                     or isfile(join(directory, file_name))
                     and file_name[-3:] == '.py')])
-    if not prefs().show_dot_addons:
+    if not get_prefs().show_dot_addons:
         addons = [file_name for file_name in addons
                 if file_name[0] != '.']
     return addons
 
-def get_file_names(directory):
-    try:
-        dirs = sorted([file_name for file_name in listdir(directory)
-                       if isfile(join(directory, file_name))
-                       and file_name not in ignore_names])
-        if not prefs().show_dot_files:
-            dirs = [file_name for file_name in dirs
-                    if file_name[0] != '.']
-        return dirs
-    except:
-        return []
+
+# directory name handlers
+def get_directory_name_handler(self):
+    try: return self["directory_name_internal"]
+    except: return ""
+
+def set_directory_name_handler(self, value):
+    global is_setting
+    if not is_setting:
+        is_setting = True
+        self["directory_name_internal"] = correct_file_name(value, is_directory = True)
+        is_setting = False
+
 
 def get_folders_list(self, context):
     
@@ -149,16 +152,20 @@ def get_libs_folders_list(self, context):
                     "Global 'site packages' Python libs"))
     return folder_list
 
+def get_bookmarks_list(self, context):
+    return [(bkmrk.path, bkmrk.path, '')
+                for bkmrk in bpy.context.scene.bookmarks_paths.values()]
 
-def prefs():
+
+# get preferences caller function
+def get_prefs():
     return bpy.context.preferences.addons['weed'].preferences.scripts_manager
 
 class Preferences(bpy.types.PropertyGroup):
 
-    show_dot_files  : BoolProperty(
-                    name = 'Show hidden files',
-                    default = False,
-                    description = 'Show hidden files on addon files panel')
+    show_dot_files: BoolProperty(name = 'Show hidden files',
+                                 default = False,
+                                 description = 'Show hidden files on addon files panel')
     show_dot_addons : BoolProperty(
                     name = 'Show dot Addons',
                     default = False,
@@ -169,27 +176,43 @@ class Preferences(bpy.types.PropertyGroup):
     libs_folder     : EnumProperty(
                     name = "Library folder select",
                     items = get_libs_folders_list)
-
     bkmrks_folder   : EnumProperty(
                     name = "Bookmark folder select",
-                    items = [])
+                    description = "description here bkmrks_folder",
+                    items = get_bookmarks_list)
+    bkmrk_select    : StringProperty(
+                    name = "bookmark",
+                    default = "",
+                    subtype = 'DIR_PATH')
+    bkmrk_add_tggl  : BoolProperty(
+                    name = 'Add new bookmark',
+                    default = False,
+                    description = 'Add new bookmark after browse it')
+    compact_views   : BoolProperty(
+                    name = 'compacts views selector',
+                    default = False,
+                    description = 'compacts views selector in scripts manager')
+    c_views_btns    : BoolProperty(
+                    name = 'compacts views buttons',
+                    default = False,
+                    description = 'compacts views buttons style')
 
     manager_view    : EnumProperty(
                     name = 'Explore',
                     items = [
-            ('current', 'Opened files', 'Browse currently opened files',
-             'DOCUMENTS', 0),
+            ('blend', '.blend file folder', 'Browse current .blend file folder',
+             'FILE_BLEND', 0),
             ('addons', 'Addons folder', 'Browse addons folder',
-             'OUTLINER_COLLECTION', 1),
+             'PLUGIN', 1),
             ('libraries', 'Libraries folder', 'Browse bundled addons and libraries',
              'ASSET_MANAGER', 2),
-            ('blend', '.blend folder', 'Browse current .blend file folder',
-             'FILE_BLEND', 3),
-            ('bookmarks', 'Bookmarks folder', 'Browse bookmarks of scripts folder',
+            ('current', 'Currently open files', 'Browse currently opened files',
+             'DOCUMENTS', 3),
+            ('bookmarks', 'Bookmarked folders', 'Browse bookmarked folders',
              'BOOKMARKS', 4)
 
         ],
-        default='addons')
+        default='blend')
 
 
 class WEED_PT_scripts_manager(bpy.types.Panel):
@@ -197,27 +220,28 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
     bl_label = "Scripts Manager"
     bl_space_type = "TEXT_EDITOR"
     bl_region_type = "UI"
-    bl_category = "Scripts Manager"
-    bl_options = {'HEADER_LAYOUT_EXPAND'}#, 'DRAW_BOX'}
+    bl_category = "Weed IDE"
+    #bl_options = {'HEADER_LAYOUT_EXPAND'}#, 'DRAW_BOX'}
     # bl_options = {'DRAW_BOX'}
 
     def __init__(self):
+        #breakpoint.here
         self.manager_views = {
-            'current'   : self.draw_current_files_view,
-            'libraries' : self.draw_libraries_view,
-            'addons'    : self.draw_addons_view,
             'blend'     : self.draw_blend_folder_view,
-            'bookmarks' : self.draw_libraries_view
+            'addons'    : self.draw_addons_view,
+            'libraries' : self.draw_libraries_view,
+            'current'   : self.draw_current_files_view,
+            'bookmarks' : self.draw_bookmarks_view
         }
         self.texts_paths = {}
-        self.pref = prefs()
+        self.pref = get_prefs()
 
     @classmethod
     def poll(cls, context):
         return current_addon_exists()
 
     def draw(self, context):
-        # pref = prefs()
+        # pref = get_prefs()
         wm = context.window_manager
 
         self.texts_paths.clear()
@@ -226,29 +250,87 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
                 self.texts_paths['Text:Internal' + sep + text.name_full] = text 
             else:
                 self.texts_paths[text.filepath] = text 
-
+        
         layout = self.layout
-        box = layout.box()
-        split_sel = box.split(factor=0.3)
-        split_sel.label(text='Browse:')
-        col = split_sel.column()
-        col.prop(self.pref, 'manager_view', expand=True)
-        layout.separator(factor=1)
-        self.manager_views.get(self.pref.manager_view)(layout)
+        # box = layout.box()
+        # box.alignment = 'RIGHT'
+        split_sel = layout.split(factor=0.4)
+        split_sel.prop(self.pref, 'compact_views',
+                            text = 'Browse:',
+                            icon = 'DISCLOSURE_TRI_RIGHT' 
+                                if self.pref.compact_views
+                                else 'DISCLOSURE_TRI_DOWN',
+                            emboss = False)
+        if self.pref.compact_views:
+            if self.pref.c_views_btns:
+                row = split_sel.row()
+                row.alignment = 'RIGHT'
+                row.prop(self.pref, 'manager_view', text='', expand=True)
+            else:
+                col = split_sel.column()
+                col.prop(self.pref, 'manager_view', text='')
+        else:
+            col = split_sel.column()
+            col.prop(self.pref, 'manager_view', expand=True)
+        #layout.separator(factor=1)
+        self.manager_views.get(self.pref.manager_view)(layout.box())
         
 
-    def draw_current_files_view(self, layout):
-        if not bpy.data.texts:
-            box = layout.box()
-            box.label(text='No open files', icon='ERROR')
-            box.label(text='in Text Editor')
-            box.separator()
-            box.scale_y = 0.6
+    def draw_blend_folder_view(self, layout):
+        blend_path = bpy.path.abspath('//').rstrip(sep)
+        if not blend_path:
+            split_box = layout.split(factor=0.05)
+            split_box.label()
+            box = split_box.box()
+            box.label(text='current blend file', icon='ERROR')
+            box.label(text='are not saved yet')
+            box.scale_y = 0.5
             box.active = False
             return None
+        layout.label(text=bpy.data.filepath.split(sep)[-1] + ' on:', icon='FILE_BLEND')
+        self.draw_directory(layout, blend_path + sep)
         
-        layout.label(text='Script files opened:')
-        layout.separator()
+    def draw_addons_view(self, layout):
+        # pref = get_prefs()
+        selector = layout.row(align=True)
+        selector.prop(self.pref, 'addons_folder', text='addon')
+        selector.operator('weed.py_mngr_open_addon_menu',
+                          icon='COLLAPSEMENU', text='')
+        #layout.separator()
+        addon_path = get_current_addon_path()
+        if isfile(addon_path):
+            directory, file_name = split(addon_path)
+            self.draw_element(layout, directory + sep, file_name)
+        else:
+            self.draw_directory(layout, addon_path)
+
+    def draw_libraries_view(self, layout):
+        # pref = get_prefs()
+        layout.prop(self.pref, 'libs_folder', text='lib folder')
+        split_box = layout.split(factor=0.05)
+        split_box.label()
+        box = split_box.box()
+        box.label(text='Warning:', icon='ERROR')
+        box.label(text='avoid modify files here,')
+        box.label(text='use them as a reference')
+        box.scale_y = 0.5
+        box.active = False
+        #layout.separator()
+        self.draw_directory(layout, self.pref.libs_folder + sep)
+
+    def draw_current_files_view(self, layout):
+        layout.label(text='current open files:')
+        if not bpy.data.texts:
+            split_box = layout.split(factor=0.05)
+            split_box.label()
+            box = split_box.box()
+            box.label(text='no open files', icon='ERROR')
+            box.label(text='in Text Editor')
+            #box.separator()
+            box.scale_y = 0.5
+            box.active = False
+            return None
+        #layout.separator()
         for curr_text in bpy.data.texts:
             if curr_text.is_in_memory:
                 directory, file_name = 'Text:Internal', curr_text.name_full
@@ -262,57 +344,46 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
             split_file.scale_y = 0.7
             split_file.scale_x = 0.7
             
-    def draw_libraries_view(self, layout):
-        # pref = prefs()
-        layout.prop(self.pref, 'libs_folder', text='')
-        box = layout.box()
-        box.label(text='Warning:', icon='ERROR')
-        box.label(text='avoid modify files here,')
-        box.label(text='use them as a reference')
-        box.scale_y = 0.4
-        box.active = False
-        layout.separator()
-        self.draw_directory(layout, self.pref.libs_folder + sep)
-
-    def draw_addons_view(self, layout):
-        # pref = prefs()
-        selector = layout.row(align=True)
-        selector.prop(self.pref, 'addons_folder', text='addon:')
-        selector.operator('weed.py_mngr_open_addon_menu',
-                          icon='COLLAPSEMENU', text='')
-        layout.separator()
-        addon_path = get_current_addon_path()
-        if isfile(addon_path):
-            directory, file_name = split(addon_path)
-            self.draw_element(layout, directory + sep, file_name)
-        else:
-            self.draw_directory(layout, addon_path)
-
-    def draw_blend_folder_view(self, layout):
-        blend_path = bpy.path.abspath('//').rstrip(sep)
-        if not blend_path:
-            box = layout.box()
-            box.label(text='Current blend file', icon='ERROR')
-            box.label(text='not saved yet')
-            box.separator()
-            box.scale_y = 0.6
-            box.active = False
-            return None
-        self.draw_directory(layout, blend_path + sep)
-        
     def draw_bookmarks_view(self, layout):
-        # pref = prefs()
-        selector = layout.row(align=True)
-        selector.prop(self.pref, 'bkmrks_folder', text='bookmark:')
-        selector.operator('weed.py_mngr_open_addon_menu',
-                          icon='BOOKMARKS', text='')
-        layout.separator()
-        addon_path = get_current_addon_path()
-        if isfile(addon_path):
-            directory, file_name = split(addon_path)
-            self.draw_element(layout, directory + sep, file_name)
+        # pref = get_prefs()
+        col = layout.column(align=False)
+        if self.pref.bkmrks_folder:
+            row = col.row(align=True)
+            row.prop(self.pref, 'bkmrks_folder', text='', icon='BOOKMARKS')
+            rmv_bkmrk = row.operator('weed.py_mngr_remove_bookmark',
+                                    icon='PANEL_CLOSE', text='')
+            rmv_bkmrk.path = self.pref.bkmrks_folder
+        row = col.row(align=True)
+        row.alignment = 'RIGHT'
+        if self.pref.bkmrk_add_tggl:
+            row.alignment = 'EXPAND'
+            row2 = row.row(align=True)
+            add_bkmrk = row2.operator('weed.py_mngr_add_bookmark',
+                                      icon='CHECKMARK', text='')
+            row2.enabled = isdir(self.pref.bkmrk_select)
+            add_bkmrk.path = self.pref.bkmrk_select
+            row.prop(self.pref, 'bkmrk_select', text='')
         else:
-            self.draw_directory(layout, addon_path)
+            row.label(text='bookmarked folders:')
+        row.prop(self.pref, 'bkmrk_add_tggl', text='', icon='ADD')
+        #layout.separator()
+        # addon_path = get_current_addon_path()
+        # if isfile(addon_path):
+        #     directory, file_name = split(addon_path)
+        #     self.draw_element(layout, directory + sep, file_name)
+        # else:
+        if self.pref.bkmrks_folder:
+            self.draw_directory(layout, self.pref.bkmrks_folder)
+        else:
+            split_box = layout.split(factor=0.05)
+            split_box.label()
+            box = split_box.box()
+            box.label(text="there are no", icon='ERROR')
+            box.label(text='bookmarks yet')
+            #box.separator()
+            box.scale_y = 0.5
+            box.active = False
+
 
 
     def draw_directory(self, layout, directory):
@@ -406,8 +477,8 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
     def is_directory_visible(self, directory):
         return directory_visibility[directory]
 
-    def is_code_visible(self, code):
-        return code_visibility[code]
+    # def is_code_visible(self, code):
+    #     return code_visibility[code]
 
 
 class WEED_OT_py_mngr_MakeAddonNameValid(bpy.types.Operator):
@@ -705,6 +776,107 @@ class WEED_OT_py_mngr_DeleteDirectory(bpy.types.Operator):
         return {"FINISHED"}
 
 
+
+##################################################################
+# bookmarks operators
+
+# class MyEnumItems(bpy.types.PropertyGroup):
+#     @classmethod
+#     def register(cls):
+#         bpy.types.Scene.my_enum_items = bpy.props.PointerProperty(type=MyEnumItems)
+
+#     @classmethod
+#     def unregister(cls):
+#         del bpy.types.Scene.my_enum_items
+
+#     asdf : bpy.props.EnumProperty(
+#         name="asdf",
+#         description="asdf",
+#         # items argument required to initialize, just filled with empty values
+#         items = add_items_from_collection_callback,
+#     )
+
+
+class BookmarkPath(bpy.types.PropertyGroup):
+    @classmethod
+    def register(cls):
+        bpy.types.Scene.bookmarks_paths = CollectionProperty(type=BookmarkPath)
+
+    @classmethod
+    def unregister(cls):
+        del bpy.types.Scene.bookmarks_paths
+
+    path : bpy.props.StringProperty(
+        name = "bookmark path",
+        default = "" #,
+        #subtype = 'DIR_PATH'
+    )
+
+
+class WEED_OT_py_mngr_add_bookmark(bpy.types.Operator):
+    ''' add bookmark to bpy.context.scene.bookmarks_paths '''
+    bl_label = "add bookmark"
+    bl_idname = "weed.py_mngr_add_bookmark"
+
+    path : bpy.props.StringProperty(name = "bookmark path", default = "")
+
+    # @classmethod
+    # def poll(cls, context):
+    #     return isdir(cls.path)
+
+    def execute(self, context):
+        # if not self.path:
+        #     return {'CANCELLED'}
+        paths = bpy.context.scene.bookmarks_paths
+        if self.path not in [bkmk.path for bkmk in paths]:
+            new_bkmrk = bpy.context.scene.bookmarks_paths.add()
+            new_bkmrk.path = self.path  
+            get_prefs().bkmrk_add_tggl = False 
+            get_prefs().bkmrk_select = ''              
+        return {'FINISHED'}
+
+
+class WEED_OT_py_mngr_remove_bookmark(bpy.types.Operator):
+    ''' add item to bpy.context.scene.my_items '''
+    bl_label = "remove bookmark"
+    bl_idname = "weed.py_mngr_remove_bookmark"
+
+    path : bpy.props.StringProperty(name = "bookmark path", default = "")
+
+    # @classmethod
+    # def poll(cls, context):
+    #     return (get_prefs().bkmrks_folder in bpy.context.scene.bookmarks_paths)
+
+    def execute(self, context):
+        bookmarks_paths = bpy.context.scene.bookmarks_paths
+        bookmarks_paths.remove(bookmarks_paths.find(self.path))
+        # new_bkmrk = bpy.context.scene.bookmarks_paths.add()
+        # new_bkmrk.path = self.path    
+        return {'FINISHED'}
+
+
+# class MY_PT_simple_panel(bpy.types.Panel):
+#     bl_label = "Simple Panel"
+#     bl_idname = "MY_PT_simple_panel"
+#     bl_space_type = "VIEW_3D"   
+#     bl_region_type = "UI"
+#     bl_category = "simple panel"
+#     bl_context = "objectmode"
+
+#     def draw(self, context):
+#         layout = self.layout
+#         layout.operator("my.add_item")
+#         layout.prop(context.scene.my_enum_items, "asdf")
+
+# classes = (MyEnumItems, MyItem, MY_OT_add_item, MY_PT_simple_panel)
+# register, unregister = bpy.utils.register_classes_factory(classes)
+
+# if __name__ == "__main__":
+#     register()
+##################################################################
+
+
+
 def new_addon_file(path, default = ""):
     new_file(get_current_addon_path() + path, default)
 
@@ -739,21 +911,21 @@ class WEED_OT_py_mngr_ToogleDirectoryVisibility(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class WEED_OT_py_mngr_ToogleCodeVisibility(bpy.types.Operator):
-    bl_idname = "weed.py_mngr_toogle_code_visibility"
-    bl_label = "Toogle Code Visibility"
-    bl_description = ""
-    bl_options = {"REGISTER"}
+# class WEED_OT_py_mngr_ToogleCodeVisibility(bpy.types.Operator):
+#     bl_idname = "weed.py_mngr_toogle_code_visibility"
+#     bl_label = "Toogle Code Visibility"
+#     bl_description = ""
+#     bl_options = {"REGISTER"}
 
-    index : IntProperty(name = "index", default = 0)
+#     index : IntProperty(name = "index", default = 0)
 
-    @classmethod
-    def poll(cls, context):
-        return True
+#     @classmethod
+#     def poll(cls, context):
+#         return True
 
-    def execute(self, context):
-        bpy.types.Text.code_tree[self.index].open = not bpy.types.Text.code_tree[self.index].open
-        return {"FINISHED"}
+#     def execute(self, context):
+#         bpy.types.Text.code_tree[self.index].open = not bpy.types.Text.code_tree[self.index].open
+#         return {"FINISHED"}
 
 
 class WEED_OT_py_mngr_FileMenuCloser(bpy.types.Operator):
@@ -816,6 +988,7 @@ class WEED_OT_py_mngr_CloseFile(bpy.types.Operator):
         return True
 
     def execute(self, context):
+        #breakpoint.here
         for text in bpy.data.texts:
             directory, file_name = split(self.path)
             if directory == 'Text:Internal' and file_name == text.name_full:
@@ -879,7 +1052,7 @@ class WEED_OT_py_mngr_AddonMenuOpener(bpy.types.Operator):
     def drawMenu(dirProps, self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        layout.prop(prefs(), 'show_dot_addons',
+        layout.prop(get_prefs(), 'show_dot_addons',
                  text='Show hidden addons')
         # RECUERDA, para enviar argumentos...
         # op = layout.operator("weed.py_mngr_renam...
@@ -922,7 +1095,7 @@ class WEED_OT_py_mngr_DirMenuOpener(bpy.types.Operator):
     def drawMenu(parent, self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
-        layout.prop(prefs(), 'show_dot_files',
+        layout.prop(get_prefs(), 'show_dot_files',
                  text='Show hidden addons')
         op = layout.operator("weed.py_mngr_new_file",
                             icon = "FILE_NEW",
@@ -1264,19 +1437,9 @@ def is_addon_name_valid():
     return addon_name == correct_file_name(
         addon_name, is_directory = True) and addon_name != ""
 
-# def get_addon_name():
-#     return get_settings().addon_name
-
 def get_addon_name():
-    return prefs().addons_folder
+    return get_prefs().addons_folder
 
-#def save_text_block(text_block):
-#    if not text_block: return
-#    if not exists(text_block.filepath): return
-
-#    file = open(text_block.filepath, mode = "w")
-#    file.write(text_block.as_string())
-#    file.close()
 
 def save_text_block(text_block):
     if not text_block: return
@@ -1319,6 +1482,9 @@ prefs_classes = (
 )
 
 classes = (
+    BookmarkPath,
+    WEED_OT_py_mngr_add_bookmark,
+    WEED_OT_py_mngr_remove_bookmark,
     WEED_OT_py_mngr_MakeAddonNameValid,
     WEED_OT_py_mngr_CreateNewAddon,
     WEED_OT_py_mngr_RenameAddon,
@@ -1339,7 +1505,7 @@ classes = (
     WEED_OT_py_mngr_RenameDirectory,
     WEED_OT_py_mngr_DeleteDirectory,
     WEED_OT_py_mngr_ToogleDirectoryVisibility,
-    WEED_OT_py_mngr_ToogleCodeVisibility,
+    # WEED_OT_py_mngr_ToogleCodeVisibility,
     WEED_OT_py_mngr_RestartBlender,
     WEED_OT_py_mngr_FileMenuCloser,
     WEED_OT_py_mngr_FileMenuOpener,
@@ -1348,28 +1514,22 @@ classes = (
     WEED_PT_scripts_manager,
 )
 
-# registro explicito de modulos.
-# con **kwargs para registrar o no las preferencias
+
 def register(prefs=True):
     if prefs:
         for cls in prefs_classes:
             try:
-                bpy.utils.register_class(cls)
+                bpy.utils.unregister_class(cls)
             except:
-                pass
+                print(f'{cls} already unregistered')
+                #pass
+            bpy.utils.register_class(cls)
 
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    # bpy.types.TEXT_MT_view.append(api_menu)
-    # bpy.types.TEXT_MT_context_menu.append(api_menu)
-    # bpy.types.TEXT_HT_footer.append(api_menu)
 
 def unregister(prefs=True):
-    # bpy.types.TEXT_MT_context_menu.remove(api_menu)
-    # bpy.types.TEXT_MT_view.remove(api_menu)
-    # bpy.types.TEXT_HT_footer.remove(api_menu)
-
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 

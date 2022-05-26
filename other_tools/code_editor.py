@@ -1286,14 +1286,14 @@ classes = (
 
 
 def register():
-    from bpy.types import Screen, TEXT_HT_header
+    from bpy.types import Screen
     from bpy.utils import register_class
 
     for cls in classes:
         register_class(cls)
 
     Screen.code_editors = bpy.props.CollectionProperty(type=CE_PG_settings)
-    TEXT_HT_header.append(CodeEditorPrefs.add_to_header)
+    bpy.types.WEED_PT_main_panel.append(CodeEditorPrefs.add_to_header)
 
     kc = bpy.context.window_manager.keyconfigs.addon.keymaps
     km = kc.get('Text', kc.new('Text', space_type='TEXT_EDITOR'))
@@ -1311,7 +1311,7 @@ def register():
 
 
 def unregister():
-    bpy.types.TEXT_HT_header.remove(CodeEditorPrefs.add_to_header)
+    bpy.types.WEED_PT_main_panel.remove(CodeEditorPrefs.add_to_header)
     set_draw(state=False)
 
     for km, kmi in register.keymaps:

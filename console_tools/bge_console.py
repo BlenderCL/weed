@@ -96,7 +96,7 @@ def createBgeCon():
     for obj in selected_objects:
         obj.select_set(True)
 
-class RemoveBgeConsole(bpy.types.Operator):
+class WEED_OT_remove_bge_console(bpy.types.Operator):
     """Remove Bge Console from actual blend file"""
     bl_idname = "weed.remove_bge_console"
     bl_label = "Remove Bge Console from actual blend file."
@@ -122,7 +122,7 @@ class RemoveBgeConsole(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class DettachBgeConsole(bpy.types.Operator):
+class WEED_OT_dettach_bge_console(bpy.types.Operator):
     """Dettach Bge Console from actual scene"""
     bl_idname = "weed.dettach_bge_console"
     bl_label = "Dettach Bge Console from actual Scene."
@@ -142,7 +142,7 @@ class DettachBgeConsole(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class AttachBgeConsole(bpy.types.Operator):
+class WEED_OT_attach_bge_console(bpy.types.Operator):
     """Attach Bge Console to actual scene"""
     bl_idname = "weed.attach_bge_console"
     bl_label = "Attach Bge Console to actual Scene."
@@ -175,23 +175,23 @@ def bge_menu(self, context):
     if sce_bgecon:
         layout.label(text='Attach Bge Console',
                     icon='NONE')
-        layout.operator(DettachBgeConsole.bl_idname,
+        layout.operator('weed.dettach_bge_console',
                     text='Dettach Bge Console',
                     icon='NONE')
-        layout.operator(RemoveBgeConsole.bl_idname,
+        layout.operator('weed.remove_bge_console',
                     text='Remove Bge Console',
                     icon='NONE')
     elif glb_bgecon:
-        layout.operator(AttachBgeConsole.bl_idname,
+        layout.operator('weed.attach_bge_console',
                     text='Attach Bge Console',
                     icon='NONE')
         layout.label(text='Dettach Bge Console',
                     icon='NONE')
-        layout.operator(RemoveBgeConsole.bl_idname,
+        layout.operator('weed.remove_bge_console',
                     text='Remove Bge Console',
                     icon='NONE')
     else:
-        layout.operator(AttachBgeConsole.bl_idname,
+        layout.operator('weed.attach_bge_console',
                     text='Attach Bge Console',
                     icon='NONE')
         layout.label(text='Dettach Bge Console',
@@ -200,15 +200,25 @@ def bge_menu(self, context):
                     icon='NONE')
         #layout.separator()
 
-def register():
-    bpy.utils.register_class(RemoveBgeConsole)
-    bpy.utils.register_class(DettachBgeConsole)
-    bpy.utils.register_class(AttachBgeConsole)
+
+classes = (
+    WEED_OT_remove_bge_console,
+    WEED_OT_dettach_bge_console,
+    WEED_OT_attach_bge_console,
+)
+
+
+def register(prefs=True):
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    
     bpy.types.WEED_MT_main_menu.append(bge_menu)
 
-def unregister():
+
+def unregister(prefs=True):
     bpy.types.WEED_MT_main_menu.remove(bge_menu)
-    bpy.utils.unregister_class(AttachBgeConsole)
-    bpy.utils.unregister_class(DettachBgeConsole)
-    bpy.utils.unregister_class(RemoveBgeConsole)
+
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+    
     

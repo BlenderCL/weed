@@ -12,19 +12,48 @@
 import bpy
 from bpy.props import BoolProperty
 
-# declares function to weed preferences
-# before preferences exist
-def prefs():
+# get preferences caller function
+def get_prefs():
     return bpy.context.preferences.addons['weed'].preferences.find_replace
 
 
-class Preferences(bpy.types.PropertyGroup):
-
-    find_replace_toggle : BoolProperty(
-        name = 'show find footer',
-        default = False,
-        description = 'Show Find and Replace footer panel')
-
+def draw_find_replace(self, context):
+    layout = self.layout
+    fnd_rplc = get_prefs() 
+    wm = context.window_manager
+    layout.use_property_decorate = False
+    st = context.space_data
+    text = st.text
+    if not text:
+        fnd_rplc.find_replace_toggle = False
+    
+    else:
+        row = layout.row(align=True)
+        row.prop(fnd_rplc, "find_replace_toggle", text="", icon='VIEWZOOM', toggle=True)
+        if fnd_rplc.find_replace_toggle:
+            # find
+            # row = layout.row(align=True)
+            row.prop(st, "find_text", text="")
+            row.activate_init = True
+            row.operator("text.find_set_selected", text="", icon='EYEDROPPER') 
+            row.operator("text.find", text="", icon='VIEWZOOM')        
+            
+            # replace                        
+            row = layout.row(align=True)
+            row.prop(st, "replace_text", text="")
+            row.operator("text.replace_set_selected", text="", icon='EYEDROPPER')
+            row.operator("text.replace", text="", icon='DECORATE_OVERRIDE')        
+            # row.operator("text.replace", text="All", icon='DECORATE_OVERRIDE')#.all = True
+            # breakpoint.here
+            
+        
+            # settings                   
+            row = layout.row(align=True)      
+            row.prop(st, "use_match_case", text="Case", toggle=True)    # case
+            row.prop(st, "use_find_wrap", text="Wrap", toggle=True)  # warp
+            row.prop(st, "use_find_all", text="All", toggle=True)  # all
+            row.scale_x = 0.6
+        
 
 class WEED_OT_find_replace_popup(bpy.types.Operator):
     bl_idname = 'weed.find_replace_popup'
@@ -59,7 +88,9 @@ class WEED_OT_find_replace_popup(bpy.types.Operator):
 
         row = col.row(align=True)
         row.operator("text.replace")
-        row.operator("text.replace", text="Replace All").all = True
+        # row.operator("text.replace", text="Replace All")#.all = True
+        # breakpoint.here
+        
 
         layout.separator()
 
@@ -81,55 +112,35 @@ class WEED_OT_find_replace_popup(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=400)
 
 
-def draw_find_replace(self, context):
-    layout = self.layout
-    fnd_rplc = prefs() 
-    wm = context.window_manager
-    layout.use_property_decorate = False
-    st = context.space_data
-    text = st.text
-    if not text:
-        fnd_rplc.find_replace_toggle = False
-    
-    else:
-        row = layout.row(align=True)
-        row.prop(fnd_rplc, "find_replace_toggle", text="", icon='VIEWZOOM', toggle=True)
-        if fnd_rplc.find_replace_toggle:
-            # find
-            # row = layout.row(align=True)
-            row.prop(st, "find_text", text="")
-            row.activate_init = True
-            row.operator("text.find_set_selected", text="", icon='EYEDROPPER') 
-            row.operator("text.find", text="", icon='VIEWZOOM')        
-            
-            # replace                        
-            row = layout.row(align=True)
-            row.prop(st, "replace_text", text="")
-            row.operator("text.replace_set_selected", text="", icon='EYEDROPPER')
-            row.operator("text.replace", text="", icon='DECORATE_OVERRIDE')        
-            row.operator("text.replace", text="All", icon='DECORATE_OVERRIDE').all = True
-        
-            # settings                   
-            row = layout.row(align=True)      
-            row.prop(st, "use_match_case", text="Case", toggle=True)    # case
-            row.prop(st, "use_find_wrap", text="Wrap", toggle=True)  # warp
-            row.prop(st, "use_find_all", text="All", toggle=True)  # all
-            row.scale_x = 0.6
-        
+class Preferences(bpy.types.PropertyGroup):
+    find_replace_toggle : BoolProperty(
+        name = 'show find footer',
+        default = False,
+        description = 'Show Find and Replace footer panel')
+
 
 prefs_classes = (
     Preferences,
 )
 
+classes = (
+    WEED_OT_find_replace_popup,
+)
+
+
 def register(prefs=True):
     if prefs:
         for cls in prefs_classes:
             try:
-                bpy.utils.register_class(cls)
+                bpy.utils.unregister_class(cls)
             except:
-                pass
+                print(f'{cls} already unregistered')
+                #pass
+            bpy.utils.register_class(cls)
 
-    bpy.utils.register_class(WEED_OT_find_replace_popup)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
     bpy.types.TEXT_HT_footer.prepend(draw_find_replace)
 
     kc = bpy.context.window_manager.keyconfigs
@@ -146,8 +157,10 @@ def unregister(prefs=True):
         km.keymap_items.remove(kmi)
 
     bpy.types.TEXT_HT_footer.remove(draw_find_replace)
-    bpy.utils.unregister_class(WEED_OT_find_replace_popup)
 
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+    
     if prefs:
         for cls in reversed(prefs_classes):
             bpy.utils.unregister_class(cls)

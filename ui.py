@@ -11,6 +11,7 @@ def weed_menu(self, context):
 
 def icon_get_menu(self, context):
     # iv.icons_show
+    #breakpoint.here
     layout = self.layout
     layout.operator_context = 'INVOKE_DEFAULT'
     icon_show = layout.operator('iv.icons_show', text='get icon ID', icon='IMAGE_DATA')
@@ -31,13 +32,13 @@ class WEED_MT_main_menu(bpy.types.Menu):
 class WEED_PT_main_panel(bpy.types.Panel):
     bl_space_type = "TEXT_EDITOR"
     bl_region_type = "UI"
-    bl_label = "Weed IDE"
-    bl_category = "Weed"
-    bl_options = {'HEADER_LAYOUT_EXPAND'}
+    bl_label = "IDE Tools"
+    bl_category = "Weed IDE"
+    #bl_options = {'HEADER_LAYOUT_EXPAND'}
     # bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
-        layout = self.layout
+        layout = self.layout.grid_flow(columns=2, even_columns=1)
 
 
 def register():
@@ -50,11 +51,13 @@ def register():
     if bpy.context.preferences.addons.get('development_icon_get'):
         bpy.types.TEXT_MT_context_menu.append(icon_get_menu)
         bpy.types.TEXT_MT_view.append(icon_get_menu)
+        bpy.types.TEXT_HT_footer.append(icon_get_menu)
 
 def unregister():
     if bpy.context.preferences.addons.get('development_icon_get'):
         bpy.types.TEXT_MT_context_menu.remove(icon_get_menu)
         bpy.types.TEXT_MT_view.remove(icon_get_menu)
+        bpy.types.TEXT_HT_footer.remove(icon_get_menu)
 
     bpy.types.TEXT_HT_footer.remove(footer_spacer)
     bpy.types.TEXT_MT_view.remove(weed_menu)

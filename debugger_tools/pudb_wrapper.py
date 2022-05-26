@@ -117,7 +117,7 @@ class BreakpointShortcut(object):
         dbg.set_trace(sys._getframe().f_back)
 
 
-class InsertBreakpoint(bpy.types.Operator):
+class WEED_OT_insert_breakpoint(bpy.types.Operator):
     """Tooltip"""
     bl_idname = "weed.insert_breakpoint"
     bl_label = "Insert pudb Breakpoint"
@@ -134,7 +134,7 @@ class InsertBreakpoint(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class SearchBreakpoint(bpy.types.Operator):
+class WEED_OT_search_breakpoint(bpy.types.Operator):
     """Tooltip"""
     bl_idname = "weed.search_breakpoint"
     bl_label = "Search for Breakpoint"
@@ -175,30 +175,38 @@ def pudb_menu(self, context):
     layout = self.layout
     layout.operator_context = 'INVOKE_DEFAULT'
     layout.label(text="PuDB debugger", icon='VIEW_PAN')
-    layout.operator(InsertBreakpoint.bl_idname,
+    layout.operator("weed.insert_breakpoint",
                     text='Insert PuDB breakpoint',
                     icon='NONE')
-    layout.operator(SearchBreakpoint.bl_idname,
+    layout.operator("weed.search_breakpoint",
                     text='Search PuDB breakpoint',
                     icon='NONE')
     # layout.separator()
 
 
-def register():
+classes = (
+    WEED_OT_insert_breakpoint,
+    WEED_OT_search_breakpoint,
+)
+
+
+def register(prefs=True):
     _install_low_level_libs()
     __builtins__["breakpoint"] = BreakpointShortcut()
-    bpy.utils.register_class(InsertBreakpoint)
-    bpy.utils.register_class(SearchBreakpoint)
+
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
     bpy.types.WEED_MT_main_menu.append(pudb_menu)
 
-def unregister():
+
+def unregister(prefs=True):
     bpy.types.WEED_MT_main_menu.remove(pudb_menu)
-    bpy.utils.unregister_class(SearchBreakpoint)
-    bpy.utils.unregister_class(InsertBreakpoint)
-    try:
-        __builtins__.pop("breakpoint")
-    except KeyError:
-        self.report({'INFO'}, 'breakpoint caller, already removed from builtins')
+
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+    
+    __builtins__.pop("breakpoint")
 
     
 
