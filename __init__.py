@@ -80,20 +80,20 @@ else:
 def module_toggle(self, context):
     for module, path, has_prefs in _modules:
         if eval(f"self.{module}_enabled != self.{module}_last_state"):
-            print(f'{module} change state')
+            #self.report({'DEBUG'}, f'{module} change state')
             execute_code = f"""
                 if self.{module}_enabled:
                     try:
                         {module}.register(prefs=True)
-                        print(f'{module}.register()')
+                        #self.report({'DEBUG'}, f'{module}.register()')
                     except:
-                        print(f'{module}.register() fail !')
+                        #self.report({'DEBUG'}, f'{module}.register() fail !')
                 else:
                     try:
                         {module}.unregister(prefs=False)
-                        print(f'{module}.unregister()')
+                        #self.report({'DEBUG'}, f'{module}.unregister()')
                     except:
-                        print(f'{module}.unregister() fail !')
+                        #self.report({'DEBUG'}, f'{module}.unregister() fail !')
                 self.{module}_last_state = self.{module}_enabled        
             """
             exec(cleandoc(execute_code))
@@ -151,9 +151,10 @@ def register():
         execute_code = f"""
             try:
                 {module}.register() 
-                print('{module} registered')    
+                #self.report({'DEBUG'}, f'{module} registered')    
             except:
-                print('{module} except registering')    
+                pass
+                #self.report({'DEBUG'}, f'{module} except registering')    
         """
         
         exec(cleandoc(execute_code))
@@ -166,9 +167,10 @@ def unregister():  # note how unregistering is done in reverse
         execute_code = f"""
             try:
                 {module}.unregister() 
-                print('{module} unregistered')    
+                #self.report({'DEBUG'}, f'{module} unregistered')    
             except:
-                print('{module} except unregistering')    
+                pass
+                #self.report({'DEBUG'}, f'{module} except unregistering')    
         """
         exec(cleandoc(execute_code))
     ui.unregister()

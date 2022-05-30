@@ -30,11 +30,11 @@ def _install_low_level_libs():
     for site_package in getsitepackages():
         if path.basename(site_package) == 'site-packages':
             break
-    print('global site package folder, {}'.format(site_package))
+    #self.report({'DEBUG'}, f'global site package folder, {site_package}')
     # test for write access. if fails it gets user site package
     if not access(site_package, W_OK):
         site_package = getusersitepackages()
-        print('user site package folder override, {}'.format(site_package))
+        #self.report({'DEBUG'}, f'user site package folder override, {site_package}')
 
     # before register module...
     # of pudb_wrapper, install python low level libraries
@@ -52,7 +52,7 @@ def _install_low_level_libs():
     trgt_libs_list = listdir(site_package)
     for lib in sorted(md5_hashes.keys()):
         if not lib in trgt_libs_list:
-            print(lib, 'module is not present, will be installed')
+            #self.report({'DEBUG'}, f'{lib} module is not present, will be installed')
             copytree(path.join(src_libs_path, lib),
                      path.join(site_package, lib))
         elif md5_hashes[lib] != dirhash(path.join(site_package, lib), 'md5',
@@ -60,18 +60,19 @@ def _install_low_level_libs():
                                 excluded_files=['pudb.cfg',
                                                 'saved_breakpoints'
                                 ]):
-            print(lib, 'module maybe is outdated, will be replaced')
+            #self.report({'DEBUG'}, f'{lib} module maybe is outdated, will be replaced')
             md5_hash = dirhash(path.join(site_package, lib), 'md5',
                                 excluded_extensions=['pyc', 'gitignore'],
                                 excluded_files=['pudb.cfg',
                                                 'saved_breakpoints'
                                 ])
-            print('md5 hash was', md5_hash)
+            #self.report({'DEBUG'}, f'md5 hash was {md5_hash}')
             rmtree(path.join(site_package, lib), ignore_errors=True)
             copytree(path.join(src_libs_path, lib),
                      path.join(site_package, lib))
         else:
-            print(lib, "module it's already installed")
+            pass
+            #self.report({'DEBUG'}, f"{lib} module it's already installed")
 
 
 class BreakpointShortcut(object):
@@ -130,7 +131,7 @@ class WEED_OT_insert_breakpoint(bpy.types.Operator):
             bpy.ops.text.move(type = 'LINE_BEGIN')
             bpy.ops.text.insert(text = indent + breakpoint_text)
         except AttributeError:
-            self.report({'INFO'}, 'It seems that there is no any open text')
+            #self.report({'INFO'}, 'It seems that there is no any open text')
         return {'FINISHED'}
 
 
@@ -160,9 +161,9 @@ class WEED_OT_search_breakpoint(bpy.types.Operator):
                 bpy.ops.text.move(type='LINE_BEGIN')
                 bpy.ops.text.move_select(type = 'NEXT_LINE')
         except RuntimeError:
-            self.report({'INFO'}, 'It seems that there is no any open text')
+            #self.report({'INFO'}, 'It seems that there is no any open text')
         except IndexError:
-            self.report({'INFO'}, 'It seems that is an empty text')
+            #self.report({'INFO'}, 'It seems that is an empty text')
         finally:
             context.area.spaces[0].find_text = old_find
             context.space_data.use_match_case = old_case

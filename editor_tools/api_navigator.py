@@ -140,7 +140,7 @@ class Preferences(bpy.types.PropertyGroup):
 ############   Functions   ############
 
 def get_root_module(path):
-    # print('get_root_module')
+    # self.report({'DEBUG'}, 'get_root_module')
     global root_module
     if '.' in path:
         root = path[:path.find('.')]
@@ -153,7 +153,7 @@ def get_root_module(path):
 
 
 def evaluate(module):
-    # print('evaluate')
+    # self.report({'DEBUG'}, 'evaluate')
     global root_module, tree_level, root_m_path
 
     try:
@@ -170,7 +170,7 @@ def evaluate(module):
 def get_tree_level():
     api_nav = get_prefs()
     def object_list():
-        # print('object_list')
+        # self.report({'DEBUG'}, 'object_list')
         global current_module, root_m_path
 
         itm, val, mod, typ, props, struct, met, att, bug = [], [], [], [], [], [], [], [], []
@@ -217,7 +217,7 @@ def get_tree_level():
 
 def parent(path):
     """Returns the parent path"""
-    # print('parent')
+    # self.report({'DEBUG'}, 'parent')
 
     parent = path
     if parent[-1] == ']' and '[' in parent:
@@ -571,8 +571,8 @@ def register(prefs=True):
             try:
                 bpy.utils.unregister_class(cls)
             except:
-                print(f'{cls} already unregistered')
-                #pass
+                pass
+                #self.report({'DEBUG'}, f'{cls} already unregistered')
             bpy.utils.register_class(cls)
 
     for cls in classes:

@@ -134,8 +134,8 @@ def register(prefs=True):
             try:
                 bpy.utils.unregister_class(cls)
             except:
-                print(f'{cls} already unregistered')
-                #pass
+                pass
+                #self.report({'DEBUG'}, f'{cls} already unregistered')
             bpy.utils.register_class(cls)
 
     for cls in classes:

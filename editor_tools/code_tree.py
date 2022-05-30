@@ -40,11 +40,11 @@ class CodeTreeManager(dict):
         self.__dict__ = self
 
     def gcollect(self):
-        print('gcollect')
+        #self.report({'DEBUG'}, 'gcollect')
         act_txts = {txt.as_pointer() for txt in bpy.data.texts}
         for code_tree in (*self.keys(),):
             if code_tree not in act_txts:
-                print(f'code tree {code_tree} eliminado')
+                #self.report({'DEBUG'}, f'code tree {code_tree} eliminado')
                 del self[code_tree]
 
     def nuke(self):
@@ -54,11 +54,11 @@ class CodeTreeManager(dict):
         #ctm = bpy.types.Text.code_tree_manager
         handle_id = context.edit_text.as_pointer()
         if not self.get(handle_id):
-            print('new code tree')
+            #self.report({'DEBUG'}, 'new code tree')
             #ctm.gcollect()  # remove closed code_trees
             self[handle_id] = self.build_code_tree(context)
         elif len(context.edit_text.lines) != self[handle_id]['total_lines']:
-            print('remake code tree')
+            #self.report({'DEBUG'}, 'remake code tree')
             self.gcollect()  # remove closed code_trees
             self[handle_id] = self.build_code_tree(context)
             # context.area.tag_redraw() # maybe to an tab UI
@@ -141,7 +141,7 @@ def draw_code_tree_panel(self, context):
                   'def_open' : 'LAYER_USED'
             }
 
-    if get_prefs().with_box:
+    if get_prefs().alt_layout:
         layout = self.layout.box()
     else:
         layout = self.layout
@@ -356,9 +356,9 @@ class Preferences(bpy.types.PropertyGroup):
             'bpy.types.TEXT_MT_view.remove(code_tree_menu)')
     )
 
-    with_box: bpy.props.BoolProperty(
-        name="use box layout", default=False,
-        description="Use box layout on Code Tree view ",
+    alt_layout: bpy.props.BoolProperty(
+        name="alternative layout", default=False,
+        description="Alternative layout on Code Tree view ",
     )
 
 
@@ -375,7 +375,7 @@ class Preferences(bpy.types.PropertyGroup):
 
         flow = layout.grid_flow(columns=2, even_columns=1)
         flow.prop(self, "own_tab", toggle=1)
-        flow.prop(self, "with_box", toggle=1)
+        flow.prop(self, "alt_layout", toggle=1)
         flow.label()
         
         flow.prop(self, "on_view")
@@ -402,8 +402,8 @@ def register(prefs=True):
             try:
                 bpy.utils.unregister_class(cls)
             except:
-                print(f'{cls} already unregistered')
-                # pass
+                pass
+                #self.report({'DEBUG'}, f'{cls} already unregistered')
             bpy.utils.register_class(cls)
 
     for cls in classes:

@@ -157,11 +157,31 @@ def get_bookmarks_list(self, context):
                 for bkmrk in bpy.context.scene.bookmarks_paths.values()]
 
 
+
 # get preferences caller function
 def get_prefs():
     return bpy.context.preferences.addons['weed'].preferences.scripts_manager
 
+
+def update_prefs(self, context):
+    #breakpoint.here
+    if self.own_tab:
+        bpy.types.WEED_PT_scripts_manager.bl_category = 'Scripts Manager'
+    else:
+        bpy.types.WEED_PT_scripts_manager.bl_category = 'Weed IDE'
+    try:
+        bpy.utils.unregister_class(WEED_PT_scripts_manager)
+    except:
+        pass
+    try:
+        bpy.utils.register_class(WEED_PT_scripts_manager)
+    except:
+        pass
+
+
 class Preferences(bpy.types.PropertyGroup):
+    """Scripts Manager Preferences Panel"""
+    bl_idname = __name__
 
     show_dot_files: BoolProperty(name = 'Show hidden files',
                                  default = False,
@@ -190,7 +210,7 @@ class Preferences(bpy.types.PropertyGroup):
                     description = 'Add new bookmark after browse it')
     compact_views   : BoolProperty(
                     name = 'compacts views selector',
-                    default = False,
+                    default = True,
                     description = 'compacts views selector in scripts manager')
     c_views_btns    : BoolProperty(
                     name = 'compacts views buttons',
@@ -213,6 +233,38 @@ class Preferences(bpy.types.PropertyGroup):
 
         ],
         default='blend')
+
+    alt_layout: bpy.props.BoolProperty(
+        name="alternative layout", default=False,
+        description="Alternative layout on Code Tree view ",
+    )
+
+    own_tab: bpy.props.BoolProperty(
+        name="Own Tab", default=False,
+        description="Show Code Tree tab on Text Editor Sidebar ",
+        update=update_prefs
+    )
+
+#    @classmethod
+#    def default_prefs(self):
+#        #breakpoint.here
+#        obj = lambda : None
+#        for attr, val in self.__annotations__.items():
+#            setattr(obj, attr, val[1]['default'])
+#        return obj
+
+    def draw(self, layout):
+        #layout.use_property_split = True
+
+        flow = layout.grid_flow(columns=2, even_columns=1)
+        flow.prop(self, "own_tab", toggle=1)
+        flow.prop(self, "alt_layout", toggle=1)
+        
+        flow.prop(self, "compact_views")
+        # flow.label()
+        flow.prop(self, "c_views_btns")
+        # flow.prop(self, "on_footer")
+
 
 
 class WEED_PT_scripts_manager(bpy.types.Panel):
@@ -241,7 +293,7 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
         return current_addon_exists()
 
     def draw(self, context):
-        # pref = get_prefs()
+        alt_layout = self.pref.alt_layout
         wm = context.window_manager
 
         self.texts_paths.clear()
@@ -251,10 +303,8 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
             else:
                 self.texts_paths[text.filepath] = text 
         
-        layout = self.layout
-        # box = layout.box()
-        # box.alignment = 'RIGHT'
-        split_sel = layout.split(factor=0.4)
+        header = self.layout if alt_layout else self.layout.box()
+        split_sel = header.split(factor=0.4)
         split_sel.prop(self.pref, 'compact_views',
                             text = 'Browse:',
                             icon = 'DISCLOSURE_TRI_RIGHT' 
@@ -272,8 +322,11 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
         else:
             col = split_sel.column()
             col.prop(self.pref, 'manager_view', expand=True)
-        #layout.separator(factor=1)
-        self.manager_views.get(self.pref.manager_view)(layout.box())
+        self.layout.separator()
+        self.manager_views.get(
+            self.pref.manager_view)(self.layout.box() if
+                alt_layout else self.layout
+            )
         
 
     def draw_blend_folder_view(self, layout):
@@ -583,7 +636,7 @@ class WEED_OT_py_mngr_RenameAddon(bpy.types.Operator):
             try:
                 bpy.ops.text.resolve_conflict(resolution="IGNORE")
             except:
-                self.report({'INFO'}, 'destination already exist')
+                #self.report({'INFO'}, 'destination already exist')
             context.area.tag_redraw()
         return {"FINISHED"}
 
@@ -737,7 +790,7 @@ class WEED_OT_py_mngr_RenameDirectory(bpy.types.Operator):
                 new_path = join(self.base_dir, self.new_name)
                 os.rename(actual_path, new_path)
             except:
-                self.report({'INFO'},
+                #self.report({'INFO'},
                             'rename failed')
             else:
                 for text in bpy.data.texts:
@@ -747,7 +800,7 @@ class WEED_OT_py_mngr_RenameDirectory(bpy.types.Operator):
                 try:
                     bpy.ops.text.resolve_conflict(resolution="IGNORE")
                 except:
-                    self.report({'INFO'},
+                    #self.report({'INFO'},
                                 'text editor conflict on open files')
             finally:
                 context.area.tag_redraw()
