@@ -71,8 +71,8 @@ def _install_low_level_libs():
             copytree(path.join(src_libs_path, lib),
                      path.join(site_package, lib))
         else:
-            pass
             #self.report({'DEBUG'}, f"{lib} module it's already installed")
+            pass
 
 
 class BreakpointShortcut(object):
@@ -132,6 +132,7 @@ class WEED_OT_insert_breakpoint(bpy.types.Operator):
             bpy.ops.text.insert(text = indent + breakpoint_text)
         except AttributeError:
             #self.report({'INFO'}, 'It seems that there is no any open text')
+            pass
         return {'FINISHED'}
 
 
@@ -162,8 +163,10 @@ class WEED_OT_search_breakpoint(bpy.types.Operator):
                 bpy.ops.text.move_select(type = 'NEXT_LINE')
         except RuntimeError:
             #self.report({'INFO'}, 'It seems that there is no any open text')
+            pass
         except IndexError:
             #self.report({'INFO'}, 'It seems that is an empty text')
+            pass
         finally:
             context.area.spaces[0].find_text = old_find
             context.space_data.use_match_case = old_case
@@ -173,14 +176,18 @@ class WEED_OT_search_breakpoint(bpy.types.Operator):
 
 
 def pudb_menu(self, context):
-    layout = self.layout
+    if not hasattr(self,'modules_layout'):
+        layout = self.layout 
+    else:
+        layout = self.modules_layout.box()
     layout.operator_context = 'INVOKE_DEFAULT'
-    layout.label(text="PuDB debugger", icon='VIEW_PAN')
+    layout.label(text="PuDB breakpoints", icon='TOOL_SETTINGS')
+    layout = layout.column(align=True)
     layout.operator("weed.insert_breakpoint",
-                    text='Insert PuDB breakpoint',
+                    text='Insert',
                     icon='NONE')
     layout.operator("weed.search_breakpoint",
-                    text='Search PuDB breakpoint',
+                    text='Search',
                     icon='NONE')
     # layout.separator()
 
@@ -199,9 +206,11 @@ def register(prefs=True):
         bpy.utils.register_class(cls)
 
     bpy.types.WEED_MT_main_menu.append(pudb_menu)
+    bpy.types.WEED_PT_main_panel.append(pudb_menu)
 
 
 def unregister(prefs=True):
+    bpy.types.WEED_PT_main_panel.remove(pudb_menu)
     bpy.types.WEED_MT_main_menu.remove(pudb_menu)
 
     for cls in reversed(classes):

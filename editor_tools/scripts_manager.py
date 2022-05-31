@@ -637,6 +637,7 @@ class WEED_OT_py_mngr_RenameAddon(bpy.types.Operator):
                 bpy.ops.text.resolve_conflict(resolution="IGNORE")
             except:
                 #self.report({'INFO'}, 'destination already exist')
+                pass
             context.area.tag_redraw()
         return {"FINISHED"}
 
@@ -790,8 +791,8 @@ class WEED_OT_py_mngr_RenameDirectory(bpy.types.Operator):
                 new_path = join(self.base_dir, self.new_name)
                 os.rename(actual_path, new_path)
             except:
-                #self.report({'INFO'},
-                            'rename failed')
+                #self.report({'INFO'},'rename failed')
+                pass
             else:
                 for text in bpy.data.texts:
                     if actual_path in text.filepath:
@@ -800,8 +801,8 @@ class WEED_OT_py_mngr_RenameDirectory(bpy.types.Operator):
                 try:
                     bpy.ops.text.resolve_conflict(resolution="IGNORE")
                 except:
-                    #self.report({'INFO'},
-                                'text editor conflict on open files')
+                    #self.report({'INFO'},'text editor conflict on open files')
+                    pass
             finally:
                 context.area.tag_redraw()
         return {"FINISHED"}

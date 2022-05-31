@@ -29,6 +29,13 @@ class WEED_MT_main_menu(bpy.types.Menu):
         layout.separator()
 
 
+# class WEED_PT_quick_prefs_panel(bpy.types.Panel):
+#     bl_space_type = "TEXT_EDITOR"
+#     bl_region_type = "UI"
+#     bl_label = "IDE Tools"
+#     bl_category = "Weed IDE"
+
+
 class WEED_PT_main_panel(bpy.types.Panel):
     bl_space_type = "TEXT_EDITOR"
     bl_region_type = "UI"
@@ -36,9 +43,15 @@ class WEED_PT_main_panel(bpy.types.Panel):
     bl_category = "Weed IDE"
     #bl_options = {'HEADER_LAYOUT_EXPAND'}
     # bl_options = {'DEFAULT_CLOSED'}
+    quick_prefs_layout = None
+    modules_layout = None
 
     def draw(self, context):
-        layout = self.layout.grid_flow(columns=2, even_columns=1)
+        self.layout.label(text='Quick preferences: ')
+        self.quick_prefs_layout = self.layout.grid_flow(columns=2, even_columns=1)
+        self.layout.separator()
+        self.layout.label(text='Tools: ')
+        self.modules_layout = self.layout.grid_flow(columns=2, even_columns=1)   # .box()
 
 
 def register():
@@ -48,16 +61,16 @@ def register():
     bpy.types.TEXT_MT_view.append(weed_menu)
     bpy.types.TEXT_HT_footer.append(footer_spacer)
 
-    if bpy.context.preferences.addons.get('development_icon_get'):
-        bpy.types.TEXT_MT_context_menu.append(icon_get_menu)
-        bpy.types.TEXT_MT_view.append(icon_get_menu)
-        bpy.types.TEXT_HT_footer.append(icon_get_menu)
+    # if bpy.context.preferences.addons.get('development_icon_get'):
+    #     bpy.types.TEXT_MT_context_menu.append(icon_get_menu)
+    #     bpy.types.TEXT_MT_view.append(icon_get_menu)
+    #     bpy.types.TEXT_HT_footer.append(icon_get_menu)
 
 def unregister():
-    if bpy.context.preferences.addons.get('development_icon_get'):
-        bpy.types.TEXT_MT_context_menu.remove(icon_get_menu)
-        bpy.types.TEXT_MT_view.remove(icon_get_menu)
-        bpy.types.TEXT_HT_footer.remove(icon_get_menu)
+    # if bpy.context.preferences.addons.get('development_icon_get'):
+    #     bpy.types.TEXT_MT_context_menu.remove(icon_get_menu)
+    #     bpy.types.TEXT_MT_view.remove(icon_get_menu)
+    #     bpy.types.TEXT_HT_footer.remove(icon_get_menu)
 
     bpy.types.TEXT_HT_footer.remove(footer_spacer)
     bpy.types.TEXT_MT_view.remove(weed_menu)

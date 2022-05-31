@@ -1,6 +1,8 @@
 import bpy
 from os import path
 
+_HAS_BGE = True if (hasattr(bpy.app.build_options, 'gameengine')
+                        and bpy.app.build_options.gameengine) else False
 
 
 def createBgeCon():
@@ -102,12 +104,10 @@ class WEED_OT_remove_bge_console(bpy.types.Operator):
     bl_label = "Remove Bge Console from actual blend file."
     bl_options = {'REGISTER', 'INTERNAL'}
 
-    gameengine = True if (hasattr(bpy.app.build_options, 'gameengine')
-                            and bpy.app.build_options.gameengine) else False
-
     @classmethod
     def poll(self, context):
-        return self.gameengine
+        glb_bgecon = bpy.data.collections.get('!BgeCon')
+        return True if glb_bgecon else False
 
     def execute(self, context):
         bgecon_txt = bpy.data.texts.get('bgeCon.py')
@@ -128,12 +128,10 @@ class WEED_OT_dettach_bge_console(bpy.types.Operator):
     bl_label = "Dettach Bge Console from actual Scene."
     bl_options = {'REGISTER', 'INTERNAL'}
 
-    gameengine = True if (hasattr(bpy.app.build_options, 'gameengine')
-                            and bpy.app.build_options.gameengine) else False
-
     @classmethod
     def poll(self, context):
-        return self.gameengine
+        sce_bgecon = bpy.context.scene.collection.children.get('!BgeCon')
+        return True if sce_bgecon else False
 
     def execute(self, context):
         sce_collections = bpy.context.scene.collection.children
@@ -148,12 +146,10 @@ class WEED_OT_attach_bge_console(bpy.types.Operator):
     bl_label = "Attach Bge Console to actual Scene."
     bl_options = {'REGISTER', 'INTERNAL'}
 
-    gameengine = True if (hasattr(bpy.app.build_options, 'gameengine')
-                            and bpy.app.build_options.gameengine) else False
-
     @classmethod
     def poll(self, context):
-        return self.gameengine
+        sce_bgecon = bpy.context.scene.collection.children.get('!BgeCon')
+        return True if not sce_bgecon else False
 
     def execute(self, context):
         bgecon = bpy.data.collections.get('!BgeCon')
@@ -167,38 +163,24 @@ class WEED_OT_attach_bge_console(bpy.types.Operator):
 
 
 def bge_menu(self, context):
-    layout = self.layout
-    layout.operator_context = 'INVOKE_DEFAULT'
-    layout.label(text="BGE Console", icon='CONSOLE')
-    sce_bgecon = bpy.context.scene.collection.children.get('!BgeCon')
-    glb_bgecon = bpy.data.collections.get('!BgeCon')
-    if sce_bgecon:
-        layout.label(text='Attach Bge Console',
-                    icon='NONE')
-        layout.operator('weed.dettach_bge_console',
-                    text='Dettach Bge Console',
-                    icon='NONE')
-        layout.operator('weed.remove_bge_console',
-                    text='Remove Bge Console',
-                    icon='NONE')
-    elif glb_bgecon:
-        layout.operator('weed.attach_bge_console',
-                    text='Attach Bge Console',
-                    icon='NONE')
-        layout.label(text='Dettach Bge Console',
-                    icon='NONE')
-        layout.operator('weed.remove_bge_console',
-                    text='Remove Bge Console',
-                    icon='NONE')
+    if not hasattr(self,'modules_layout'):
+        layout = self.layout 
     else:
-        layout.operator('weed.attach_bge_console',
-                    text='Attach Bge Console',
-                    icon='NONE')
-        layout.label(text='Dettach Bge Console',
-                    icon='NONE')
-        layout.label(text='Remove Bge Console',
-                    icon='NONE')
-        #layout.separator()
+        layout = self.modules_layout.box()
+    layout.operator_context = 'INVOKE_DEFAULT'
+    layout.enabled = _HAS_BGE
+    layout.label(text="BGE Console", icon='CONSOLE')
+    layout = layout.column(align=True)
+    layout.operator('weed.attach_bge_console',
+                text='Attach',
+                icon='NONE')
+    layout.operator('weed.dettach_bge_console',
+                text='Dettach',
+                icon='NONE')
+    layout.operator('weed.remove_bge_console',
+                text='Remove',
+                icon='NONE')
+    # layout.separator()
 
 
 classes = (
@@ -213,9 +195,11 @@ def register(prefs=True):
         bpy.utils.register_class(cls)
     
     bpy.types.WEED_MT_main_menu.append(bge_menu)
+    bpy.types.WEED_PT_main_panel.append(bge_menu)
 
 
 def unregister(prefs=True):
+    bpy.types.WEED_PT_main_panel.remove(bge_menu)
     bpy.types.WEED_MT_main_menu.remove(bge_menu)
 
     for cls in reversed(classes):

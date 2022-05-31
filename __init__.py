@@ -88,12 +88,14 @@ def module_toggle(self, context):
                         #self.report({'DEBUG'}, f'{module}.register()')
                     except:
                         #self.report({'DEBUG'}, f'{module}.register() fail !')
+                        pass
                 else:
                     try:
                         {module}.unregister(prefs=False)
                         #self.report({'DEBUG'}, f'{module}.unregister()')
                     except:
                         #self.report({'DEBUG'}, f'{module}.unregister() fail !')
+                        pass
                 self.{module}_last_state = self.{module}_enabled        
             """
             exec(cleandoc(execute_code))
@@ -153,8 +155,8 @@ def register():
                 {module}.register() 
                 #self.report({'DEBUG'}, f'{module} registered')    
             except:
-                pass
                 #self.report({'DEBUG'}, f'{module} except registering')    
+                pass
         """
         
         exec(cleandoc(execute_code))
@@ -169,8 +171,8 @@ def unregister():  # note how unregistering is done in reverse
                 {module}.unregister() 
                 #self.report({'DEBUG'}, f'{module} unregistered')    
             except:
-                pass
                 #self.report({'DEBUG'}, f'{module} except unregistering')    
+                pass
         """
         exec(cleandoc(execute_code))
     ui.unregister()

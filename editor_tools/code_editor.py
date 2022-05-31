@@ -1264,7 +1264,8 @@ class Preferences(bpy.types.PropertyGroup):
         flow.prop(self, "window_min_width")
 
     def quick_prefs(self, context):
-        layout = self.layout
+        layout = self.layout if not hasattr(self,'quick_prefs_layout') else self.quick_prefs_layout
+        #layout = self.quick_prefs_layout
         layout.popover_group(
             "TEXT_EDITOR",
             region_type="WINDOW",
@@ -1292,8 +1293,8 @@ def register(prefs=True):
             try:
                 bpy.utils.unregister_class(cls)
             except:
-                pass
                 #self.report({'DEBUG'}, f'{cls} already unregistered')
+                pass
             bpy.utils.register_class(cls)
 
     for cls in classes:
@@ -1302,6 +1303,8 @@ def register(prefs=True):
     bpy.types.Screen.code_editors = bpy.props.CollectionProperty(type=CE_PG_settings)
     # for w in bpy.context.window_manager.windows:
     #     w.screen.code_editors.clear()
+    bpy.types.WEED_PT_main_panel.append(Preferences.quick_prefs)
+    bpy.types.WEED_PT_main_panel.append(Preferences.quick_prefs)
     bpy.types.WEED_PT_main_panel.append(Preferences.quick_prefs)
 
     kc = bpy.context.window_manager.keyconfigs.addon.keymaps
