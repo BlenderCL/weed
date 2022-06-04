@@ -1304,8 +1304,6 @@ def register(prefs=True):
     # for w in bpy.context.window_manager.windows:
     #     w.screen.code_editors.clear()
     bpy.types.WEED_PT_main_panel.append(Preferences.quick_prefs)
-    bpy.types.WEED_PT_main_panel.append(Preferences.quick_prefs)
-    bpy.types.WEED_PT_main_panel.append(Preferences.quick_prefs)
 
     kc = bpy.context.window_manager.keyconfigs.addon.keymaps
     km = kc.get('Text', kc.new('Text', space_type='TEXT_EDITOR'))

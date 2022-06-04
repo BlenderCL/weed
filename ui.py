@@ -9,14 +9,6 @@ def weed_menu(self, context):
     layout.menu('WEED_MT_main_menu', text=' Weed', icon='FILE_SCRIPT')
     layout.separator()
 
-def icon_get_menu(self, context):
-    # iv.icons_show
-    #breakpoint.here
-    layout = self.layout
-    layout.operator_context = 'INVOKE_DEFAULT'
-    icon_show = layout.operator('iv.icons_show', text='get icon ID', icon='IMAGE_DATA')
-    # icon_show.instance = icon_show
-
 
 class WEED_MT_main_menu(bpy.types.Menu):
     bl_label = 'Weed Menu'
@@ -29,20 +21,12 @@ class WEED_MT_main_menu(bpy.types.Menu):
         layout.separator()
 
 
-# class WEED_PT_quick_prefs_panel(bpy.types.Panel):
-#     bl_space_type = "TEXT_EDITOR"
-#     bl_region_type = "UI"
-#     bl_label = "IDE Tools"
-#     bl_category = "Weed IDE"
-
-
 class WEED_PT_main_panel(bpy.types.Panel):
     bl_space_type = "TEXT_EDITOR"
     bl_region_type = "UI"
     bl_label = "IDE Tools"
     bl_category = "Weed IDE"
-    #bl_options = {'HEADER_LAYOUT_EXPAND'}
-    # bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {'DEFAULT_CLOSED'}
     quick_prefs_layout = None
     modules_layout = None
 

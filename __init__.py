@@ -13,16 +13,16 @@ bl_info = {
 
 
 _modules = [
-#   ('module',          'path',        has_prefs )#
-    ('find_replace',    'editor_tools',   True  ),
-    ('pudb_wrapper',    'debugger_tools', False ),
-    ('bge_console',     'console_tools',  False ),
-    ('scripts_manager', 'editor_tools',   True  ),
-    ('code_editor',     'editor_tools',   True  ),
-    ('api_navigator',   'editor_tools',   True  ),
-    ('code_tree',       'editor_tools',   True  ),
-#   ('icons_get',       'editor_tools',   False )
-#   ('ui',              '',               False ),
+#   ('module',              'path',           has_prefs )#
+    ('find_replace',        'editor_tools',   True  ),
+    ('pudb_wrapper',        'debugger_tools', False ),
+    ('bge_console',         'console_tools',  False ),
+    ('scripts_manager',     'editor_tools',   True  ),
+    ('code_editor',         'editor_tools',   True  ),
+    ('api_navigator',       'editor_tools',   True  ),
+    ('code_tree',           'editor_tools',   True  ),
+    ('icons_get_wrapper',   'editor_tools',   True ),
+#   ('ui',                  '',               False ),
 ]
 
 # _modules = [
