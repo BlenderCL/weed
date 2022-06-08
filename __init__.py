@@ -64,6 +64,8 @@ _icon_types = {
 from bpy.props import *
 from inspect import cleandoc
 
+from bpy.app.handlers import persistent
+
 if "bpy" in locals():
     import importlib
     importlib.reload(ui)
@@ -77,6 +79,16 @@ else:
         exec(f"from weed.{path} import {module}")
 
 
+@persistent
+def trigger(handler_arg):
+    weed_prf = bpy.context.preferences.addons['weed'].preferences
+    #for module, path, has_prefs in _modules:
+    print('exec after load file')
+    print(f"weed_prf.{_modules[0][0]}_enabled = weed_prf.{_modules[0][0]}_enabled")
+    # breakpoint.here
+    exec(f"weed_prf.{_modules[0][0]}_enabled = weed_prf.{_modules[0][0]}_enabled")
+    
+        
 def module_toggle(self, context):
     for module, path, has_prefs in _modules:
         if eval(f"self.{module}_enabled != self.{module}_last_state"):
@@ -161,7 +173,9 @@ def register():
         
         exec(cleandoc(execute_code))
     bpy.utils.register_class(WeedPreferences)
-
+    
+    bpy.app.handlers.load_post.append(trigger)
+    #bpy.app.handlers.save_pre.append(trigger)
 
 def unregister():  # note how unregistering is done in reverse
     bpy.utils.unregister_class(WeedPreferences)
@@ -176,3 +190,9 @@ def unregister():  # note how unregistering is done in reverse
         """
         exec(cleandoc(execute_code))
     ui.unregister()
+    
+    bpy.app.handlers.load_post.remove(trigger)
+    #bpy.app.handlers.save_pre.remove(trigger)
+    
+    
+    

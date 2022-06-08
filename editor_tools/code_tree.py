@@ -217,9 +217,18 @@ class WEED_PT_code_tree(bpy.types.Panel):
     bl_label = "Code Tree"
     bl_category = "Weed IDE"
 
-    @classmethod
-    def poll(cls, context):
-        return hasattr(bpy.context.space_data.text,'name')
+#    @classmethod
+#    def poll(cls, context):
+#        return hasattr(bpy.context.space_data.text,'name')
+
+    draw = draw_code_tree_panel
+
+
+class WEED_PT_code_tree_tab(bpy.types.Panel):
+    bl_space_type = "TEXT_EDITOR"
+    bl_region_type = "UI"
+    bl_label = "Code Tree"
+    bl_category = "Code Tree"
 
     draw = draw_code_tree_panel
 
@@ -303,20 +312,21 @@ class WEED_OT_code_tree_expand(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def update_prefs(self, context):
+def update_tab(self, context):
+    print('update_tab triggered')
     #breakpoint.here
-    if self.own_tab:
-        bpy.types.WEED_PT_code_tree.bl_category = 'Code Tree'
-    else:
-        bpy.types.WEED_PT_code_tree.bl_category = 'Weed IDE'
-    try:
-        bpy.utils.unregister_class(WEED_PT_code_tree)
-    except:
-        pass
-    try:
-        bpy.utils.register_class(WEED_PT_code_tree)
-    except:
-        pass
+    if self.own_tab and not hasattr(bpy.types,'WEED_PT_code_tree_tab'):
+        try:
+            bpy.utils.unregister_class(WEED_PT_code_tree)
+        except:
+            pass
+        bpy.utils.register_class(WEED_PT_code_tree_tab)    
+    elif not self.own_tab and not hasattr(bpy.types,'WEED_PT_code_tree'):
+        try:
+            bpy.utils.unregister_class(WEED_PT_code_tree_tab)
+        except:
+            pass
+        bpy.utils.register_class(WEED_PT_code_tree)    
 
 
 class Preferences(bpy.types.PropertyGroup):
@@ -326,7 +336,7 @@ class Preferences(bpy.types.PropertyGroup):
     own_tab: bpy.props.BoolProperty(
         name="Own Tab", default=False,
         description="Show Code Tree tab on Text Editor Sidebar ",
-        update=update_prefs
+        update=update_tab
     )
 
     on_footer: bpy.props.BoolProperty(
@@ -390,7 +400,8 @@ classes = (
     WEED_OT_code_tree_jump,
     WEED_OT_code_tree_expand,
     WEED_OT_code_tree_popup,
-    WEED_PT_code_tree,
+    # WEED_PT_code_tree,
+    # WEED_PT_code_tree_tab,
 )
 
 
@@ -414,18 +425,33 @@ def register(prefs=True):
     except:
         defaults = Preferences.default_prefs()
 
+    if defaults.own_tab:
+        bpy.utils.register_class(WEED_PT_code_tree_tab)
+    else:
+        bpy.utils.register_class(WEED_PT_code_tree)    
+
     if defaults.on_view:
         bpy.types.TEXT_MT_view.append(code_tree_menu)
     if defaults.on_context:
         bpy.types.TEXT_MT_context_menu.append(code_tree_menu)
     if defaults.on_footer:
         bpy.types.TEXT_HT_footer.append(code_tree_menu)
-
+        
 
 def unregister(prefs=True):
     bpy.types.TEXT_HT_footer.remove(code_tree_menu)
     bpy.types.TEXT_MT_context_menu.remove(code_tree_menu)
     bpy.types.TEXT_MT_view.remove(code_tree_menu)
+
+    try:
+        defaults = get_prefs()
+    except:
+        defaults = Preferences.default_prefs()
+
+    if defaults.own_tab:
+        bpy.utils.unregister_class(WEED_PT_code_tree_tab)
+    else:
+        bpy.utils.unregister_class(WEED_PT_code_tree)    
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
