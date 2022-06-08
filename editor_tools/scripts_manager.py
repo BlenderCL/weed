@@ -401,8 +401,7 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
         box.alignment = 'RIGHT'
         box.scale_y = 0.5
         box.active = False
-        box.label(text='Warning:', icon='ERROR')
-        box.label(text='avoid modify files here,')
+        box.label(text='avoid modify files here,', icon='ERROR')
         box.label(text='use them as a reference')
         layout.separator()
         self.draw_directory(layout, self.pref.libs_folder + sep)
@@ -418,9 +417,9 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
             box.active = False
             box.label(text='no open files', icon='ERROR')
             box.label(text='in Text Editor')
-            #box.separator()
             layout.separator()
             return None
+
         layout.label(text='current open files:')
         layout.separator()
         for curr_text in bpy.data.texts:
@@ -432,16 +431,7 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
         layout.separator()
             
     def draw_bookmarks_view(self, layout):
-
-        col = layout.column(align=True)
-        selector = col.row(align=True)
-        selector.prop(self.pref, 'bkmrks_folder', text='', icon='BOOKMARKS')
-        rmv_bkmrk = selector.operator('weed.py_mngr_remove_bookmark',
-                                    icon='PANEL_CLOSE', text='')
-        #breakpoint.here
-        rmv_bkmrk.path = self.pref.bkmrks_folder
-
-        row_add = col.row(align=True)
+        row_add = layout.row(align=True)
         row_add.alignment = 'RIGHT'
         if self.pref.bkmrk_add_tggl:
             row_add.alignment = 'EXPAND'
@@ -454,19 +444,9 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
         else:
             row_add.label(text='add bookmark:')
         row_add.prop(self.pref, 'bkmrk_add_tggl', text='', icon='ADD')
-        
-        layout.separator()
-        # addon_path = get_current_addon_path()
-        # if isfile(addon_path):
-        #     directory, file_name = split(addon_path)
-        #     self.draw_element(layout, directory + sep, file_name)
-        # else:
-        #breakpoint.here
-        if bpy.context.scene.bookmarks_paths:
-            selector.enabled = True
-            self.draw_directory(layout, self.pref.bkmrks_folder + sep)
-        else:
-            selector.enabled = False
+
+        # if there are no bookmarks
+        if not bpy.context.scene.bookmarks_paths:
             split_box = layout.split(factor=0.05)
             split_box.label()
             box = split_box.box()
@@ -475,29 +455,68 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
             #box.separator()
             box.scale_y = 0.5
             box.active = False
+            return None
+
+        # Draw bookmarks list
+        for bkmrk in bpy.context.scene.bookmarks_paths.values():
+            
+            #bkmrk_element = layout
+            # if current bookmark is active bookmark
+            if bkmrk.path == self.pref.bkmrks_folder:
+                bkmrk_element = layout.box().row(align=True)
+                selector = bkmrk_element.column(align=True)
+                self.draw_directory(selector, self.pref.bkmrks_folder + sep)
+                split_hint = selector.column(align=True)
+                #split_hint.label(text='')
+                split_hint.label(text=bkmrk.path)
+                split_hint.active = False
+                split_hint.scale_y = 0.7
+                split_hint.scale_x = 0.7
+                rmv_bkmrk = bkmrk_element.operator('weed.py_mngr_remove_bookmark',
+                                            icon='PANEL_CLOSE', text='',
+                                            emboss = False)
+                rmv_bkmrk.path = bkmrk.path
+            
+            # other bookmarks    
+            else:
+                bkmrk_element = layout.row(align=True)
+                selector = bkmrk_element.column(align=True)
+                selector.alignment = "LEFT"
+                brws_bkmrk = selector.operator('weed.py_mngr_browse_bookmark',
+                                          icon='BOOKMARKS',
+                                          text=split(bkmrk.path)[-1],
+                                          emboss = False)
+                brws_bkmrk.path = bkmrk.path                          
+                bkmrk_element.label(text='', icon='NONE')
+                rmv_bkmrk = bkmrk_element.operator('weed.py_mngr_remove_bookmark',
+                                            icon='PANEL_CLOSE', text='',
+                                            emboss = False)
+                rmv_bkmrk.path = bkmrk.path
+
+
         layout.separator()
 
 
 
     def draw_directory(self, layout, directory):
+        element = layout.row(align=True)    # layout.split(factor=0.9)
+        dir_op = element.row(align=True)
+        dir_op.alignment = "LEFT"
+
         if not self.is_directory_visible(directory):
-            row = layout.row(align=True)
-            row.alignment = "LEFT"
-            op = row.operator("weed.py_mngr_toogle_directory_visibility",
+            op = dir_op.operator("weed.py_mngr_toogle_directory_visibility",
                                  text = split(directory[:-1])[-1],
                                  icon = "FILE_FOLDER",
                                  emboss = False)
             op.directory = directory
         else:
-            split_lyt = layout.split(factor=0.9)
-            row = split_lyt.row(align=True)
-            row.alignment = "LEFT"
-            op = row.operator("weed.py_mngr_toogle_directory_visibility",
+            op = dir_op.operator("weed.py_mngr_toogle_directory_visibility",
                                 text = split(directory[:-1])[-1],
                                 icon = "FOLDER_REDIRECT",
                                 emboss = False)
             op.directory = directory
-            op = split_lyt.operator("weed.py_mngr_open_dir_menu",
+            element.label(text='', icon = 'NONE')
+            op = element.operator("weed.py_mngr_open_dir_menu",
                               icon = "COLLAPSEMENU",
                               text = "",
                               emboss = False)
@@ -522,20 +541,21 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
 
     def draw_element(self, layout, directory, file_name, filepath_hint=False):
         full_path = directory + file_name
-        element_enabled = True
         internal = (directory == 'Text:Internal' + sep)
         if internal:
             icon_type = 'MEMORY'
             if file_name == bpy.context.space_data.text.name_full:
                 layout = layout.box()
+            else:
+                filepath_hint = False
         elif full_path == get_current_filepath():
             icon_type = 'GREASEPENCIL'
             layout = layout.box()
         else:
             icon_type = _icon_types.get(file_name.split('.')[-1].lower(), 'FILE')
-            element_enabled = not is_binary_file(full_path)
+            filepath_hint = False
 
-        split_lyt = layout.split(factor=0.8)
+        split_lyt = layout.row(align=True)
         row = split_lyt.row(align=True)
         row.alignment = "LEFT"
         op = row.operator("weed.py_mngr_open_file",
@@ -543,8 +563,8 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
                           text = file_name,
                           emboss = False)
         op.path = full_path
-        row.enabled = element_enabled
-        split_lyt.label(text="", icon = "NONE")
+        row.enabled = not is_binary_file(full_path)
+        split_lyt.label(text='', icon = 'NONE')
             
         if full_path in self.texts_paths:
             if not internal and self.texts_paths[full_path].is_dirty:
@@ -552,7 +572,7 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
                 icon_type = 'STYLUS_PRESSURE'
             else:
                 operator = 'weed.py_mngr_close_file'
-                icon_type = 'EVENT_X'
+                icon_type = 'CANCEL'
         else:
             operator = 'weed.py_mngr_open_file_menu'
             icon_type = 'LAYER_USED'
@@ -567,12 +587,14 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
             props.close_it = True
         
         if filepath_hint:
-            split_file = layout.split(factor=0.1)
-            split_file.label(text='')
-            split_file.label(text=directory)
-            split_file.active = False
-            split_file.scale_y = 0.7
-            split_file.scale_x = 0.7
+            hint_row = layout.column()
+            # hint_row = layout.split(factor=0.9)
+            hint_row.label(text=directory)
+            hint_row.alignment = 'RIGHT'
+            hint_row.use_property_split = False
+            hint_row.active = False
+            hint_row.scale_y = 0.7
+            hint_row.scale_x = 0.7
 
 
     def is_directory_visible(self, directory):
@@ -943,6 +965,29 @@ class WEED_OT_py_mngr_add_bookmark(bpy.types.Operator):
             pref.bkmrk_add_tggl = False 
             pref.bkmrk_select = ''
             pref.bkmrks_folder = self.path             
+        return {'FINISHED'}
+
+
+class WEED_OT_py_mngr_browse_bookmark(bpy.types.Operator):
+    ''' add bookmark to bpy.context.scene.bookmarks_paths '''
+    bl_label = "add bookmark"
+    bl_idname = "weed.py_mngr_browse_bookmark"
+
+    path : bpy.props.StringProperty(
+        name = "bookmark path",
+        default = "",
+        subtype = 'DIR_PATH'
+    )
+
+    # @classmethod
+    # def poll(cls, context):
+    #     return isdir(cls.path)
+
+    def execute(self, context):
+        # if not self.path:
+        #     return {'CANCELLED'}
+        #breakpoint.here
+        get_prefs().bkmrks_folder = self.path             
         return {'FINISHED'}
 
 
@@ -1611,6 +1656,7 @@ prefs_classes = (
 classes = (
     BookmarkPath,
     WEED_OT_py_mngr_add_bookmark,
+    WEED_OT_py_mngr_browse_bookmark,
     WEED_OT_py_mngr_remove_bookmark,
     WEED_OT_py_mngr_MakeAddonNameValid,
     WEED_OT_py_mngr_CreateNewAddon,
