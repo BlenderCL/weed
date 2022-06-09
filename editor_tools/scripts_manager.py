@@ -549,7 +549,7 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
             else:
                 filepath_hint = False
         elif full_path == get_current_filepath():
-            icon_type = 'GREASEPENCIL'
+            icon_type = 'STYLUS_PRESSURE'
             layout = layout.box()
         else:
             icon_type = _icon_types.get(file_name.split('.')[-1].lower(), 'FILE')
@@ -569,10 +569,16 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
         if full_path in self.texts_paths:
             if not internal and self.texts_paths[full_path].is_dirty:
                 operator = 'weed.py_mngr_close_file_menu'
-                icon_type = 'STYLUS_PRESSURE'
+                icon_type = 'GREASEPENCIL'
             else:
                 operator = 'weed.py_mngr_close_file'
                 icon_type = 'CANCEL'
+            if self.texts_paths[full_path].is_modified:
+                row = split_lyt.row(align=True)
+                row.alert = True
+                row.enabled = full_path == get_current_filepath()
+                row.operator("text.resolve_conflict", text="", icon='HELP')
+                
         else:
             operator = 'weed.py_mngr_open_file_menu'
             icon_type = 'LAYER_USED'

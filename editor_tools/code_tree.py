@@ -1,3 +1,4 @@
+
 from builtins import breakpoint
 import bpy
 from bpy.props import IntProperty
@@ -145,6 +146,19 @@ def draw_code_tree_panel(self, context):
         layout = self.layout.box()
     else:
         layout = self.layout
+    
+    if not bpy.data.texts:
+        split_box = layout.split(factor=0.05)
+        split_box.label()
+        box = split_box.box()
+        box.alignment = 'RIGHT'
+        box.scale_y = 0.5
+        box.active = False
+        box.label(text='no open files', icon='ERROR')
+        box.label(text='in Text Editor')
+        layout.separator()
+        return None
+    
     # col = layout.column(align=True)
     # col = layout#.box()
     layout.alignment = 'LEFT'

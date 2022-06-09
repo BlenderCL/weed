@@ -64,7 +64,7 @@ _icon_types = {
 from bpy.props import *
 from inspect import cleandoc
 
-from bpy.app.handlers import persistent
+# from bpy.app.handlers import persistent
 
 if "bpy" in locals():
     import importlib
@@ -79,14 +79,21 @@ else:
         exec(f"from weed.{path} import {module}")
 
 
-@persistent
-def trigger(handler_arg):
-    weed_prf = bpy.context.preferences.addons['weed'].preferences
-    #for module, path, has_prefs in _modules:
-    print('exec after load file')
-    print(f"weed_prf.{_modules[0][0]}_enabled = weed_prf.{_modules[0][0]}_enabled")
-    # breakpoint.here
-    exec(f"weed_prf.{_modules[0][0]}_enabled = weed_prf.{_modules[0][0]}_enabled")
+# @persistent
+# def module_register(handler_arg):
+#     weed_prf = bpy.context.preferences.addons['weed'].preferences
+#     for module, path, has_prefs in _modules:
+#         execute_code = f"""
+#             if weed_prf.{module}_enabled:
+#                 try:
+#                     {module}.register(prefs=False)
+#                     #self.report({'DEBUG'}, f'{module}.register()')
+#                 except:
+#                     #self.report({'DEBUG'}, f'{module}.register() fail !')
+#                     pass
+#         """
+#         exec(cleandoc(execute_code))
+
     
         
 def module_toggle(self, context):
@@ -103,7 +110,7 @@ def module_toggle(self, context):
                         pass
                 else:
                     try:
-                        {module}.unregister(prefs=False)
+                        {module}.unregister(prefs=True)
                         #self.report({'DEBUG'}, f'{module}.unregister()')
                     except:
                         #self.report({'DEBUG'}, f'{module}.unregister() fail !')
@@ -111,7 +118,6 @@ def module_toggle(self, context):
                 self.{module}_last_state = self.{module}_enabled        
             """
             exec(cleandoc(execute_code))
-            break
 
 
 
@@ -163,36 +169,69 @@ def register():
     ui.register()
     for module, path, has_prefs in _modules:
         execute_code = f"""
-            try:
-                {module}.register() 
-                #self.report({'DEBUG'}, f'{module} registered')    
-            except:
-                #self.report({'DEBUG'}, f'{module} except registering')    
-                pass
+            if hasattr({module}, 'prefs_classes'):
+                for cls in {module}.prefs_classes:
+                    try:
+                        bpy.utils.unregister_class(cls)
+                    except:
+                        pass
+                    bpy.utils.register_class(cls)
         """
-        
         exec(cleandoc(execute_code))
+        
     bpy.utils.register_class(WeedPreferences)
+
+    weed_prf = bpy.context.preferences.addons['weed'].preferences
+    for module, path, has_prefs in _modules:
+        execute_code = f"""
+            weed_prf.{module}_last_state = weed_prf.{module}_enabled
+            if weed_prf.{module}_enabled:
+                try:
+                    {module}.register(prefs=False)
+                    print("#self.report({'DEBUG'}, f'{module}.register()')")
+                except:
+                    print("#self.report({'DEBUG'}, f'{module}.register() fail !')")
+                    pass
+        """
+        exec(cleandoc(execute_code))
     
-    bpy.app.handlers.load_post.append(trigger)
-    #bpy.app.handlers.save_pre.append(trigger)
+    # bpy.app.handlers.load_post.append(module_register)
+    # bpy.app.handlers.save_pre.append(trigger)
 
 def unregister():  # note how unregistering is done in reverse
-    bpy.utils.unregister_class(WeedPreferences)
+    # bpy.app.handlers.load_post.remove(module_register)
+    # bpy.app.handlers.save_pre.remove(trigger)
+
+    weed_prf = bpy.context.preferences.addons['weed'].preferences
     for module, path, has_prefs in reversed(_modules):
         execute_code = f"""
-            try:
-                {module}.unregister() 
-                #self.report({'DEBUG'}, f'{module} unregistered')    
-            except:
-                #self.report({'DEBUG'}, f'{module} except unregistering')    
-                pass
+            if weed_prf.{module}_enabled:
+                try:
+                    {module}.unregister(prefs=False)
+                    print("#self.report({'DEBUG'}, f'{module}.unregister()')")
+                except:
+                    print("#self.report({'DEBUG'}, f'{module}.unregister() fail !')")
+                    pass
+        """
+        exec(cleandoc(execute_code))
+
+
+    bpy.utils.unregister_class(WeedPreferences)
+
+    for module, path, has_prefs in reversed(_modules):
+        execute_code = f"""
+            if hasattr({module}, 'prefs_classes'):
+                for cls in {module}.prefs_classes:
+                    try:
+                        bpy.utils.unregister_class(cls)
+                    except:
+                        print('unregister {module}.prefs_classes fail!')
+                        print(cls)
+                        pass
         """
         exec(cleandoc(execute_code))
     ui.unregister()
     
-    bpy.app.handlers.load_post.remove(trigger)
-    #bpy.app.handlers.save_pre.remove(trigger)
     
     
     
