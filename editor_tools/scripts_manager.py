@@ -1,3 +1,4 @@
+#from builtins import breakpoint
 import bpy
 import os
 import sys
@@ -153,9 +154,8 @@ def get_libs_folders_list(self, context):
     return folder_list
 
 def get_bookmarks_list(self, context):
-    #breakpoint.here
     bookmarks = [(bkmrk.path, split(bkmrk.path)[-1], '')
-                    for bkmrk in bpy.context.scene.bookmarks_paths.values()]
+                    for bkmrk in bpy.context.window_manager.bookmarks_paths.values()]
     if bookmarks:
         return bookmarks
     else:
@@ -169,7 +169,6 @@ def get_prefs():
 
 
 def update_prefs(self, context):
-    #breakpoint.here
     if self.own_tab:
         bpy.types.WEED_PT_scripts_manager.bl_category = 'Scripts Manager'
     else:
@@ -185,26 +184,12 @@ def update_prefs(self, context):
 
 
 def update_bkmrk_abspath(self, context):
-#    if isdir(bpy.path.abspath(self.bkmrk_select)):
-#        # self.bkmrk_select = bpy.path.abspath(self.bkmrk_select)
-#        # self.bkmrk_select = abspath(self.bkmrk_select)
-    #breakpoint.here
     if (self.bkmrk_select and
             self.bkmrk_select != 
             abspath(bpy.path.abspath(self.bkmrk_select))):
             
         self.bkmrk_select = abspath(bpy.path.abspath(self.bkmrk_select))
 
-
-#def clean_bkmrk_select(self, context):
-#    breakpoint.here
-#    if self.bkmrk_add_tggl:
-#        self.bkmrk_select = ''
-##    if isdir(bpy.path.abspath(self.bkmrk_select)):
-##        # self.bkmrk_select = bpy.path.abspath(self.bkmrk_select)
-##        # self.bkmrk_select = abspath(self.bkmrk_select)
-#    if self.bkmrk_select != abspath(bpy.path.abspath(self.bkmrk_select)):
-#        self.bkmrk_select = abspath(bpy.path.abspath(self.bkmrk_select))
 
 
 class Preferences(bpy.types.PropertyGroup):
@@ -277,7 +262,6 @@ class Preferences(bpy.types.PropertyGroup):
 
 #    @classmethod
 #    def default_prefs(self):
-#        #breakpoint.here
 #        obj = lambda : None
 #        for attr, val in self.__annotations__.items():
 #            setattr(obj, attr, val[1]['default'])
@@ -303,11 +287,8 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
     bl_space_type = "TEXT_EDITOR"
     bl_region_type = "UI"
     bl_category = "Weed IDE"
-    #bl_options = {'HEADER_LAYOUT_EXPAND'}#, 'DRAW_BOX'}
-    # bl_options = {'DRAW_BOX'}
 
     def __init__(self):
-        #breakpoint.here
         self.manager_views = {
             'blend'     : self.draw_blend_folder_view,
             'addons'    : self.draw_addons_view,
@@ -446,7 +427,7 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
         row_add.prop(self.pref, 'bkmrk_add_tggl', text='', icon='ADD')
 
         # if there are no bookmarks
-        if not bpy.context.scene.bookmarks_paths:
+        if not bpy.context.window_manager.bookmarks_paths:
             split_box = layout.split(factor=0.05)
             split_box.label()
             box = split_box.box()
@@ -458,7 +439,7 @@ class WEED_PT_scripts_manager(bpy.types.Panel):
             return None
 
         # Draw bookmarks list
-        for bkmrk in bpy.context.scene.bookmarks_paths.values():
+        for bkmrk in bpy.context.window_manager.bookmarks_paths.values():
             
             #bkmrk_element = layout
             # if current bookmark is active bookmark
@@ -930,10 +911,12 @@ class WEED_OT_py_mngr_DeleteDirectory(bpy.types.Operator):
 class BookmarkPath(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
+        bpy.types.WindowManager.bookmarks_paths = CollectionProperty(type=BookmarkPath)
         bpy.types.Scene.bookmarks_paths = CollectionProperty(type=BookmarkPath)
 
     @classmethod
     def unregister(cls):
+        del bpy.types.WindowManager.bookmarks_paths
         del bpy.types.Scene.bookmarks_paths
 
     path : bpy.props.StringProperty(
@@ -943,8 +926,30 @@ class BookmarkPath(bpy.types.PropertyGroup):
     )
 
 
+@persistent
+def store_bookmarks(scene):
+    curr_bkmrks = bpy.context.window_manager.bookmarks_paths
+    bkmrks_store = bpy.context.scene.bookmarks_paths
+    bkmrks_store.clear()
+    for bkmrk in curr_bkmrks:
+        new_bkmrk = bkmrks_store.add()
+        new_bkmrk.path = bkmrk.path  
+    return {'FINISHED'}
+
+
+@persistent
+def retrieve_bookmarks(scene):
+    curr_bkmrks = bpy.context.window_manager.bookmarks_paths
+    bkmrks_store = bpy.context.scene.bookmarks_paths
+    curr_bkmrks.clear()
+    for bkmrk in bkmrks_store:
+        new_bkmrk = curr_bkmrks.add()
+        new_bkmrk.path = bkmrk.path  
+    return {'FINISHED'}
+
+
 class WEED_OT_py_mngr_add_bookmark(bpy.types.Operator):
-    ''' add bookmark to bpy.context.scene.bookmarks_paths '''
+    ''' add bookmark to bpy.context.window_manager.bookmarks_paths '''
     bl_label = "add bookmark"
     bl_idname = "weed.py_mngr_add_bookmark"
 
@@ -954,19 +959,12 @@ class WEED_OT_py_mngr_add_bookmark(bpy.types.Operator):
         subtype = 'DIR_PATH'
     )
 
-    # @classmethod
-    # def poll(cls, context):
-    #     return isdir(cls.path)
-
     def execute(self, context):
-        # if not self.path:
-        #     return {'CANCELLED'}
-        #breakpoint.here
         pref = get_prefs()
-        
-        paths = bpy.context.scene.bookmarks_paths
+        paths = bpy.context.window_manager.bookmarks_paths
+
         if self.path not in [bkmk.path for bkmk in paths]:
-            new_bkmrk = bpy.context.scene.bookmarks_paths.add()
+            new_bkmrk = bpy.context.window_manager.bookmarks_paths.add()
             new_bkmrk.path = self.path  
             pref.bkmrk_add_tggl = False 
             pref.bkmrk_select = ''
@@ -975,7 +973,7 @@ class WEED_OT_py_mngr_add_bookmark(bpy.types.Operator):
 
 
 class WEED_OT_py_mngr_browse_bookmark(bpy.types.Operator):
-    ''' add bookmark to bpy.context.scene.bookmarks_paths '''
+    ''' add bookmark to bpy.context.window_manager.bookmarks_paths '''
     bl_label = "add bookmark"
     bl_idname = "weed.py_mngr_browse_bookmark"
 
@@ -985,14 +983,7 @@ class WEED_OT_py_mngr_browse_bookmark(bpy.types.Operator):
         subtype = 'DIR_PATH'
     )
 
-    # @classmethod
-    # def poll(cls, context):
-    #     return isdir(cls.path)
-
     def execute(self, context):
-        # if not self.path:
-        #     return {'CANCELLED'}
-        #breakpoint.here
         get_prefs().bkmrks_folder = self.path             
         return {'FINISHED'}
 
@@ -1008,45 +999,15 @@ class WEED_OT_py_mngr_remove_bookmark(bpy.types.Operator):
         subtype = 'DIR_PATH'
     )
 
-    # @classmethod
-    # def poll(cls, context):
-    #     return (get_prefs().bkmrks_folder in bpy.context.scene.bookmarks_paths)
-
     def execute(self, context):
-        #breakpoint.here
         pref = get_prefs()
-        paths = bpy.context.scene.bookmarks_paths
+        paths = bpy.context.window_manager.bookmarks_paths
         for idx, bkmrk in enumerate(paths):
             if bkmrk.path == self.path:
                 pref.bkmrks_folder=paths[0].path 
-                # breakpoint.here
                 paths.remove(idx)
                 break
-        # new_bkmrk = bpy.context.scene.bookmarks_paths.add()
-        # new_bkmrk.path = self.path    
         return {'FINISHED'}
-
-
-# class MY_PT_simple_panel(bpy.types.Panel):
-#     bl_label = "Simple Panel"
-#     bl_idname = "MY_PT_simple_panel"
-#     bl_space_type = "VIEW_3D"   
-#     bl_region_type = "UI"
-#     bl_category = "simple panel"
-#     bl_context = "objectmode"
-
-#     def draw(self, context):
-#         layout = self.layout
-#         layout.operator("my.add_item")
-#         layout.prop(context.scene.my_enum_items, "asdf")
-
-# classes = (MyEnumItems, MyItem, MY_OT_add_item, MY_PT_simple_panel)
-# register, unregister = bpy.utils.register_classes_factory(classes)
-
-# if __name__ == "__main__":
-#     register()
-##################################################################
-
 
 
 def new_addon_file(path, default = ""):
@@ -1160,7 +1121,6 @@ class WEED_OT_py_mngr_CloseFile(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        #breakpoint.here
         for text in bpy.data.texts:
             directory, file_name = split(self.path)
             if directory == 'Text:Internal' and file_name == text.name_full:
@@ -1331,6 +1291,7 @@ class WEED_OT_py_mngr_OpenFile(bpy.types.Operator):
             text_obj = bpy.data.texts.load(self.path, internal = False)
 
         context.space_data.text = text_obj
+        #import pudb; pu.db
         return {"FINISHED"}
 
 
@@ -1650,7 +1611,6 @@ def open_file(path):
         opener = "open" if sys.platform == "darwin" else "xdg-open"
         subprocess.call([opener, path])
 
-bpy.app.handlers.load_post.append(open_status)
 
 
 
@@ -1695,6 +1655,10 @@ classes = (
 
 
 def register(prefs=True):
+    bpy.app.handlers.load_post.append(open_status)
+    bpy.app.handlers.save_pre.append(store_bookmarks)
+    bpy.app.handlers.load_post.append(retrieve_bookmarks)
+
     if prefs:
         for cls in prefs_classes:
             try:
@@ -1716,4 +1680,7 @@ def unregister(prefs=True):
         for cls in reversed(prefs_classes):
             bpy.utils.unregister_class(cls)
 
+    bpy.app.handlers.load_post.remove(open_status)
+    bpy.app.handlers.load_post.remove(retrieve_bookmarks)
+    bpy.app.handlers.save_pre.remove(store_bookmarks)
 
