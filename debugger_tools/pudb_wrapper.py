@@ -25,6 +25,28 @@ def _get_debugger(**kwargs):
         return CURRENT_DEBUGGER[0]
 
 def _install_low_level_libs():
+    import ensurepip
+    import certifi
+    ensurepip.bootstrap()
+
+    try:
+        from pip import main as pipmain
+    except ImportError:
+        from pip._internal import main as pipmain
+
+    certifi.where()
+    #pipmain(['install', 'package-name'])
+    # pip install --cert=/usr/local/share/ca-certificates/mycert.crt
+    # pipmain(['install', '--cert=/usr/local/share/ca-certificates/mycert.crt'])
+    # python3 -m pip config set global.cert /usr/local/share/ca-certificates/mycert-pip-bundle.crt    
+
+    pipmain(['install', '--upgrade', 'pip'])
+    pipmain(['install', 'wheel'])
+    pipmain(['install', 'bpython'])
+    pipmain(['install', 'pudb'])
+
+
+    """
     # try with global site package
     # a folder inside blender (but maybe without permission)
     for site_package in getsitepackages():
@@ -73,6 +95,7 @@ def _install_low_level_libs():
         else:
             #self.report({'DEBUG'}, f"{lib} module it's already installed")
             pass
+"""
 
 
 class BreakpointShortcut(object):
