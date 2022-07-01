@@ -122,12 +122,14 @@ def module_toggle(self, context):
 
 
 class WeedPreferences(bpy.types.AddonPreferences):
+    '''Preferences of Weed Addon'''
     bl_idname = 'weed'
 
     for module, path, has_prefs in _modules:
         pref_generator = f"""
             {module}_enabled: BoolProperty(name='{module}'.replace('_',' ').title(),                    
-                        default=True, update=module_toggle)
+                        default=True, update=module_toggle,
+                        description='enable/disable {module} module')
             {module}_last_state: BoolProperty(name='{module}',                    
                         default=True)
         """

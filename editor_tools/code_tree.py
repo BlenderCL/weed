@@ -348,7 +348,7 @@ class Preferences(bpy.types.PropertyGroup):
 
     own_tab: bpy.props.BoolProperty(
         name="Own Tab", default=False,
-        description="Show Code Tree tab on Text Editor Sidebar ",
+        description="Show Code Tree panel on it's own tab",
         update=update_tab
     )
 
@@ -363,7 +363,7 @@ class Preferences(bpy.types.PropertyGroup):
 
     on_context: bpy.props.BoolProperty(
         name="Show in Context Menu", default=False,
-        description="Code Tree element in Text Editor Context menu ",
+        description="Code Tree element in Text Editor Context menu",
         update=lambda self, context: eval(
             'bpy.types.TEXT_MT_context_menu.append(code_tree_menu)'
             if self.on_context else 
@@ -372,7 +372,7 @@ class Preferences(bpy.types.PropertyGroup):
 
     on_view: bpy.props.BoolProperty(
         name="Show in View Menu", default=False,
-        description="Code Tree element in Text Editor View menu ",
+        description="Code Tree element in Text Editor View menu",
         update=lambda self, context: eval(
             'bpy.types.TEXT_MT_view.append(code_tree_menu)'
             if self.on_view else 
@@ -380,8 +380,8 @@ class Preferences(bpy.types.PropertyGroup):
     )
 
     alt_layout: bpy.props.BoolProperty(
-        name="alternative layout", default=False,
-        description="Alternative layout on Code Tree view ",
+        name="Alternative Layout", default=False,
+        description="Alternative layout for Code Tree panel",
     )
 
 

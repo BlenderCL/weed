@@ -224,11 +224,11 @@ class Preferences(bpy.types.PropertyGroup):
 #                    update = clean_bkmrk_select, 
                     description = 'Add new bookmark after browse it')
     compact_views   : BoolProperty(
-                    name = 'compacts views selector',
+                    name = 'Compact folder selector',
                     default = True,
                     description = 'compacts views selector in scripts manager')
     c_views_btns    : BoolProperty(
-                    name = 'compacts views buttons',
+                    name = 'Compact views buttons',
                     default = False,
                     description = 'compacts views buttons style')
 
@@ -250,13 +250,13 @@ class Preferences(bpy.types.PropertyGroup):
         default='blend')
 
     alt_layout: bpy.props.BoolProperty(
-        name="alternative layout", default=False,
-        description="Alternative layout on Code Tree view ",
+        name="Alternative Layout", default=False,
+        description="Alternative layout for Scripts Manager panel",
     )
 
     own_tab: bpy.props.BoolProperty(
         name="Own Tab", default=False,
-        description="Show Code Tree tab on Text Editor Sidebar ",
+        description="Show Scripts Manager panel on it's own tab",
         update=update_prefs
     )
 
