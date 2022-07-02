@@ -25,77 +25,48 @@ def _get_debugger(**kwargs):
         return CURRENT_DEBUGGER[0]
 
 def _install_low_level_libs():
-    import ensurepip
-    import certifi
-    ensurepip.bootstrap()
-
+    # check pip
     try:
-        from pip import main as pipmain
+        from pip import _vendor
     except ImportError:
+        # pip not intalled; install & upgrade
+        import ensurepip
+        ensurepip.bootstrap()
         from pip._internal import main as pipmain
-
-    certifi.where()
-    #pipmain(['install', 'package-name'])
-    # pip install --cert=/usr/local/share/ca-certificates/mycert.crt
-    # pipmain(['install', '--cert=/usr/local/share/ca-certificates/mycert.crt'])
-    # python3 -m pip config set global.cert /usr/local/share/ca-certificates/mycert-pip-bundle.crt    
-
-    pipmain(['install', '--upgrade', 'pip'])
-    pipmain(['install', 'wheel'])
-    pipmain(['install', 'bpython'])
-    pipmain(['install', 'pudb'])
-
-
-    """
-    # try with global site package
-    # a folder inside blender (but maybe without permission)
-    for site_package in getsitepackages():
-        if path.basename(site_package) == 'site-packages':
-            break
-    #self.report({'DEBUG'}, f'global site package folder, {site_package}')
-    # test for write access. if fails it gets user site package
-    if not access(site_package, W_OK):
-        site_package = getusersitepackages()
-        #self.report({'DEBUG'}, f'user site package folder override, {site_package}')
-
-    # before register module...
-    # of pudb_wrapper, install python low level libraries
-    #############################################################
-    # register with the proper site_package folder (*md5sum tal vez?)
-    md5_hashes = {
-            'bpython'  : 'a8071668c3e8f4932d35ca43476336a3',
-            'colorama' : '3743e16974a48b497ed64312987f8949',
-            'pudb'     : '574c7d70267988255fde242d0ed30ef3',
-            'pygments' : '21f797c1d16df6fa412644f319278145',
-            'urwid'    : 'ad93d4f9533c4a77f512feb6492bd598'
-            }
-    src_libs_path = path.join(path.dirname(__file__),
-                        'sitepackages_libs')
-    trgt_libs_list = listdir(site_package)
-    for lib in sorted(md5_hashes.keys()):
-        if not lib in trgt_libs_list:
-            #self.report({'DEBUG'}, f'{lib} module is not present, will be installed')
-            copytree(path.join(src_libs_path, lib),
-                     path.join(site_package, lib))
-        elif md5_hashes[lib] != dirhash(path.join(site_package, lib), 'md5',
-                                excluded_extensions=['pyc', 'gitignore'],
-                                excluded_files=['pudb.cfg',
-                                                'saved_breakpoints'
-                                ]):
-            #self.report({'DEBUG'}, f'{lib} module maybe is outdated, will be replaced')
-            md5_hash = dirhash(path.join(site_package, lib), 'md5',
-                                excluded_extensions=['pyc', 'gitignore'],
-                                excluded_files=['pudb.cfg',
-                                                'saved_breakpoints'
-                                ])
-            #self.report({'DEBUG'}, f'md5 hash was {md5_hash}')
-            rmtree(path.join(site_package, lib), ignore_errors=True)
-            copytree(path.join(src_libs_path, lib),
-                     path.join(site_package, lib))
-        else:
-            #self.report({'DEBUG'}, f"{lib} module it's already installed")
-            pass
-"""
+        pipmain(['install', '--upgrade', 'pip'])
+        pipmain(['install', 'wheel'])
+    else:
+        # pip installed
+        print('# pip installed')
+        pass
+    
+    # check bpython
+    try:
+        import bpython  # noqa
+        # Access a property to verify module exists in case
+        # there's a demand loader wrapping module imports
+        # See https://github.com/inducer/pudb/issues/177
+        bpython.__version__
+    except ImportError:
+        # bpython not intalled; install & upgrade
+        from pip._internal import main as pipmain
+        pipmain(['install', 'bpython'])
+    else:
+        # bpython installed
+        print('# bpython installed')
+        pass
+    
+    # check pudb
+    try:
+        import pudb
+    except ImportError:
+        # pudb not intalled; install & upgrade
+        from pip._internal import main as pipmain
+        pipmain(['install', 'pudb'])
+    else:
+        # pudb installed
+        print('# pudb installed')
+        pass
 
 
 class BreakpointShortcut(object):
