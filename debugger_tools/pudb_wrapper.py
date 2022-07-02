@@ -24,6 +24,7 @@ def _get_debugger(**kwargs):
     else:
         return CURRENT_DEBUGGER[0]
 
+
 def _install_low_level_libs():
     # check pip
     try:
@@ -32,13 +33,14 @@ def _install_low_level_libs():
         # pip not intalled; install & upgrade
         import ensurepip
         ensurepip.bootstrap()
-        from pip._internal import main as pipmain
-        pipmain(['install', '--upgrade', 'pip'])
-        pipmain(['install', 'wheel'])
     else:
         # pip installed
         print('# pip installed')
         pass
+
+    from pip._internal import main as pipmain
+    pipmain(['install', '--upgrade', 'pip'])
+    pipmain(['install', 'wheel'])
     
     # check bpython
     try:
