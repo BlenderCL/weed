@@ -26,6 +26,14 @@ def _get_debugger(**kwargs):
 
 
 def _install_low_level_libs():
+    _low_level_libs = {
+        'colorama' : 'git+https://github.com/BlenderCL/colorama.git', 
+        'urwid'    : 'git+https://github.com/BlenderCL/urwid.git',
+        'bpython'  : 'git+https://github.com/BlenderCL/bpython.git',
+        'pudb'     : 'git+https://github.com/BlenderCL/pudb.git', # .:'pudb',
+        'rich'     : 'rich', 
+        'textual'  : 'textual',
+    }
     # check pip
     try:
         from pip import _vendor
@@ -42,34 +50,17 @@ def _install_low_level_libs():
     pipmain(['install', '--upgrade', 'pip'])
     pipmain(['install', 'wheel'])
     
-    # check bpython
-    try:
-        import bpython  # noqa
-        # Access a property to verify module exists in case
-        # there's a demand loader wrapping module imports
-        # See https://github.com/inducer/pudb/issues/177
-        bpython.__version__
-    except ImportError:
-        # bpython not intalled; install & upgrade
-        from pip._internal import main as pipmain
-        pipmain(['install', 'bpython'])
-    else:
-        # bpython installed
-        print('# bpython installed')
-        pass
+    # install low level libs
+    for lib in _low_level_libs:
+        try:
+            __import__('imp').find_module(lib)
+        except ImportError:
+            pipmain(['install', _low_level_libs[lib]])
+        else:
+            # lib already installed
+            #print(lib, ' installed' )
+            pass
     
-    # check pudb
-    try:
-        import pudb
-    except ImportError:
-        # pudb not intalled; install & upgrade
-        from pip._internal import main as pipmain
-        pipmain(['install', 'pudb'])
-    else:
-        # pudb installed
-        print('# pudb installed')
-        pass
-
 
 class BreakpointShortcut(object):
     @property
