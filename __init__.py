@@ -185,15 +185,22 @@ def register():
 
     weed_prf = bpy.context.preferences.addons['weed'].preferences
     for module, path, has_prefs in _modules:
+        # execute_code = f"""
+        #     weed_prf.{module}_last_state = weed_prf.{module}_enabled
+        #     if weed_prf.{module}_enabled:
+        #         try:
+        #             {module}.register(prefs=False)
+        #             print("#self.report({'DEBUG'}, f'{module}.register()')")
+        #         except Exception as err:
+        #             print("#self.report({'DEBUG'}, f'{module}.register() fail !')")
+        #             print(err)
+        #             pass
+        # """
         execute_code = f"""
             weed_prf.{module}_last_state = weed_prf.{module}_enabled
             if weed_prf.{module}_enabled:
-                try:
-                    {module}.register(prefs=False)
-                    print("#self.report({'DEBUG'}, f'{module}.register()')")
-                except:
-                    print("#self.report({'DEBUG'}, f'{module}.register() fail !')")
-                    pass
+                {module}.register(prefs=False)
+                print("#self.report({'DEBUG'}, f'{module}.register()')")
         """
         exec(cleandoc(execute_code))
     

@@ -27,16 +27,17 @@ def _get_debugger(**kwargs):
 
 def _install_low_level_libs():
     _low_level_libs = {
+        'rich'     : 'git+https://github.com/BlenderCL/rich.git', # .:'rich', 
+        'textual'  : 'git+https://github.com/BlenderCL/textual.git', 
         'colorama' : 'git+https://github.com/BlenderCL/colorama.git', 
         'urwid'    : 'git+https://github.com/BlenderCL/urwid.git',
         'bpython'  : 'git+https://github.com/BlenderCL/bpython.git',
         'pudb'     : 'git+https://github.com/BlenderCL/pudb.git', # .:'pudb',
-        'rich'     : 'rich', 
-        'textual'  : 'textual',
     }
     # check pip
     try:
-        from pip import _vendor
+        __import__('imp').find_module('pip')
+        # from pip import _vendor
     except ImportError:
         # pip not intalled; install & upgrade
         import ensurepip
@@ -45,17 +46,29 @@ def _install_low_level_libs():
         # pip installed
         print('# pip installed')
         pass
+    # import ensurepip
+    # ensurepip.bootstrap()
 
     from pip._internal import main as pipmain
     pipmain(['install', '--upgrade', 'pip'])
-    pipmain(['install', 'wheel'])
-    
+    pipmain(['install', '--upgrade', 'wheel'])
+    # old_argv = sys.argv
+    # import runpy
+    # sys.argv = [old_argv[0], 'install', '--upgrade', 'pip']
+    # runpy.run_module('pip' , run_name='__main__')
+    # sys.argv = [old_argv[0], 'install', '--upgrade', 'wheel']
+    # runpy.run_module('pip' , run_name='__main__')
+    # sys.argv = old_argv
     # install low level libs
     for lib in _low_level_libs:
+        # sys.argv = [old_argv[0], 'install', _low_level_libs[lib]]
+        # runpy.run_module('pip' , run_name='__main__')
+        # sys.argv = old_argv
         try:
             __import__('imp').find_module(lib)
-        except ImportError:
-            pipmain(['install', _low_level_libs[lib]])
+        except:
+            pipmain(['install', '--upgrade', _low_level_libs[lib]])
+            # print(lib, ' not installed !' )
         else:
             # lib already installed
             #print(lib, ' installed' )
