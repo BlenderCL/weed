@@ -5,10 +5,13 @@ from shutil import copytree, rmtree
 from . checksumdir import dirhash
 from site import getsitepackages, getusersitepackages
 
-# Ultimate all proof breakpoint with validation
+# Standard breakpoint call
+# >>> breakpoint.here
+# Ultimate one liner all proof breakpoint with validation
 # >>> breakpoint.here if 'breakpoint' in __builtins__.__dict__ else None
+
 # get lost in the scope
-breakpoint_text = 'breakpoint.here\n'
+breakpoint_text = "breakpoint.here if 'breakpoint' in __builtins__.__dict__ else None\n"
 find_breakpoint = 'breakpoint.here'
 
 
@@ -27,12 +30,27 @@ def _get_debugger(**kwargs):
 
 def _install_low_level_libs():
     _low_level_libs = {
-        'rich'     : 'git+https://github.com/BlenderCL/rich.git', # .:'rich', 
+        # rich, textual from Textualize at Github
+        # 'rich'     : 'git+https://github.com/Textualize/rich.git', 
+        'rich'     : 'git+https://github.com/BlenderCL/rich.git', 
+        # 'textual'  : 'git+https://github.com/Textualize/textual.git', 
         'textual'  : 'git+https://github.com/BlenderCL/textual.git', 
+        
+        # colorama from tartley at Github
+        # 'colorama' : 'git+https://github.com/tartley/colorama.git', 
         'colorama' : 'git+https://github.com/BlenderCL/colorama.git', 
+        
+        # urwid from urwid at Github
+        # 'urwid'    : 'git+https://github.com/urwid/urwid.git',
         'urwid'    : 'git+https://github.com/BlenderCL/urwid.git',
+        
+        # bpython from bpython at Github
+        # 'bpython'  : 'git+https://github.com/bpython/bpython.git',
         'bpython'  : 'git+https://github.com/BlenderCL/bpython.git',
-        'pudb'     : 'git+https://github.com/BlenderCL/pudb.git', # .:'pudb',
+        
+        # pudb from inducer at Github
+        # 'pudb'     : 'git+https://github.com/inducer/pudb.git', 
+        'pudb'     : 'git+https://github.com/BlenderCL/pudb.git', 
     }
     # check pip
     try:

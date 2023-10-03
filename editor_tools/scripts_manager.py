@@ -50,7 +50,8 @@ def get_file_names(directory):
 
 def is_binary_file(filepath):
     try:
-        bytes = open(filepath, 'rb').read(512)
+        with open(filepath, 'rb') as f:
+            bytes = f.read(512)
         return bool(bytes.translate(None, textchars))
     except:
         return False
@@ -1121,6 +1122,7 @@ class WEED_OT_py_mngr_CloseFile(bpy.types.Operator):
         return True
 
     def execute(self, context):
+        #breakpoint.here
         for text in bpy.data.texts:
             directory, file_name = split(self.path)
             if directory == 'Text:Internal' and file_name == text.name_full:
